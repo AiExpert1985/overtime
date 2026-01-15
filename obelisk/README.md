@@ -45,13 +45,10 @@ Each task runs in an isolated, stateless cycle:
     Code is written strictly according to the plan.
     Observations and risks are recorded separately.
 
-4. **Review**
+4. **Review & Archive**
     Execution is validated against the plan, and the plan against the task.
+    Task materials are archived and temporary state is cleaned.
     Approval means _matches intent_, not _bug-free_.
-
-5. **Cleanup**
-    Task, plan, and notes are archived for human reference.
-    Only contracts, technical memory, and code persist.
 
 Tasks and plans are **disposable by design**.
 
