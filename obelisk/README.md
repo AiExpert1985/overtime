@@ -22,10 +22,18 @@ Higher layers constrain lower ones; lower layers must never redefine higher ones
 
 ### Contract Evolution
 
-Contracts are immutable during task execution.  
-They may evolve **only during Discovery Phases**, with explicit human approval and version control.
+Contracts are **versioned constraints** that evolve as reality reveals gaps.
 
-This ensures contracts change deliberately, not through drift.
+**How contracts evolve:**
+1. Discovery detects conflict or gap
+2. AI proposes specific change **at explicit approval point**
+3. Human approves or rejects
+4. If approved: AI updates contract file
+5. Git tracks the change
+
+**During execution:** Contracts are frozen to prevent drift.
+
+**Tech-memory** follows the same approval flow but may be updated more frequently as technical knowledge evolves.
 
 ---
 

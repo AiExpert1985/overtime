@@ -77,19 +77,37 @@ Your role:
 ## Contract Awareness (MANDATORY)
 
 If, during discussion, you identify that:
-- a **new invariant** may be required, **or**
-- an existing invariant may be **incorrect, incomplete, or outdated**, **or**
-- a rule or constraint should apply **beyond this task**
+- a new invariant may be required, **or**
+- an existing invariant is incorrect, incomplete, or outdated, **or**
+- a rule should apply beyond this task
 
-Then:
-- Explicitly state that a **contract update may be required**
-- Explain **why** it appears invariant-level or why the existing contract may be invalid
-- Ask whether the human wants to:
-    - update contracts now, or
-    - defer the update and limit the task to existing contracts
+Then **pause discussion and propose the change explicitly:**
 
-Do NOT propose contract wording.  
-Do NOT modify files.
+1. **Propose the specific change**
+   - State current contract (if updating)
+   - State proposed contract
+   - Explain why change is needed
+
+2. **Request approval**
+   - Ask: "Should I update the contract now?"
+   - Wait for explicit yes/no
+   - **Do not continue discussion until resolved**
+
+3. **If approved:**
+   - Update `/obelisk/state/contracts/*.domain.md` immediately
+   - Confirm change was applied
+   - Resume task discovery
+
+4. **If rejected:**
+   - Record limitation in task constraints
+   - Continue within existing contracts
+
+**Tech-memory updates** follow the same approval flow but may occur more frequently as technical knowledge evolves.
+
+**Important:**
+- Updates occur **only at explicit approval points**, not continuously during discussion
+- You MAY update during Discovery with approval
+- You MUST NOT update during execution
 
 ---
 
