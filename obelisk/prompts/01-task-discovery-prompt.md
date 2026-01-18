@@ -18,7 +18,7 @@ Before starting task discovery:
 
 The following files are the **source of truth**:
 
-- `/obelisk/state/contracts/*.domain.md`
+- `/obelisk/state/*.domain.md`
 - `/obelisk/state/tech-memory.md`
 - `/obelisk/guidelines/ai-engineering.md`
 
@@ -47,7 +47,7 @@ If empty:
 
 When conflicts arise, authority is resolved in this order (highest → lowest):
 
-1. Contracts (`/obelisk/state/contracts/*.domain.md`)
+1. Contracts (`/obelisk/state/*.domain.md`)
 2. Frozen Task (`/obelisk/temp-state/task.md`) — if present
 3. Plan (`/obelisk/temp-state/plan.md`) — if present
 4. Tech Memory (`/obelisk/state/tech-memory.md`)
