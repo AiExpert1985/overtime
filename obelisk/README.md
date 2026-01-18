@@ -6,29 +6,38 @@ It is built on a simple observation:
 
 > **AI does not fail because it is weak — it fails because long-term use is unmanaged.**
 
-Obelisk does not try to eliminate bugs.  
-It exists to **prevent silent damage**, enable clean recovery, and keep work verifiable across:
+Obelisk prevents silent damage and enables clean recovery by separating **truth**, **intent**, and **execution**, and assigning them explicit authority.
 
-- long time gaps
-- model switches
-- session resets
-- refactors
+**Written files have the highest authority.**  
+Chat history is non-authoritative and informational only.
+
+Authority is enforced through layered artifacts:
+
+1. **Contracts** — versioned business constraints
+2. **Task** — frozen, human-approved intent
+3. **Plan** — mechanical execution steps (temporary)
+4. **Execution** — code and tests (disposable)
+
+Higher layers constrain lower ones; lower layers must never redefine higher ones.
+
+### Contract Evolution
+
+Contracts are immutable during task execution.  
+They may evolve **only during Discovery Phases**, with explicit human approval and version control.
+
+This ensures contracts change deliberately, not through drift.
 
 ---
 
-## Core Idea
+## Core Properties
 
-AI becomes unreliable when **truth, intent, and execution are mixed**.
-
-Obelisk enforces strict separation between:
-
-- **Truth** — what must never change
-- **Intent** — what we want to do
-- **Execution** — how it is done
-
-Only written files are authoritative.  
-Chat history has no authority.
-
+- Files are the source of truth
+- Sessions are stateless
+- Intent is stabilized before execution
+- Models are interchangeable
+- History lives in git, not prompts
+- **Recovery matters more than perfection**  
+    Misses are acceptable; corruption is not
 ---
 
 ## Execution Model (High Level)
@@ -48,55 +57,12 @@ Each task runs in an isolated, stateless cycle:
     Observations and risks are recorded separately without altering intent.
 
 4. **Review & Archive**  
-    Execution is validated against the plan, and the plan against the task.  
-    Task materials are archived and temporary state is cleaned.  
-    Approval means _matches intent_, not _bug-free_.
+	Execution is validated against the plan, and the plan against the task.  
+	Task materials are archived to preserve intent, plan, execution notes, and review outcome; temporary state is cleaned.  
+	Approval means _matches intent_, not _bug-free_.
 
 
 Tasks and plans are **disposable by design**.
-
----
-
-## Authority Layers (Conceptual)
-
-Obelisk separates authority to prevent drift:
-
-1. **Contracts** — versioned business constraints (frozen during execution)
-2. **Task** — frozen human-approved intent
-3. **Plan** — mechanical execution steps (temporary)
-4. **Execution** — code and tests (disposable)
-
-Higher layers constrain lower ones.  
-Lower layers must never redefine higher ones.
-
-**Note:** Contracts are frozen during task execution but can be updated during Discovery Phases when requirements genuinely change.
-
----
-
-### Contract Evolution
-
-While contracts are treated as immutable during task execution, they **can be 
-updated during Discovery Phases** when business requirements genuinely change.
-
-**Contract updates:**
-- Require explicit human approval
-- Occur only during Project Discovery or Task Discovery
-- Are tracked via version control (Git)
-- Cannot be modified by tasks, plans, or AI execution
-
-This ensures contracts evolve deliberately, not through drift.
-
----
-
-## Core Properties
-
-- Files are the source of truth
-- Sessions are stateless
-- Intent is stabilized before execution
-- Models are interchangeable
-- History lives in git, not prompts
-- **Recovery matters more than perfection**  
-    Misses are acceptable; corruption is not
 
 ---
 
