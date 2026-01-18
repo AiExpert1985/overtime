@@ -1,24 +1,21 @@
-# AI Engineering Guidelines (Obelisk)
-
-These rules govern how AI behaves during **IMPLEMENTATION and AUDIT** phases.
+These rules govern how AI behaves during **IMPLEMENTATION and REVIEW** phases.  
 They apply across sessions and models.
 
-This file controls **execution behavior only**.
+This file controls **execution behavior only**.  
 Discovery, task formulation, and planning are **out of scope**.
 
-For project-specific technical knowledge, see:
+For project-specific technical knowledge, see:  
 `/obelisk/state/tech-memory.md`
 
 ---
 
 ## Authority Order (MANDATORY)
 
-1. `/obelisk/state/contracts/*.domain.md` — Immutable business rules
+1. `/obelisk/state/*.domain.md` — Immutable business rules
 2. `/obelisk/temp-state/task.md` — Frozen task intent (if present)
 3. `/obelisk/temp-state/plan.md` — Approved execution plan (if present)
 4. `/obelisk/state/tech-memory.md` — Non-authoritative technical memory
 5. This file — Execution constraints
-
 
 If a higher authority conflicts with a lower one:
 
@@ -53,7 +50,7 @@ Surface issues only via:
 - Prefer early returns; avoid deep nesting
 - Fail fast; no silent failures
 - Preserve valid comments
-- Write test-ready code
+- Write test-ready code  
     _(do NOT write tests unless the plan explicitly requires it)_
 
 ---
@@ -148,13 +145,13 @@ Then:
 
 When writing `/obelisk/temp-state/implementation-notes.md`:
 
-```markdown
+
 ## [Step Number or File Name]
 
-**Observation:** What was observed
-**Impact:** Why it matters
+**Observation:** What was observed  
+**Impact:** Why it matters  
 **Type:** Blocker / Risk / Question
-```
+
 
 Rules:
 
@@ -174,13 +171,3 @@ This file:
 - Does NOT override contracts or frozen intent
 
 It exists solely to ensure **predictable, safe, mechanical execution**.
-
----
-
-**Status:**
-✔ Obelisk v2 aligned
-✔ Deterministic across models
-✔ No authority leakage
-✔ Safe for weak execution models
-
-This version is **final and lock-ready**.

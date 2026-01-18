@@ -21,7 +21,7 @@
 
 #### 1.2 Target Employees File
 
-- **Required columns:** اسم الموظف, نوع التوظيف (مناوب/صباحي), القسم
+- **Required columns:** اسم الموظف, نوع التوظيف, القسم
 - **Employment types:** Exactly two types allowed: Shift (مناوب) or Daily (صباحي)
 - **Purpose:** Defines eligible employees and their type
 - **Missing data:** Not allowed, validation error blocks calculation
