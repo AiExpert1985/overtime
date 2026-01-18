@@ -13,7 +13,7 @@ This phase produces TWO files:
 ## Mandatory Reading (Load Once)
 
 Read these files in order:
-1. `/obelisk/state/contracts/*.domain.md`
+1. `/obelisk/state/*.domain.md`
 2. `/obelisk/state/tech-memory.md`
 3. `/obelisk/guidelines/ai-engineering.md`
 
@@ -30,6 +30,7 @@ If any required file is missing:
 
 If the task discovery discussion revealed:
 - A new business invariant not captured in existing contracts
+- An existing invariant that is incorrect, incomplete, or outdated
 - A rule that must apply beyond this task
 
 Then you MAY update contracts before freezing the task.
@@ -91,6 +92,10 @@ Write the task to: `/obelisk/temp-state/task.md`
 - [Contracts that must be preserved]
 - [Areas that must NOT change]
 
+## Implementation Preferences (if any)
+- [Preferred libraries, patterns, or approaches discussed during discovery]
+- [These guide planning but are not requirements]
+
 ## Success Criteria
 - [Observable completion signals]
 
@@ -138,8 +143,8 @@ If ANY of the following are true, STOP immediately:
 
 **Contract Conflicts:**
 
-- Task requires violating a contract
-- Task requires modifying a contract
+- Task requires violating an existing contract
+- Task requires modifying a contract **that was not explicitly updated during Discovery**
 
 **Coverage Failures:**
 
@@ -224,6 +229,14 @@ Write **exactly ONE** plan to: `/obelisk/temp-state/plan.md`
 ## Assumptions (Explicitly Accepted in Task)
 [List only assumptions explicitly stated or implied in `task.md`.
 Do NOT introduce new assumptions.]
+
+## Implementation Preferences (Optional, Non-Binding)
+
+- Preferences or options explicitly discussed during Task Discovery
+- These guide planning when multiple valid approaches exist
+- These are NOT requirements and must not override contracts, task scope, or constraints
+
+
 ```
 
 ---
@@ -232,7 +245,7 @@ Do NOT introduce new assumptions.]
 
 After completing both phases, OUTPUT one of:
 
-### Success:
+**SUCCESS**:
 
 **"TASK DEFINED"**
 

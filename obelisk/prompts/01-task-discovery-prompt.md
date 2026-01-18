@@ -33,6 +33,7 @@ Check `/obelisk/temp-state/` for:
 - `task.md`
 - `plan.md`
 - `implementation-notes.md`
+- `review-notes.md`
 
 If **ANY** exist:
 - STOP
@@ -54,8 +55,9 @@ When conflicts arise, authority is resolved in this order (highest → lowest):
 5. AI Engineering Rules (`/obelisk/guidelines/ai-engineering.md`)
 
 **Important:**
-- `README.md` has **NO authority**
-- Chat history has **NO authority**
+- `README.md` is informational only and does not participate in authority resolution
+- Chat history is non-authoritative and must not override written files
+
 
 ---
 
@@ -74,19 +76,19 @@ Your role:
 
 ## Contract Awareness (MANDATORY)
 
-If, during discussion, you identify:
-- a new invariant
-- a rule that must always hold
-- a constraint that should apply beyond this task
+If, during discussion, you identify that:
+- a **new invariant** may be required, **or**
+- an existing invariant may be **incorrect, incomplete, or outdated**, **or**
+- a rule or constraint should apply **beyond this task**
 
 Then:
 - Explicitly state that a **contract update may be required**
-- Explain **why** it appears invariant-level
+- Explain **why** it appears invariant-level or why the existing contract may be invalid
 - Ask whether the human wants to:
-  - update contracts now, or
-  - defer and limit the task to existing contracts
+    - update contracts now, or
+    - defer the update and limit the task to existing contracts
 
-Do NOT propose wording.  
+Do NOT propose contract wording.  
 Do NOT modify files.
 
 ---
@@ -123,6 +125,7 @@ Conduct **up to two rounds** of questions, then converge.
 
 ### Refinement & Risk Check (Only if needed)
 - Clarify remaining ambiguities
+- Ask follow-up questions that arise from new information or newly revealed requirements
 - Surface task-blocking risks or contract conflicts
 - Identify missing information
 - Flag if the work should be split or deferred
@@ -132,8 +135,15 @@ If Initial Understanding already yields a stable, unambiguous task,
 do NOT proceed to the second round.
 
 ### Question Selection Rule
-Ask ONLY questions that affect task definition, scope, or feasibility.  
-Do NOT ask implementation questions (those belong in Planning).
+Ask ONLY questions that affect task definition, scope, feasibility, or required constraints.
+
+Implementation-related questions are allowed **only** to:
+- clarify constraints, preferences, or acceptable options
+- eliminate ambiguity needed to freeze the task
+
+Do NOT design solutions or commit to implementation details.
+Detailed design belongs in Planning.
+
 
 ---
 
@@ -148,6 +158,8 @@ If confirmed → proceed to **Task Freeze**
 If corrected → update the summary and ask again
 
 ---
+
+``` markdown
 
 ## Task Summary Format
 
@@ -165,6 +177,9 @@ If corrected → update the summary and ask again
 - [Technical or business constraints]
 - [Contracts that must be preserved]
 
+**Implementation Preferences:**  
+- [Preferred approaches, libraries, or patterns - if discussed]
+
 **Risks / Open Questions:**  
 - [Unresolved items, if any]
 
@@ -172,6 +187,8 @@ If corrected → update the summary and ask again
 - Single task  
 - Split into N tasks  
 - Contract update required before proceeding
+  
+```
 
 ---
 
