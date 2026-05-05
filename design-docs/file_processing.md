@@ -1,14 +1,12 @@
 # file_processing
 
-**Created**: 27-Apr-2026
-**Modified**: 27-Apr-2026
-**Version**: 1.0
+**Created**: 27-Apr-2026 **Modified**: 27-Apr-2026 **Version**: 1.0
 
 ---
 
 ## Purpose
 
-Defines how the three input Excel files are opened and validated when the user selects them. Validation runs immediately on file selection — not at generation time. Any further processing of the file contents (filtering, merging, matching) is a report generation concern — see `report_generation.md`.
+Defines how the three input Excel files are opened and validated when the user selects them. Validation runs immediately on file selection — not at generation time. Any further processing of the file contents (filtering, merging, matching) happens during report generation — see `dictionary_build.md` and `main_workflow.md`.
 
 ---
 
@@ -30,10 +28,10 @@ When a file is opened, the parser reads the first row of each sheet. Each header
 
 ### Required Fields
 
-| Field key | What it represents |
+|Field key|What it represents|
 |---|---|
-| employee_name | The employee's name |
-| datetime | The full date and time of the fingerprint event |
+|employee_name|The employee's name|
+|datetime|The full date and time of the fingerprint event|
 
 ### Valid Row
 
@@ -45,11 +43,11 @@ A row is valid if both employee name and datetime are present and non-empty.
 
 ### Required Fields
 
-| Field key | What it represents |
+|Field key|What it represents|
 |---|---|
-| employee_name | The employee's full name |
-| employment_type | Either the Arabic value for shift or daily |
-| department | The employee's department |
+|employee_name|The employee's full name|
+|employment_type|Either the Arabic value for shift or daily|
+|department|The employee's department|
 
 ### Valid Row
 
@@ -61,10 +59,10 @@ A row is valid if all three fields are present and employment type contains one 
 
 ### Required Fields
 
-| Field key | What it represents |
+|Field key|What it represents|
 |---|---|
-| date | The calendar date of the holiday |
-| occasion | The name or description of the holiday in Arabic |
+|date|The calendar date of the holiday|
+|occasion|The name or description of the holiday in Arabic|
 
 ### Valid Row
 
@@ -74,14 +72,14 @@ A row is valid if both fields are present and non-empty.
 
 ## Validation Errors
 
-| Situation | Arabic message |
+|Situation|Arabic message|
 |---|---|
-| Attendance file not provided | يرجى تحميل ملف حضور |
-| Employees file not provided | يرجى تحميل ملف الموظفين المستهدفين |
-| Holidays file not provided | يرجى تحميل ملف العطل الرسمية |
-| File does not match expected structure | الملف لا يتطابق مع القالب المطلوب |
-| Employment type value not recognized | نوع التوظيف غير معروف في ملف الموظفين |
-| File contains no valid rows | الملف لا يحتوي على صفوف صالحة |
+|Attendance file not provided|يرجى تحميل ملف حضور|
+|Employees file not provided|يرجى تحميل ملف الموظفين المستهدفين|
+|Holidays file not provided|يرجى تحميل ملف العطل الرسمية|
+|File does not match expected structure|الملف لا يتطابق مع القالب المطلوب|
+|Employment type value not recognized|نوع التوظيف غير معروف في ملف الموظفين|
+|File contains no valid rows|الملف لا يحتوي على صفوف صالحة|
 
 ---
 

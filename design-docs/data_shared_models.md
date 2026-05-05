@@ -1,7 +1,6 @@
 # data_shared_models
 
-**Created**: 27-Apr-2026
-**Modified**: 27-Apr-2026
+**Created**: 27-Apr-2026 **Modified**: 27-Apr-2026
 
 ---
 
@@ -19,7 +18,7 @@ Represents one person from the target employees file.
 
 **Fields:**
 
-- **name** — the employee's full name as it appears in the target employees file. Used as the join key when matching against attendance records. Matching is exact — see `report_generation.md`.
+- **name** — the employee's full name as it appears in the target employees file. Used as the join key when matching against attendance records. Matching is exact — see `dictionary_build.md`.
 - **employmentType** — either shift or daily. Determines which set of calculation rules applies. See `overtime_calculation_shift.md` and `overtime_calculation_daily.md`.
 - **department** — the department this employee belongs to. Used for display only — it has no effect on calculation.
 
@@ -32,7 +31,7 @@ Represents all fingerprint timestamps found for one employee across all provided
 **Fields:**
 
 - **employeeName** — matched against Employee.name by the Reporting feature. Must be an exact string match.
-- **fingerprints** — all timestamps for this employee within the date range, sorted ascending. Raw timestamps — filtering is applied during report generation. See `report_generation.md`.
+- **fingerprints** — all timestamps for this employee within the date range, sorted ascending. Raw timestamps — filtering and merging applied during dictionary build. See `dictionary_build.md`.
 
 ---
 
