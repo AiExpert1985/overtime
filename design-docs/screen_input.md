@@ -1,8 +1,6 @@
 # screen_input
 
-**Created**: 27-Apr-2026
-**Modified**: 27-Apr-2026
-**Version**: 1.0
+**Created**: 27-Apr-2026 **Modified**: 05-May-2026 **Version**: 1.1
 
 ---
 
@@ -17,9 +15,11 @@ The first tab of the app. Collects the three required Excel files and triggers r
 Full RTL layout. All labels and buttons in Arabic. Content arranged vertically, scrollable if needed.
 
 Visual hierarchy top to bottom:
+
 1. Screen title
 2. Three file picker cards
-3. Generate report button
+3. Date range pickers (start date and end date)
+4. Generate report button
 
 ---
 
@@ -32,17 +32,20 @@ The info icon button (!) is always visible regardless of card state.
 ### States
 
 **Empty** — no file selected:
+
 - Arabic label for this input
 - Info icon button (!)
 - Button to pick a file
 
 **Valid** — file passed validation:
+
 - File name
 - Green success indicator
 - Info icon button (!)
 - Button to replace the file
 
 **Invalid** — file failed validation:
+
 - File name
 - Red error indicator
 - Arabic error message
@@ -57,25 +60,31 @@ Both attendance files and target employees files support multi-file selection. T
 
 Tapping (!) opens a small dismissible dialog with static Arabic text describing the expected structure of that file. Dismissed by tapping outside or a close button. For validation rules see `file_processing.md`.
 
-**Attendance file hint:**
-ملف Excel يحتوي على عمودين:
+**Attendance file hint:** ملف Excel يحتوي على عمودين:
+
 - اسم الموظف
 - التاريخ والوقت
 
 يمكن تقديم أكثر من ملف، وكل ملف يمكن أن يحتوي على أكثر من ورقة عمل.
 
-**Target employees file hint:**
-ملف Excel يحتوي على 3 أعمدة:
+**Target employees file hint:** ملف Excel يحتوي على 3 أعمدة:
+
 - اسم الموظف
 - نوع التوظيف (مناوب أو صباحي)
 - القسم
 
 يمكن تقديم أكثر من ملف.
 
-**Holidays file hint:**
-ملف Excel يحتوي على عمودين:
+**Holidays file hint:** ملف Excel يحتوي على عمودين:
+
 - التاريخ
 - مناسبة العطلة
+
+---
+
+## Component — Date Range Pickers
+
+Two calendar pickers displayed inline on the screen: start date (من) and end date (إلى). Each opens a calendar on tap. Both must be filled for the Generate button to become active. The selected dates persist when switching tabs — they are not reset unless generation succeeds.
 
 ---
 
@@ -85,31 +94,31 @@ Full-width prominent button labeled توليد التقرير.
 
 ### Enabled Condition
 
-Enabled only when all three file cards are in the valid state.
+Enabled only when all three file cards are in the valid state AND both start and end dates are selected.
 
-### Tapped — Date Range Dialog
+### Tapped
 
-A dialog appears with two date fields — start date and end date — each opening a calendar picker. The user must confirm both dates before generation proceeds.
+Generation begins immediately — no dialog.
 
 ### Loading State
 
-After date range confirmed, generation begins. Button switches to loading indicator. Screen becomes non-interactive until generation completes.
+Button switches to loading indicator. Screen becomes non-interactive until generation completes.
 
 ### Success
 
-App switches to Tab 2 (Reports) and pushes the new Report screen automatically.
+App switches to Tab 2 (Reports) and pushes the new Report screen automatically. All file selections and date pickers are reset to empty state.
 
 ### Failure
 
-Button returns to enabled state. Dismissible error banner appears at top of screen with Arabic error message.
+Button returns to enabled state. Dismissible error banner appears at top of screen with Arabic error message. File selections and dates are preserved.
 
 ---
 
 ## Screen State
 
-File card states held in a provider. Generate button observes combined readiness — enabled only when all cards are valid. No widget computes readiness independently.
+File card states and date range held in a provider. Generate button observes combined readiness — enabled only when all cards are valid and both dates are selected. No widget computes readiness independently.
 
-File selections preserved when switching tabs — screen does not reset on re-entry.
+File selections and date range preserved when switching tabs — reset only on successful generation.
 
 ---
 
