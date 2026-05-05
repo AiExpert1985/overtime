@@ -1,7 +1,6 @@
 # main_workflow
 
-**Created**: 27-Apr-2026
-**Modified**: 27-Apr-2026
+**Created**: 27-Apr-2026 **Modified**: 27-Apr-2026
 
 ---
 
@@ -27,13 +26,13 @@ See `screen_input.md`.
 
 ### Stage 3 — Dictionary Build
 
-A working dictionary is built in memory from the uploaded files and the selected date range. Records outside the target employee list or date range are discarded. The result is one entry per matched employee with their sorted timestamp list.
+A working dictionary is built in memory from the uploaded files and the selected date range. Records outside the target employee list or date range are discarded. The result is one entry per matched employee with their sorted timestamp list. If any employees have no attendance records, the user is prompted to abort or continue before proceeding.
 
 See `dictionary_build.md` for the exact steps and rules.
 
 ### Stage 4 — Period Extraction
 
-Each employee's sorted timestamp list is passed to a type-specific extractor — daily or shift. Each extractor returns a list of periods ordered earliest to latest. The period is mostly one day (one work day 8 hours or a shift of 24 hours)
+Each employee's sorted timestamp list is passed to a type-specific extractor — daily or shift. Each extractor returns a list of periods ordered earliest to latest.
 
 See `algorithm_extractor_daily.md` and `algorithm_extractor_shift.md`.
 
@@ -53,7 +52,7 @@ See `screen_report.md`.
 
 ## Error Handling
 
-Any failure during Stages 3–5 aborts generation entirely. No partial results are stored. The user sees an Arabic error message and remains on the Input screen with all file selections intact.
+Any failure during Stages 3–5 aborts generation entirely. No partial results are stored. The user sees an Arabic error message and remains on the Input screen with all file selections intact. If the user aborts at the unmatched review prompt, this is a clean abort — not an error.
 
 ---
 
@@ -62,3 +61,4 @@ Any failure during Stages 3–5 aborts generation entirely. No partial results a
 - Input files are never stored — only calculated results are persisted
 - The working dictionary is built once and discarded after results are stored
 - Extractors and calculators are pure functions — same input always produces same output
+- Rounding is display-only — raw minute values are always stored
