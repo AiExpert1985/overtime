@@ -1,13 +1,13 @@
-# algorithm_extractor_shift
+# period_extractor_shift
 
 **Created**: 27-Apr-2026
-**Modified**: 27-Apr-2026
+**Modified**: 05-May-2026
 
 ---
 
 ## Purpose
 
-Defines the period extraction algorithm for shift employees. Receives a sorted timestamp list for one employee and returns a list of shift Period objects. Pure function — no database access, no overtime rules, no side effects.
+Defines the period extraction algorithm for shift employees. Receives a dictionary entry for one employee and returns a `RawShiftEmployeePeriods` object. Pure function — no database access, no overtime rules, no side effects.
 
 ---
 
@@ -19,25 +19,27 @@ A shift employee works continuous duty periods that span across calendar days. O
 
 ## Input
 
-- Sorted timestamp list for one shift employee (filtered to report date range)
+- Dictionary entry: `{ name, department, employmentType, [timestamps] }` — timestamps sorted ascending, filtered to report date range
 - Settings: start times list, shift duration, zone interval, start/end tolerance, inner zone tolerance, period gap window (from `config.md`)
 
 Timestamps in the list may fall on different calendar dates — a shift starting on day 1 will naturally have timestamps on day 2. The extractor works with absolute datetime values and does not treat calendar day boundaries as period boundaries. This is correct and expected behavior.
 
 ---
 
-## The Period Object (Shift)
-
-One Period per detected shift.
+## Output Object — RawShiftEmployeePeriods
 
 | Field | Content |
 |---|---|
-| periodIndex | Order within employee's results, 0-based |
+| name | Employee name, carried from dictionary |
+| department | Employee department, carried from dictionary |
+| periods | List of RawShiftPeriod, ordered by anchor timestamp ascending |
+
+### RawShiftPeriod
+
+| Field | Content |
+|---|---|
 | anchorTimestamp | The defining start timestamp of this period |
-| allTimestamps | All timestamps within the period span, sorted ascending |
-| zoneResults | List of zone results — one per zone: { centerTime, timestamps[], isSatisfied } |
-| employeeName | Carried from dictionary |
-| employmentType | shift |
+| timestamps | All timestamps within the period span, sorted ascending |
 
 ---
 
@@ -53,7 +55,7 @@ From the anchor timestamp, span forward `shift_duration` hours. All timestamps w
 Divide the span into zones: zone count = `shift_duration / zone_interval`.
 - Zone centers: anchor, anchor + zone_interval, anchor + 2×zone_interval, ...
 - Zone windows: start/end zones use start/end tolerance. Inner zones use inner zone tolerance.
-- Each timestamp is assigned to the zone whose window it falls within. Timestamps between zones are stored in allTimestamps but satisfy no zone.
+- Each timestamp is assigned to the zone whose window it falls within. Timestamps between zones are stored in timestamps but satisfy no zone.
 
 **Step 4 — Detect next period**
 From the last timestamp of the current period, look for a next timestamp within the period gap window (configured separately — default 6 hours):
@@ -63,12 +65,6 @@ From the last timestamp of the current period, look for a next timestamp within 
 
 **Step 5 — Shared timestamp note**
 A timestamp that closes one period and opens the next is stored in both periods — as the last timestamp of the closing period and the anchor of the opening period. This is correct and intentional.
-
----
-
-## Output
-
-List of Periods ordered by anchor timestamp ascending.
 
 ---
 

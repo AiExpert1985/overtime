@@ -51,13 +51,12 @@ One row per employee per report. Cascade deleted with parent report.
 | id | integer, PK, auto-increment | |
 | report_id | integer, FK → reports.id | Cascade delete |
 | employee_name | text | |
-| employment_type | text | 'shift' or 'daily' |
 | department | text | |
-| overtime_hours | integer | Shift only: total overtime hours (integer). Null for daily. |
-| overtime_minutes | integer | Daily only: regular workday overtime total in minutes. Null for shift. |
+| overtime_hours | integer, nullable | Shift only: total overtime hours (integer). Null for daily. |
+| overtime_minutes | integer, nullable | Daily only: regular workday overtime total in minutes. Null for shift. |
 | holiday_overtime_minutes | integer, nullable | Daily only: holiday/weekend overtime total in minutes. Null for shift. |
-| has_attendance | integer | 1 if records found, 0 if not |
-| notes | text, nullable | Arabic message for unmatched employees |
+| is_unmatched | integer | 1 if no attendance records found, 0 if matched |
+| notes | text, nullable | Arabic message for unmatched employees. Null if matched. |
 
 ---
 
@@ -72,14 +71,11 @@ One row per detected period per employee result. Covers both daily and shift emp
 | period_index | integer | Order of this period within the employee's results, 0-based |
 | anchor_timestamp | text | ISO 8601 datetime. First timestamp of the period. |
 | is_valid | integer | 1 if period contributed hours, 0 if invalid |
-| is_holiday | integer | 1 for daily holiday/weekend periods. 0 otherwise. Null for shift. |
-| first_timestamp | text, nullable | ISO 8601 datetime |
-| last_timestamp | text, nullable | ISO 8601 datetime |
+| day_type | text, nullable | Daily only: 'regular', 'holiday', or 'weekend'. Null for shift. |
 | all_timestamps | text | JSON array of ISO 8601 datetime strings — all timestamps sorted ascending. Used for audit display. |
-| working_hours_actual_minutes | integer | Actual duration from first to last timestamp in minutes. Stored for both types. Audit display only — not used in overtime formula. |
+| total_attendance_duration | integer | Actual duration from first to last timestamp in minutes. Stored for both types. Audit display only — not used in overtime formula. |
 | zone_data | text, nullable | Shift only. JSON array of zone results: [{ centerTime, timestamps[], isSatisfied }]. Null for daily. |
-| overtime_minutes_raw | integer | Calculated overtime before daily cap. 0 if invalid. Null for shift (shift uses hours not minutes). |
-| overtime_minutes_capped | integer | Overtime after daily cap. 0 if invalid. Null for shift. |
+| overtime_minutes | integer, nullable | Daily only. Calculated overtime in minutes. 0 if invalid. Null for shift. |
 | hours_counted | integer, nullable | Shift only. 24 if valid, 0 if invalid. Null for daily. |
 | notes | text, nullable | Arabic reason if invalid. Null if valid. |
 

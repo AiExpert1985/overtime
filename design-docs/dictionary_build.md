@@ -6,7 +6,7 @@
 
 ## Purpose
 
-Defines how the working dictionary is built from the uploaded files and selected date range. This is Stage 3 of the app workflow — see `main_workflow.md`. The dictionary and unmatched list are passed to Stage 4 for user review before period extraction begins.
+Defines how the working dictionary is built from the uploaded files and selected date range. This is Stage 3 of the app workflow — see `main_workflow.md`. The dictionary and unmatched list are the output of this stage — if unmatched employees exist, the user is prompted before period extraction begins.
 
 ---
 
@@ -44,9 +44,9 @@ For each employee in the dictionary, sort timestamp list ascending.
 
 ## Step 4 — Unmatched Detection
 
-Employees in the target list with no dictionary entry are flagged as unmatched. Their names are collected into an unmatched list and passed to Stage 4 of the workflow for user review before proceeding.
+Employees in the target list with no dictionary entry are flagged as unmatched. Their names are collected into an unmatched list. If the list is not empty, the user is prompted before extraction proceeds.
 
-If the unmatched list is empty, Stage 4 is skipped and extraction proceeds immediately.
+If the unmatched list is empty, extraction proceeds immediately.
 
 If the user chooses to continue despite unmatched employees, those employees are carried forward with zero overtime and an Arabic note. See `screen_report.md` for how unmatched employees are displayed.
 
@@ -66,4 +66,4 @@ Matching between attendance records and target employees is exact string compari
 
 ## Result
 
-The working dictionary and unmatched list are the output of Stage 3. After the user confirms at Stage 4, the dictionary is the sole input to Stage 5 (Period Extraction). After results are stored to the database, the dictionary is discarded — the database is the sole source of truth.
+The working dictionary and unmatched list are the output of Stage 3. After the user confirms at the unmatched review prompt, the dictionary is the sole input to Stage 4 (Period Extraction). After results are stored to the database, the dictionary is discarded — the database is the sole source of truth.

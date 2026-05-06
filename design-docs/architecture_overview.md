@@ -105,11 +105,20 @@ Each feature owns its models, its service, and its repository. The rules below a
 
 ## Shared Domain Objects
 
-Produced by FileProcessing, consumed by Reporting. Neither feature owns them. Defined in `data_shared_models.md`.
+Defined in `data_shared_models.md`. Split into three groups:
 
+**Input objects** — produced by FileProcessing, consumed by Reporting:
 - **Employee** — name, employment type, department
 - **AttendanceRecord** — employee name + raw sorted fingerprint timestamps
 - **Holiday** — date + occasion name
+
+**Extractor output objects** — produced by period extractors, consumed by calculators:
+- **RawDailyEmployeePeriods** — name, department, periods with day type and timestamps
+- **RawShiftEmployeePeriods** — name, department, periods with timestamps
+
+**Calculator output objects** — produced by calculators, stored to DB, read by report screens:
+- **DailyEmployeeResult** — daily overtime breakdown with per-period detail
+- **ShiftEmployeeResult** — shift overtime breakdown with per-period detail
 
 ---
 
@@ -121,10 +130,10 @@ Produced by FileProcessing, consumed by Reporting. Neither feature owns them. De
 | `main_workflow.md` | 6-stage app flow — start here after architecture_overview |
 | `router.md` | Routes, parameters, navigation rules |
 | `database_schema.md` | Tables, columns, relationships, versioning |
-| `data_shared_models.md` | Employee, AttendanceRecord, Holiday |
+| `data_shared_models.md` | All shared data objects — input, extractor output, calculator output |
 | `config.md` | All thresholds, constants, configurable defaults with Arabic descriptions |
-| `algorithm_extractor_daily.md` | Daily period extractor algorithm |
-| `algorithm_extractor_shift.md` | Shift period extractor algorithm |
+| `period_extractor_daily.md` | Daily period extractor algorithm |
+| `period_extractor_shift.md` | Shift period extractor algorithm |
 | `overtime_calculation_daily.md` | Daily employee validity rules and overtime calculation |
 | `overtime_calculation_shift.md` | Shift employee validity rules and overtime calculation |
 | `file_processing.md` | All three input files — parsing and validation |

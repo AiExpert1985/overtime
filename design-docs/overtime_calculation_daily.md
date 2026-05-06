@@ -1,13 +1,13 @@
 # overtime_calculation_daily
 
 **Created**: 27-Apr-2026
-**Modified**: 27-Apr-2026
+**Modified**: 05-May-2026
 
 ---
 
 ## Purpose
 
-Defines validity rules and overtime calculation for daily employees. Receives the Period list from `algorithm_extractor_daily.md` and returns a result per period. Pure function — no database access, no UI dependency.
+Defines validity rules and overtime calculation for daily employees. Receives `RawDailyEmployeePeriods` from `period_extractor_daily.md` and returns a `DailyEmployeeResult`. Pure function — no database access, no UI dependency.
 
 ---
 
@@ -15,11 +15,9 @@ Defines validity rules and overtime calculation for daily employees. Receives th
 
 Each period produces two distinct values:
 
-**Actual working hours** — the real duration from the period's first timestamp to its last timestamp. Stored in minutes. Shown in the detail screen for audit purposes.
+**totalAttendanceDuration** — the real duration from the period's first timestamp to its last timestamp, in minutes. Shown in the detail screen for audit purposes. Not used in the overtime formula.
 
-**Overtime hours** — calculated against the end time (regular days) or as full span (holiday days), capped at daily maximum. This is what accumulates toward the monthly total.
-
-Both are stored separately per period.
+**overtimeMinutes** — calculated against the end time (regular days) or as full span (holiday days), capped at daily maximum. This is what accumulates toward the monthly total.
 
 ---
 
@@ -37,15 +35,15 @@ Example: start 09:00 + 8 hours = end 17:00. Overtime is anything worked beyond 1
 
 Both conditions must be met:
 1. Period has at least 2 timestamps.
-2. firstTimestamp is not later than the configured start time.
+2. First timestamp is not later than the configured start time.
 
 If either fails, period is invalid.
 
 ### Calculation
 
-`overtime = max(0, lastTimestamp − end_time)`
+`overtimeMinutes = max(0, lastTimestamp − end_time)`
 
-Capped at configured daily maximum. Both raw and capped values stored.
+Capped at configured daily maximum.
 
 ### Invalid Reasons
 
@@ -67,9 +65,9 @@ No start time requirement.
 
 ### Calculation
 
-`overtime = lastTimestamp − firstTimestamp`
+`overtimeMinutes = lastTimestamp − firstTimestamp`
 
-Capped at configured daily maximum. Both raw and capped values stored. Calendar day grouping in the extractor enforces the natural 24-hour ceiling — no explicit cap needed here.
+Capped at configured daily maximum. Calendar day grouping in the extractor enforces the natural 24-hour ceiling — no explicit cap needed here.
 
 ### Invalid Reason
 
@@ -81,9 +79,15 @@ Capped at configured daily maximum. Both raw and capped values stored. Calendar 
 
 ## Monthly Totals
 
-Regular and holiday/weekend overtime accumulated separately in minutes. Never combined. Both stored as raw minutes — no rounding applied. Rounding is display-only per configured rounding mode in `screen_configuration.md`.
+Regular and holiday/weekend overtime accumulated separately in minutes into `totalRegularOvertimeMinutes` and `totalHolidayOvertimeMinutes`. Never combined. Both stored as raw minutes — no rounding applied. Rounding is display-only per configured rounding mode in `screen_configuration.md`.
 
 Separation is intentional — the cost per overtime hour may differ between regular days and holidays.
+
+---
+
+## Output
+
+Returns `DailyEmployeeResult`. See `data_shared_models.md`.
 
 ---
 

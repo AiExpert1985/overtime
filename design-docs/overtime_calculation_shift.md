@@ -1,13 +1,13 @@
 # overtime_calculation_shift
 
 **Created**: 27-Apr-2026
-**Modified**: 27-Apr-2026
+**Modified**: 05-May-2026
 
 ---
 
 ## Purpose
 
-Defines validity rules and overtime calculation for shift employees. Receives the Period list from `algorithm_extractor_shift.md` and returns a result per period. Pure function — no database access, no UI dependency.
+Defines validity rules and overtime calculation for shift employees. Receives `RawShiftEmployeePeriods` from `period_extractor_shift.md` and returns a `ShiftEmployeeResult`. Pure function — no database access, no UI dependency.
 
 ---
 
@@ -15,11 +15,11 @@ Defines validity rules and overtime calculation for shift employees. Receives th
 
 Each period produces two distinct values:
 
-**Actual working hours** — the real duration from the period's first timestamp to its last timestamp. Stored in minutes for precision. Shown in the detail screen for audit purposes. Has no effect on the overtime formula.
+**totalAttendanceDuration** — the real duration from the period's first timestamp to its last timestamp, in minutes. Shown in the detail screen for audit purposes. Has no effect on the overtime formula.
 
-**Hours counted** — binary: 24 hours if the period is valid, 0 if invalid. This is the value used in the monthly formula — not the actual working hours.
+**hoursCounted** — binary: 24 hours if the period is valid, 0 if invalid. This is the value used in the monthly formula — not the actual working hours.
 
-These are stored separately. A period spanning 26 actual hours still counts as 24. A period spanning 23 actual hours that meets all zone conditions also counts as 24.
+A period spanning 26 actual hours still counts as 24. A period spanning 23 actual hours that meets all zone conditions also counts as 24.
 
 ---
 
@@ -46,14 +46,20 @@ Binary result: valid = 24 hours, invalid = 0 hours. No rounding needed or applie
 ## Monthly Calculation
 
 1. Sum 24 hours for each valid period. Invalid periods contribute zero. This is the total worked hours.
-2. Apply ceiling to total worked hours: if total exceeds configured ceiling (default 192h), cap at ceiling. This limits the maximum hours that can enter the overtime formula.
+2. Apply ceiling to total worked hours: if total exceeds configured ceiling (default 192h), cap at ceiling.
 3. Subtract baseline from capped total. If result is negative or zero, overtime = 0.
 
 Example: 10 valid periods = 240h → capped to 192h → minus 154h baseline = 38h overtime.
 
-Final value stored as integer hours.
+Final value stored as integer hours in `totalOvertimeHours`.
 
 An employee with all invalid periods is still matched with zero overtime — distinct from an unmatched employee.
+
+---
+
+## Output
+
+Returns `ShiftEmployeeResult`. See `data_shared_models.md`.
 
 ---
 
