@@ -1,7 +1,7 @@
 # screen_report
 
 **Created**: 27-Apr-2026
-**Modified**: 05-May-2026 Pushed on top of the Reports tab — reached automatically after generation or by tapping a row in the Reports list. A back button returns to the Reports list.
+**Modified**: 05-May-2026
 
 ---
 
