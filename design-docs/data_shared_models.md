@@ -51,16 +51,40 @@ Represents one official holiday from the holidays file.
 
 ## Extractor Output
 
-### RawEmployeePeriods
+Two separate classes — one per employment type. The class itself identifies the type.
 
-Output of both period extractors. Same structure regardless of employment type.
+### RawDailyEmployeePeriods
+
+Output of the daily period extractor.
 
 **Fields:**
 
 - **name** — employee's full name
 - **department** — employee's department
-- **employmentType** — shift or daily
-- **periods** — list of periods, each period is a sorted list of timestamps
+- **periods** — list of RawDailyPeriod
+
+#### RawDailyPeriod
+
+- **date** — calendar date (ISO 8601)
+- **dayType** — regular / holiday / weekend
+- **timestamps** — all timestamps of the day, sorted ascending
+
+---
+
+### RawShiftEmployeePeriods
+
+Output of the shift period extractor.
+
+**Fields:**
+
+- **name** — employee's full name
+- **department** — employee's department
+- **periods** — list of RawShiftPeriod
+
+#### RawShiftPeriod
+
+- **anchorTimestamp** — the defining start timestamp of this period
+- **timestamps** — all timestamps within the period span, sorted ascending
 
 ---
 
@@ -85,7 +109,7 @@ Output of the daily calculator. Stored to and loaded from the database. Read dir
 #### DailyPeriodDetail
 
 - **date** — calendar date of this period
-- **weekday** — Arabic weekday name e.g. الأحد، الاثنين. Stored at generation time — derived from date before holidays list is discarded.
+- **weekday** — Arabic weekday name e.g. الأحد، الاثنين. Stored at generation time from the date field — not recomputed later.
 - **dayType** — regular / holiday / weekend
 - **timestamps** — all timestamps of the day, sorted ascending
 - **totalAttendanceDuration** — duration from first to last timestamp, in minutes

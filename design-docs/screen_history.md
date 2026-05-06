@@ -7,7 +7,7 @@
 
 ## Purpose
 
-The second tab of the app. Lists all previously generated reports. The user can open any past report or delete it. Also receives the newly generated report automatically after generation completes on the Input tab.
+The second tab of the app. Lists all generated reports ordered by generation date descending. The user can open any report or delete it. After a new report is generated, the app switches to this tab and pushes the new Report screen automatically — this screen refreshes its list from the database when returned to.
 
 ---
 
@@ -27,7 +27,7 @@ All saved reports displayed as a table, ordered by generation date descending.
 | Period from | من | Report start date |
 | Period to | إلى | Report end date |
 
-Tapping a row loads the full report and pushes the Report screen on top of this tab.
+Tapping a row navigates to the Report screen, passing the `reportId`. The Report screen loads its own data from the database on mount.
 
 Swiping a row reveals a delete option. Arabic confirmation prompt before deletion. Deletion is permanent — cascade deletes all child data.
 
@@ -35,4 +35,4 @@ Swiping a row reveals a delete option. Arabic confirmation prompt before deletio
 
 ## Data Source
 
-Table loaded from database when the tab is opened or returned to. Summary-level only — full report loaded when a row is tapped.
+List loaded from database when the tab is opened or returned to. Summary-level data only — name, dates, id. The Report screen handles its own full data load.

@@ -1,7 +1,7 @@
 # database_schema
 
 **Created**: 27-Apr-2026
-**Modified**: 27-Apr-2026
+**Modified**: 05-May-2026
 
 ---
 
@@ -15,8 +15,10 @@ Defines all tables, columns, relationships, and versioning strategy. All databas
 
 ```
 reports
-  └── employee_results
-        └── period_details
+  ├── daily_employee_results
+  │     └── daily_period_details
+  └── shift_employee_results
+        └── shift_period_details
 
 column_headers
 app_settings
@@ -35,16 +37,16 @@ One row per generated report. Unique key is generation date.
 | range_start | text | ISO 8601 date |
 | range_end | text | ISO 8601 date |
 | total_employees | integer | Matched and unmatched combined |
-| total_overtime_hours | integer | Shift employees: total overtime hours. |
-| total_daily_overtime_minutes | integer | Daily employees: total regular workday overtime minutes. |
-| total_holiday_overtime_minutes | integer | Daily employees: total holiday/weekend overtime minutes. |
+| total_shift_overtime_hours | integer | Sum of overtime hours across all matched shift employees |
+| total_daily_overtime_minutes | integer | Sum of regular workday overtime minutes across all matched daily employees |
+| total_holiday_overtime_minutes | integer | Sum of holiday/weekend overtime minutes across all matched daily employees |
 | unmatched_employee_count | integer | |
 
 ---
 
-## employee_results
+## daily_employee_results
 
-One row per employee per report. Cascade deleted with parent report.
+One row per daily employee per report. Cascade deleted with parent report.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -52,32 +54,67 @@ One row per employee per report. Cascade deleted with parent report.
 | report_id | integer, FK → reports.id | Cascade delete |
 | employee_name | text | |
 | department | text | |
-| overtime_hours | integer, nullable | Shift only: total overtime hours (integer). Null for daily. |
-| overtime_minutes | integer, nullable | Daily only: regular workday overtime total in minutes. Null for shift. |
-| holiday_overtime_minutes | integer, nullable | Daily only: holiday/weekend overtime total in minutes. Null for shift. |
+| overtime_minutes | integer | Regular workday overtime total in minutes. 0 if unmatched. |
+| holiday_overtime_minutes | integer | Holiday/weekend overtime total in minutes. 0 if unmatched. |
 | is_unmatched | integer | 1 if no attendance records found, 0 if matched |
 | notes | text, nullable | Arabic message for unmatched employees. Null if matched. |
 
 ---
 
-## period_details
+## daily_period_details
 
-One row per detected period per employee result. Covers both daily and shift employees. Cascade deleted with parent employee result. All data is report output — not raw input.
+One row per detected daily period per employee result. Cascade deleted with parent employee result.
 
 | Column | Type | Notes |
 |---|---|---|
 | id | integer, PK, auto-increment | |
-| employee_result_id | integer, FK → employee_results.id | Cascade delete |
+| employee_result_id | integer, FK → daily_employee_results.id | Cascade delete |
 | period_index | integer | Order of this period within the employee's results, 0-based |
-| anchor_timestamp | text | ISO 8601 datetime. First timestamp of the period. |
-| is_valid | integer | 1 if period contributed hours, 0 if invalid |
-| day_type | text, nullable | Daily only: 'regular', 'holiday', or 'weekend'. Null for shift. |
-| all_timestamps | text | JSON array of ISO 8601 datetime strings — all timestamps sorted ascending. Used for audit display. |
-| total_attendance_duration | integer | Actual duration from first to last timestamp in minutes. Stored for both types. Audit display only — not used in overtime formula. |
-| zone_data | text, nullable | Shift only. JSON array of zone results: [{ centerTime, timestamps[], isSatisfied }]. Null for daily. |
-| overtime_minutes | integer, nullable | Daily only. Calculated overtime in minutes. 0 if invalid. Null for shift. |
-| hours_counted | integer, nullable | Shift only. 24 if valid, 0 if invalid. Null for daily. |
-| notes | text, nullable | Arabic reason if invalid. Null if valid. |
+| date | text | ISO 8601 date |
+| weekday | text | Arabic weekday name e.g. الأحد |
+| day_type | text | 'regular', 'holiday', or 'weekend' |
+| all_timestamps | text | JSON array of ISO 8601 datetime strings, sorted ascending |
+| total_attendance_duration | integer | Duration from first to last timestamp in minutes. Audit display only. |
+| overtime_minutes | integer | Calculated overtime in minutes. 0 if invalid. |
+| is_valid | integer | 1 if period contributed to overtime, 0 if invalid |
+| notes | text, nullable | Arabic invalid reason. Null if valid. |
+
+---
+
+## shift_employee_results
+
+One row per shift employee per report. Cascade deleted with parent report.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | integer, PK, auto-increment | |
+| report_id | integer, FK → reports.id | Cascade delete |
+| employee_name | text | |
+| department | text | |
+| overtime_hours | integer | Total overtime hours. 0 if unmatched. |
+| is_unmatched | integer | 1 if no attendance records found, 0 if matched |
+| notes | text, nullable | Arabic message for unmatched employees. Null if matched. |
+
+---
+
+## shift_period_details
+
+One row per detected shift period per employee result. Cascade deleted with parent employee result.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | integer, PK, auto-increment | |
+| employee_result_id | integer, FK → shift_employee_results.id | Cascade delete |
+| period_index | integer | Order of this period within the employee's results, 0-based |
+| start_date | text | ISO 8601 date of anchor timestamp |
+| end_date | text | ISO 8601 date of last timestamp |
+| anchor_timestamp | text | ISO 8601 datetime |
+| all_timestamps | text | JSON array of ISO 8601 datetime strings, sorted ascending |
+| total_attendance_duration | integer | Duration from first to last timestamp in minutes. Audit display only. |
+| zone_data | text | JSON array of zone results: [{ centerTime, timestamps[], isSatisfied }] |
+| hours_counted | integer | 24 if valid, 0 if invalid |
+| is_valid | integer | 1 if period contributed to overtime, 0 if invalid |
+| notes | text, nullable | Arabic invalid reason. Null if valid. |
 
 ---
 

@@ -1,13 +1,7 @@
 # router
 
 **Created**: 27-Apr-2026
-**Modified**: 27-Apr-2026
-
----
-
-## Purpose
-
-Defines every screen in the app, how screens connect to each other, and what information must be passed when navigating. The router is the single source of truth for navigation. No screen constructs its own path or decides where to go independently.
+**Modified**: 05-May-2026, how screens connect to each other, and what information must be passed when navigating. The router is the single source of truth for navigation. No screen constructs its own path or decides where to go independently.
 
 ---
 

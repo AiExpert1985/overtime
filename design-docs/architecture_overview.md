@@ -1,13 +1,7 @@
 # architecture_overview
 
 **Created**: 27-Apr-2026
-**Modified**: 27-Apr-2026
-
----
-
-## Purpose
-
-Entry point for any developer working on this codebase. Read this before reading any other doc. Defines the platform, packages, layer rules, feature boundaries, and shared data concepts.
+**Modified**: 05-May-2026 working on this codebase. Read this before reading any other doc. Defines the platform, packages, layer rules, feature boundaries, and shared data concepts.
 
 ---
 
@@ -115,7 +109,7 @@ Defined in `data_shared_models.md`. Split into three groups:
 
 **Extractor output objects** — produced by period extractors, consumed by calculators:
 - **RawDailyEmployeePeriods** — name, department, periods with day type and timestamps
-- **RawShiftEmployeePeriods** — name, department, periods with timestamps
+- **RawShiftEmployeePeriods** — name, department, periods with anchor timestamp and timestamps
 
 **Calculator output objects** — produced by calculators, stored to DB, read by report screens:
 - **DailyEmployeeResult** — daily overtime breakdown with per-period detail

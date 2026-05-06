@@ -1,7 +1,7 @@
 # main_workflow
 
 **Created**: 27-Apr-2026
-**Modified**: 27-Apr-2026
+**Modified**: 05-May-2026
 
 ---
 
@@ -33,7 +33,7 @@ See `dictionary_build.md` for the exact steps and rules.
 
 ### Stage 4 — Period Extraction
 
-Each employee's sorted timestamp list is passed to a type-specific extractor — daily or shift. Each extractor returns a list of periods ordered earliest to latest.
+Each employee's sorted timestamp list is passed to a type-specific extractor — daily or shift. The daily extractor returns a `RawDailyEmployeePeriods` object; the shift extractor returns a `RawShiftEmployeePeriods` object. Both are ordered earliest to latest.
 
 See `period_extractor_daily.md` and `period_extractor_shift.md`.
 

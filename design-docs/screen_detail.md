@@ -1,6 +1,7 @@
 # screen_detail
 
-**Created**: 27-Apr-2026 **Modified**: 05-May-2026
+**Created**: 27-Apr-2026
+**Modified**: 05-May-2026
 
 ---
 
@@ -25,14 +26,12 @@ All timestamps throughout this screen are displayed as **time only** — no date
 ## Component — Employee Header
 
 **Daily employees:**
-
 - Employee name, employment type, department, date range
 - Total regular overtime (with rounding)
 - Total holiday/weekend overtime (with rounding)
 - Grand total overtime (with rounding)
 
 **Shift employees:**
-
 - Employee name, employment type, department, date range
 - Total valid shift days
 - Total actual working hours (sum of actual durations across all periods)
@@ -45,17 +44,17 @@ All timestamps throughout this screen are displayed as **time only** — no date
 
 One row per calendar day with at least one timestamp, ordered by date ascending.
 
-|Column|Arabic Label|Content|
+| Column | Arabic Label | Content |
 |---|---|---|
-|Date|التاريخ|Short date e.g. 01/12|
-|Weekday|اليوم|Arabic weekday name e.g. الأحد، الاثنين — derived from date|
-|Day type|نوع اليوم|عادي / عطلة / عطلة أسبوعية|
-|Entry|الدخول|Time of first timestamp e.g. 8:14 ص|
-|All timestamps|البصمات|Time of all timestamps between entry and exit, listed vertically|
-|Exit|الخروج|Time of last timestamp e.g. 3:47 م|
-|Working hours|ساعات الحضور|Actual duration from first to last timestamp. Shown for all days — valid and invalid.|
-|Overtime|الوقت الإضافي|Overtime for valid periods. 0 for valid with no overtime.|
-|Notes|ملاحظات|Invalid reason if applicable. Empty if valid.|
+| Date | التاريخ | Short date e.g. 01/12 |
+| Weekday | اليوم | Arabic weekday name e.g. الأحد، الاثنين — read from stored weekday field |
+| Day type | نوع اليوم | عادي / عطلة / عطلة أسبوعية |
+| Entry | الدخول | Time of first timestamp e.g. 8:14 ص |
+| All timestamps | البصمات | Time of all timestamps between entry and exit, listed vertically |
+| Exit | الخروج | Time of last timestamp e.g. 3:47 م |
+| Working hours | ساعات الحضور | Actual duration from first to last timestamp. Shown for all days — valid and invalid. |
+| Overtime | الوقت الإضافي | Overtime for valid periods. 0 for valid with no overtime. |
+| Notes | ملاحظات | Invalid reason if applicable. Empty if valid. |
 
 ### Row Color Coding
 
@@ -64,10 +63,10 @@ One row per calendar day with at least one timestamp, ordered by date ascending.
 
 ### Invalid Reasons
 
-|Reason|Arabic|
+| Reason | Arabic |
 |---|---|
-|Fewer than 2 timestamps|بصمة واحدة فقط|
-|First timestamp after start time|البصمة الأولى تتجاوز وقت البداية المحدد|
+| Fewer than 2 timestamps | بصمة واحدة فقط |
+| First timestamp after start time | البصمة الأولى تتجاوز وقت البداية المحدد |
 
 ---
 
@@ -75,15 +74,15 @@ One row per calendar day with at least one timestamp, ordered by date ascending.
 
 One row per detected shift period, ordered by anchor timestamp ascending.
 
-|Column|Arabic Label|Content|
+| Column | Arabic Label | Content |
 |---|---|---|
-|Start date|تاريخ البداية|Date of anchor timestamp|
-|End date|تاريخ النهاية|Date of last timestamp — derived from timestamps|
-|Anchor|بصمة البداية|Time of anchor timestamp e.g. 8:02 ص|
-|Zones|نقاط التحقق|All zones stacked vertically. Each zone shows: label (e.g. نقطة 1: 08:00), times of timestamps within zone, or — if empty|
-|Working hours|ساعات الحضور|Actual duration from first to last timestamp of the period. Shown for all periods valid or invalid.|
-|Hours counted|الساعات المحتسبة|24 if valid, 0 if invalid. Used in monthly overtime formula.|
-|Notes|ملاحظات|Invalid reason if applicable. Empty if valid.|
+| Start date | تاريخ البداية | Date of anchor timestamp |
+| End date | تاريخ النهاية | Date of last timestamp — read from stored endDate field |
+| Anchor | بصمة البداية | Time of anchor timestamp e.g. 8:02 ص |
+| Zones | نقاط التحقق | All zones stacked vertically. Each zone shows: label (e.g. نقطة 1: 08:00), times of timestamps within zone, or — if empty |
+| Working hours | ساعات الحضور | Actual duration from first to last timestamp of the period. Shown for all periods valid or invalid. |
+| Hours counted | الساعات المحتسبة | 24 if valid, 0 if invalid. Used in monthly overtime formula. |
+| Notes | ملاحظات | Invalid reason if applicable. Empty if valid. |
 
 Zones column is fixed width regardless of zone count — zones stack vertically within the cell. Empty zones are visually distinct (dash or red indicator), making invalid periods self-explanatory without requiring a detailed text reason.
 
@@ -94,12 +93,12 @@ Zones column is fixed width regardless of zone count — zones stack vertically 
 
 ### Invalid Reason
 
-|Reason|Arabic|
+| Reason | Arabic |
 |---|---|
-|Missing timestamp in one or more check zones|يوجد فترة زمنية بدون بصمة تحقق|
+| Missing timestamp in one or more check zones | يوجد فترة زمنية بدون بصمة تحقق |
 
 ---
 
 ## Data Source
 
-Reads from the current report provider. No database fetch on mount.
+Reads from the current report provider, which was populated by the Report screen's database fetch on mount. No additional database fetch needed.
