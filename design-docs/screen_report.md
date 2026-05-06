@@ -102,4 +102,4 @@ Same behavior as daily tab.
 
 ## Data Source
 
-Reads from the current report provider. No database fetch on mount.
+Loads the full report from the database on mount using the `reportId` route parameter. This applies equally to newly generated reports and historical ones — there is no special path for either. A loading indicator is shown while the fetch completes.

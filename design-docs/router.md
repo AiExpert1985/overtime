@@ -56,7 +56,7 @@ After generation, the app navigates here automatically and pushes the new report
 
 Pushed on top of the Reports list within Tab 2. Reached two ways: automatically after generation, or by tapping a row in the Reports list.
 
-Before navigating here, the caller must load the full ReportSummary into the current report provider. The screen reads from that provider — it does not trigger a database fetch on mount.
+The screen loads the full report from the database on mount using the `reportId` parameter. No pre-loading by the caller is required — the screen is self-sufficient.
 
 Back button returns to the Reports list.
 
@@ -64,7 +64,7 @@ Back button returns to the Reports list.
 
 Pushed on top of the Report screen within Tab 2. Reached only by tapping an employee row on the Report screen.
 
-Reads from the current report provider — no additional database fetch needed.
+Reads from the current report provider already loaded by the Report screen — no additional database fetch needed.
 
 Arabic employee names must be percent-encoded in the URL.
 
@@ -108,7 +108,7 @@ Tab 3 — Settings
 
 **Always use named routes.** No screen builds a path string manually.
 
-**Load data before navigating to Report.** The Report screen assumes the current report provider is populated. The caller loads the report first, then navigates.
+**Report screen loads its own data.** The Report screen fetches from the database on mount using its `reportId`. The caller navigates directly — no pre-loading required.
 
 **Arabic names in URLs must be percent-encoded.** Use encoding when constructing the detail route path and decoding when reading back.
 

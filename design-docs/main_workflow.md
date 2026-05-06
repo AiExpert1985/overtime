@@ -45,7 +45,9 @@ See `overtime_calculation_daily.md` and `overtime_calculation_shift.md`.
 
 ### Stage 6 — Navigate to Report
 
-The app switches to the Reports tab automatically and pushes the newly generated Report screen. The user sees their report immediately without any manual navigation.
+After results are stored, the report is loaded from the database into the report provider. The app then switches to the Reports tab automatically and pushes the newly generated Report screen. The user sees their report immediately without any manual navigation.
+
+All report screens — whether reached after generation or by tapping a history row — always load from the database. There is no separate in-memory path for newly generated reports. This ensures one consistent loading code path throughout the app.
 
 See `screen_report.md`.
 

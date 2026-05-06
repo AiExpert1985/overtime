@@ -1,6 +1,7 @@
 # data_shared_models
 
-**Created**: 27-Apr-2026 **Modified**: 05-May-2026
+**Created**: 27-Apr-2026
+**Modified**: 05-May-2026
 
 ---
 
@@ -84,6 +85,7 @@ Output of the daily calculator. Stored to and loaded from the database. Read dir
 #### DailyPeriodDetail
 
 - **date** — calendar date of this period
+- **weekday** — Arabic weekday name e.g. الأحد، الاثنين. Stored at generation time — derived from date before holidays list is discarded.
 - **dayType** — regular / holiday / weekend
 - **timestamps** — all timestamps of the day, sorted ascending
 - **totalAttendanceDuration** — duration from first to last timestamp, in minutes
@@ -108,6 +110,8 @@ Output of the shift calculator. Stored to and loaded from the database. Read dir
 
 #### ShiftPeriodDetail
 
+- **startDate** — calendar date of the anchor timestamp. Stored at generation time.
+- **endDate** — calendar date of the last timestamp. Stored at generation time — not derived later to avoid dependency on shift duration setting which may change.
 - **anchorTimestamp** — the defining start timestamp of this period
 - **timestamps** — all timestamps within the period, sorted ascending
 - **totalAttendanceDuration** — duration from first to last timestamp, in minutes

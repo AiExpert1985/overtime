@@ -100,6 +100,7 @@ Each feature owns its models, its service, and its repository. The rules below a
 - Failures are typed exceptions caught at the service boundary, translated into Arabic messages for the user.
 - No abstract repository interfaces — one concrete implementation per repository.
 - No event system — flow is linear: parse → calculate → store → display.
+- Report screens always load from the database — including newly generated reports. There is no in-memory hand-off path. Store first, then load, then navigate.
 
 ---
 
