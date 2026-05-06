@@ -86,6 +86,13 @@ Tapping (!) opens a small dismissible dialog with static Arabic text describing 
 
 Two calendar pickers displayed inline on the screen: start date (من) and end date (إلى). Each opens a calendar on tap. Both must be filled for the Generate button to become active. The selected dates persist when switching tabs — they are not reset unless generation succeeds.
 
+### Validation Rules
+
+- End date must not be before start date.
+- The range (end date − start date + 1) must not exceed the configured maximum (`max_report_date_range`, default 31 days).
+
+If either rule is violated, an inline Arabic error message is shown below the date pickers and the Generate button remains disabled.
+
 ---
 
 ## Component — Generate Report Button
@@ -94,7 +101,7 @@ Full-width prominent button labeled توليد التقرير.
 
 ### Enabled Condition
 
-Enabled only when all three file cards are in the valid state AND both start and end dates are selected.
+Enabled only when all three file cards are in the valid state AND both start and end dates are selected AND the date range passes validation (end ≥ start, range ≤ max).
 
 ### Tapped
 

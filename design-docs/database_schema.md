@@ -28,12 +28,12 @@ app_settings
 
 ## reports
 
-One row per generated report. Unique key is generation date.
+One row per generated report. Multiple reports on the same calendar day are allowed.
 
 | Column | Type | Notes |
 |---|---|---|
 | id | integer, PK, auto-increment | |
-| generation_date | text, unique | ISO 8601 date |
+| generation_datetime | text | ISO 8601 datetime — date and time the report was generated |
 | range_start | text | ISO 8601 date |
 | range_end | text | ISO 8601 date |
 | total_employees | integer | Matched and unmatched combined |
@@ -128,7 +128,7 @@ One row per setting key. Seeded with defaults on first launch. Never overwrites 
 | key | text, unique | Setting identifier — matches keys in `config.md` |
 | value | text | Current value |
 
-Predefined keys: `daily_start_time`, `daily_work_duration`, `daily_max_overtime`, `shift_start_times`, `shift_duration`, `shift_zone_interval`, `shift_start_end_tolerance`, `shift_inner_tolerance`, `shift_period_gap`, `shift_baseline_hours`, `shift_ceiling_hours`, `rounding_mode`.
+Predefined keys: `daily_start_time`, `daily_work_duration`, `daily_max_overtime`, `shift_start_times`, `shift_duration`, `shift_zone_interval`, `shift_start_end_tolerance`, `shift_inner_tolerance`, `shift_period_gap`, `shift_baseline_hours`, `shift_ceiling_hours`, `rounding_mode`, `max_report_date_range`.
 
 ---
 
@@ -146,9 +146,9 @@ One row per acceptable header value per field key.
 
 ---
 
-## Report Versioning
+## Report Storage
 
-`generation_date` is unique. Generating a new report on the same calendar day replaces the existing one — cascade delete removes all child rows first, then the new report is inserted fresh.
+Reports are always appended — generating a new report never replaces or deletes an existing one. The user deletes reports manually from the Report List screen. Each report is identified by its auto-increment `id`. Multiple reports covering the same date range or generated on the same day are permitted.
 
 ---
 
@@ -159,7 +159,5 @@ Schema created on first launch if tables do not exist. A version number tracks s
 ---
 
 ## Later Improvements
-
-**Report archiving.** Keep multiple reports per day with a sequence number. Requires changing the unique constraint on `generation_date`.
 
 **Export history.** Track export events in a separate `export_log` table.

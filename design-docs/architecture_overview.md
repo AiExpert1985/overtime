@@ -136,5 +136,5 @@ Defined in `data_shared_models.md`. Split into three groups:
 | `screen_input.md` | Input screen and components |
 | `screen_report.md` | Report screen — two tabs, employee tables |
 | `screen_detail.md` | Detail screen — period breakdown for both employee types |
-| `screen_history.md` | History screen |
+| `screen_report_list.md` | Report List Screen — list of all generated reports, delete |
 | `screen_configuration.md` | Configuration screen — all settings and column headers |

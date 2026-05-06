@@ -40,7 +40,7 @@ End time shown as read-only derived value: "وقت النهاية: HH:MM" — up
 
 | Setting | Default | Input type |
 |---|---|---|
-| أوقات بداية المناوبة | [08:00] | List — single value enforced. Add button replaced by edit button after first entry. |
+| أوقات بداية المناوبة | [08:00] | List — multiple values allowed. Add button adds a new time entry. Each entry has a delete icon. At least one value must remain. |
 | مدة المناوبة | 24 hours | Number input (hours) |
 | فترة نقاط التحقق | 6 hours | Number input (hours) |
 | هامش البداية والنهاية | 30 minutes | Number input (minutes) |

@@ -34,9 +34,9 @@ All timestamps throughout this screen are displayed as **time only** — no date
 **Shift employees:**
 - Employee name, employment type, department, date range
 - Total valid shift days
-- Total actual working hours (sum of actual durations across all periods)
-- Total counted hours (valid days × 24)
-- Total overtime hours (counted hours − baseline, floored at 0, capped at ceiling)
+- Total actual working hours (sum of `totalAttendanceDuration` across all periods)
+- Total counted hours (sum of `hoursCounted` across all periods — each period contributes 24 or 0)
+- Total overtime hours — reconstructed at display time: min(total counted hours, ceiling) − baseline, floored at 0. Ceiling and baseline values are read from current settings at display time. The stored `totalOvertimeHours` field on the employee record is the authoritative value — the reconstruction here is for showing the breakdown only.
 
 ---
 

@@ -46,7 +46,7 @@ Binary result: valid = 24 hours, invalid = 0 hours. No rounding needed or applie
 ## Monthly Calculation
 
 1. Sum 24 hours for each valid period. Invalid periods contribute zero. This is the total worked hours.
-2. Apply ceiling to total worked hours: if total exceeds configured ceiling (default 192h), cap at ceiling.
+2. Apply ceiling to total worked hours: if total exceeds configured ceiling (default 192h), cap at ceiling. The ceiling applies to worked hours — not to the final overtime value.
 3. Subtract baseline from capped total. If result is negative or zero, overtime = 0.
 
 Example: 10 valid periods = 240h → capped to 192h → minus 154h baseline = 38h overtime.

@@ -27,7 +27,7 @@ End time is derived: `daily_start_time + daily_work_duration`. Not a stored sett
 
 | Key | Default | Arabic Name | Arabic Description |
 |---|---|---|---|
-| shift_start_times | [08:00] | أوقات بداية المناوبة | قائمة الأوقات المحتملة لبداية المناوبة. يُستخدم أول وقت مطابق كنقطة بداية ثابتة للموظف |
+| shift_start_times | [08:00] | أوقات بداية المناوبة | قائمة الأوقات المحتملة لبداية المناوبة. يختلف وقت البداية من موظف لآخر — يبحث المستخرج عن أول وقت مطابق لأي من هذه القيم ليجعله نقطة البداية الثابتة لذلك الموظف |
 | shift_duration | 24 hours | مدة المناوبة | المدة الكاملة للمناوبة الواحدة بالساعات |
 | shift_zone_interval | 6 hours | فترة نقاط التحقق | المسافة الزمنية بين كل نقطة تحقق والأخرى. عدد النقاط = مدة المناوبة ÷ هذه الفترة |
 | shift_start_end_tolerance | 30 minutes | هامش البداية والنهاية | الهامش الزمني بالدقائق المسموح به لبصمتي البداية والنهاية |
@@ -43,6 +43,7 @@ End time is derived: `daily_start_time + daily_work_duration`. Not a stored sett
 | Key | Default | Arabic Name | Arabic Description |
 |---|---|---|---|
 | rounding_mode | quarter | وضع التقريب | طريقة عرض الساعات الإضافية: بدون تقريب، تقريب لربع ساعة، أو تقريب لساعة كاملة |
+| max_report_date_range | 31 days | الحد الأقصى لمدة التقرير | الحد الأقصى لعدد الأيام المسموح بها في نطاق التاريخ عند توليد تقرير |
 
 Rounding options: `none` / `quarter` / `hour`. Applied at display time only — stored values are always raw minutes.
 

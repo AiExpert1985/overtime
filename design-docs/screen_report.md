@@ -32,6 +32,14 @@ Sits between header and tab bar. One action:
 
 **تصدير Excel** — exports current report to Downloads folder. Shows loading state during export. Success: snackbar with file path. Failure: error snackbar.
 
+### Export Format
+
+Single `.xlsx` file with two sheets:
+
+**Sheet 1 — ملخص التقرير**: mirrors the Report screen. Contains the report header summary (date range, totals, unmatched count) followed by the daily employees table and the shift employees table, each with the same columns shown on screen.
+
+**Sheet 2 — تفاصيل الموظفين**: mirrors the Detail screen layout. One section per employee (daily and shift combined), separated by a blank row. Each section begins with the employee name and header values, followed by their period rows with the same columns shown on the detail screen.
+
 ---
 
 ## Tab — Daily Employees

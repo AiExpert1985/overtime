@@ -102,9 +102,9 @@ Output of the daily calculator. Stored to and loaded from the database. Read dir
 - **department** — employee's department
 - **isUnmatched** — true if no attendance records were found for this employee
 - **notes** — Arabic message for unmatched employees. Null if matched.
-- **totalRegularOvertimeMinutes** — total overtime on regular workdays, in minutes
-- **totalHolidayOvertimeMinutes** — total overtime on holiday/weekend days, in minutes
-- **periods** — list of DailyPeriodDetail
+- **totalRegularOvertimeMinutes** — total overtime on regular workdays, in minutes. 0 if unmatched.
+- **totalHolidayOvertimeMinutes** — total overtime on holiday/weekend days, in minutes. 0 if unmatched.
+- **periods** — list of DailyPeriodDetail. Empty list if unmatched.
 
 #### DailyPeriodDetail
 
@@ -129,8 +129,8 @@ Output of the shift calculator. Stored to and loaded from the database. Read dir
 - **department** — employee's department
 - **isUnmatched** — true if no attendance records were found for this employee
 - **notes** — Arabic message for unmatched employees. Null if matched.
-- **totalOvertimeHours** — total overtime hours for the month
-- **periods** — list of ShiftPeriodDetail
+- **totalOvertimeHours** — total overtime hours for the month. 0 if unmatched.
+- **periods** — list of ShiftPeriodDetail. Empty list if unmatched.
 
 #### ShiftPeriodDetail
 

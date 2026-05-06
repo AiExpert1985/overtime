@@ -40,7 +40,7 @@ A daily employee works standard morning shifts on regular workdays. Their attend
 | dayType | regular / holiday / weekend |
 | timestamps | All timestamps of the day, sorted ascending |
 
-Days with zero timestamps are not included.
+Days with zero timestamps are not included. Days with exactly one timestamp are included — the calculator determines validity, not the extractor.
 
 ---
 
