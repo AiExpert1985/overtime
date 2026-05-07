@@ -12,69 +12,130 @@ class InputScreen extends ConsumerWidget {
     final state = ref.watch(inputScreenProvider);
     final notifier = ref.read(inputScreenProvider.notifier);
 
+    ref.listen<InputScreenState>(inputScreenProvider, (prev, next) {
+      if (next.unexpectedError != null &&
+          next.unexpectedError != prev?.unexpectedError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.unexpectedError!),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+        notifier.clearError();
+      }
+    });
+
     return Scaffold(
       appBar: AppBar(title: const Text('الإدخال')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _FilePickerCard(
-              label: 'ملف الحضور',
-              infoTitle: 'هيكل ملف الحضور',
-              infoBody:
-                  'ملف Excel يحتوي على عمودين:\n\n'
-                  '• اسم الموظف\n'
-                  '• التاريخ والوقت\n\n'
-                  'يمكن تقديم أكثر من ملف، وكل ملف يمكن أن يحتوي على أكثر من ورقة عمل.',
-              cardState: state.attendanceState,
-              isMultiFile: true,
-              onPick: notifier.pickAttendanceFiles,
-            ),
-            const SizedBox(height: 12),
-            _FilePickerCard(
-              label: 'ملف الموظفين المستهدفين',
-              infoTitle: 'هيكل ملف الموظفين',
-              infoBody:
-                  'ملف Excel يحتوي على 3 أعمدة:\n\n'
-                  '• اسم الموظف\n'
-                  '• نوع التوظيف (مناوب أو صباحي)\n'
-                  '• القسم\n\n'
-                  'يمكن تقديم أكثر من ملف.',
-              cardState: state.employeesState,
-              isMultiFile: true,
-              onPick: notifier.pickEmployeesFiles,
-            ),
-            const SizedBox(height: 12),
-            _FilePickerCard(
-              label: 'ملف العطل الرسمية',
-              infoTitle: 'هيكل ملف العطل',
-              infoBody:
-                  'ملف Excel يحتوي على عمودين:\n\n'
-                  '• التاريخ\n'
-                  '• مناسبة العطلة',
-              cardState: state.holidaysState,
-              isMultiFile: false,
-              onPick: notifier.pickHolidaysFile,
-            ),
-            const SizedBox(height: 20),
+            _FileCardsRow(state: state, notifier: notifier),
+            const SizedBox(height: 28),
             _DateRangeSection(state: state, notifier: notifier),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: state.canGenerate
-                  ? () => debugPrint('توليد التقرير — غير منفَّذ بعد')
-                  : null,
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: const Text(
-                'توليد التقرير',
-                style: TextStyle(fontSize: 16),
+            const SizedBox(height: 28),
+            Center(
+              child: SizedBox(
+                width: 260,
+                child: FilledButton(
+                  onPressed: state.canGenerate
+                      ? () => debugPrint('توليد التقرير — غير منفَّذ بعد')
+                      : null,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: const Text(
+                    'توليد التقرير',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── File Cards Row ────────────────────────────────────────────────────────────
+
+class _FileCardsRow extends StatelessWidget {
+  final InputScreenState state;
+  final InputScreenNotifier notifier;
+
+  const _FileCardsRow({required this.state, required this.notifier});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Occupy ~60% of available width, clamped between 540 and 900px.
+        final rowWidth = (constraints.maxWidth * 0.6).clamp(540.0, 900.0);
+        final cardWidth = (rowWidth - 24) / 3; // 24 = 2 gaps of 12px
+
+        return Center(
+          child: SizedBox(
+            width: rowWidth,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: cardWidth,
+                  child: _FilePickerCard(
+                    label: 'ملف الحضور',
+                    infoTitle: 'هيكل ملف الحضور',
+                    infoBody:
+                        'ملف Excel يحتوي على عمودين:\n\n'
+                        '• اسم الموظف\n'
+                        '• التاريخ والوقت\n\n'
+                        'يمكن تقديم أكثر من ملف، وكل ملف يمكن أن يحتوي على أكثر من ورقة عمل.',
+                    cardState: state.attendanceState,
+                    isMultiFile: true,
+                    onPick: notifier.pickAttendanceFiles,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: cardWidth,
+                  child: _FilePickerCard(
+                    label: 'ملف الموظفين',
+                    infoTitle: 'هيكل ملف الموظفين',
+                    infoBody:
+                        'ملف Excel يحتوي على 3 أعمدة:\n\n'
+                        '• اسم الموظف\n'
+                        '• نوع التوظيف (مناوب أو صباحي)\n'
+                        '• القسم\n\n'
+                        'يمكن تقديم أكثر من ملف.',
+                    cardState: state.employeesState,
+                    isMultiFile: true,
+                    onPick: notifier.pickEmployeesFiles,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: cardWidth,
+                  child: _FilePickerCard(
+                    label: 'ملف العطل الرسمية',
+                    infoTitle: 'هيكل ملف العطل',
+                    infoBody:
+                        'ملف Excel يحتوي على عمودين:\n\n'
+                        '• التاريخ\n'
+                        '• مناسبة العطلة',
+                    cardState: state.holidaysState,
+                    isMultiFile: false,
+                    onPick: notifier.pickHolidaysFile,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -101,41 +162,54 @@ class _FilePickerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cardColor = switch (cardState) {
+      FileCardValid() => Colors.green.shade50,
+      FileCardInvalid() => theme.colorScheme.errorContainer.withValues(alpha: 0.25),
+      FileCardEmpty() => null,
+    };
 
     return Card(
       elevation: 1,
+      color: cardColor,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+        padding: const EdgeInsets.fromLTRB(14, 10, 8, 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(child: _buildStatus(theme)),
                 IconButton(
                   icon: const Icon(Icons.info_outline, size: 20),
                   tooltip: 'معلومات',
+                  padding: EdgeInsets.zero,
+                  constraints:
+                      const BoxConstraints(minWidth: 32, minHeight: 32),
                   onPressed: () => _showInfo(context),
                 ),
               ],
             ),
             if (cardState is FileCardInvalid) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Text(
                 (cardState as FileCardInvalid).errorMessage,
                 style: TextStyle(
                   color: theme.colorScheme.error,
                   fontSize: 12,
                 ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
             const SizedBox(height: 10),
             OutlinedButton.icon(
               onPressed: onPick,
               icon: const Icon(Icons.upload_file, size: 18),
-              label: Text(_buttonLabel),
+              label: Text(_buttonLabel, overflow: TextOverflow.ellipsis),
               style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
               ),
             ),
           ],
@@ -146,36 +220,77 @@ class _FilePickerCard extends StatelessWidget {
 
   Widget _buildStatus(ThemeData theme) {
     return switch (cardState) {
-      FileCardEmpty() => Text(
-          label,
-          style: theme.textTheme.bodyMedium
-              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+      FileCardEmpty() => Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ),
-      FileCardValid(:final fileNames) => Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green[700], size: 18),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
+      FileCardValid(:final fileNames) => Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.check_circle,
+                      color: Colors.green.shade700, size: 16),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 3),
+              Text(
                 _validLabel(fileNames),
-                style: theme.textTheme.bodyMedium,
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(fontWeight: FontWeight.w500),
                 overflow: TextOverflow.ellipsis,
+                maxLines: 2,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      FileCardInvalid(:final fileNames) => Row(
-          children: [
-            Icon(Icons.error_outline, color: theme.colorScheme.error, size: 18),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                _invalidLabel(fileNames),
-                style: theme.textTheme.bodyMedium,
-                overflow: TextOverflow.ellipsis,
+      FileCardInvalid(:final fileNames) => Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Row(
+            children: [
+              Icon(Icons.error_outline,
+                  color: theme.colorScheme.error, size: 16),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (fileNames.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        _invalidLabel(fileNames),
+                        style: theme.textTheme.bodyMedium,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
     };
   }
@@ -227,40 +342,46 @@ class _DateRangeSection extends StatelessWidget {
     final theme = Theme.of(context);
     final error = state.dateRangeError;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(
-              child: _DatePickerButton(
-                label: 'من',
-                date: state.startDate,
-                onPick: (date) => notifier.setStartDate(date),
-                firstDate: DateTime(2000),
-                lastDate: DateTime(2100),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: _DatePickerButton(
+                    label: 'من',
+                    date: state.startDate,
+                    onPick: notifier.setStartDate,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2100),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _DatePickerButton(
+                    label: 'إلى',
+                    date: state.endDate,
+                    onPick: notifier.setEndDate,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2100),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _DatePickerButton(
-                label: 'إلى',
-                date: state.endDate,
-                onPick: (date) => notifier.setEndDate(date),
-                firstDate: DateTime(2000),
-                lastDate: DateTime(2100),
+            if (error != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                error,
+                style: TextStyle(color: theme.colorScheme.error, fontSize: 12),
+                textAlign: TextAlign.center,
               ),
-            ),
+            ],
           ],
         ),
-        if (error != null) ...[
-          const SizedBox(height: 6),
-          Text(
-            error,
-            style: TextStyle(color: theme.colorScheme.error, fontSize: 12),
-          ),
-        ],
-      ],
+      ),
     );
   }
 }

@@ -15,3 +15,9 @@
 **Rejected:** Connecting the Generate button to any generation logic — deferred by design. Date range validation (max range check) was confirmed to belong to the Input screen, not the FileProcessing service.
 
 ---
+
+## 20260507-1600 | Input Screen Bug Fix + UI Redesign | TASK
+
+**Task:** Fixed two silent failure bugs and redesigned the Input screen layout. Bug 1: file pick methods were async futures dropped into void callbacks — exceptions silently died without updating state; fixed with try/catch that drives both card error state and a dismissible error notification. Bug 2: the database file already existed from a prior run, so the schema's `onCreate` was skipped and `column_headers` was never created; fixed by moving schema creation to `onOpen` with idempotent `IF NOT EXISTS` guards and a count-based seed guard for default rows. Layout change: the three file upload cards now sit in a single centered horizontal row rather than stacked vertically; date range pickers and the Generate button are centered below. A teal Material 3 color theme was applied app-wide. Card states have distinct background tints (valid = green, invalid = red).
+
+**Rejected:** Reordering the layout (file cards remain above date pickers, per design doc).

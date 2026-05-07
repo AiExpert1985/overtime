@@ -29,12 +29,18 @@ class DatabaseHelper {
         await _createTables(db);
         await _seedDefaults(db);
       },
+      // Ensures missing tables and seed rows are added even when the DB file
+      // already exists (e.g. after a schema change during development).
+      onOpen: (db) async {
+        await _createTables(db);
+        await _seedDefaults(db);
+      },
     );
   }
 
   Future<void> _createTables(Database db) async {
     await db.execute('''
-      CREATE TABLE reports (
+      CREATE TABLE IF NOT EXISTS reports (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         generation_datetime TEXT NOT NULL,
         range_start TEXT NOT NULL,
@@ -48,7 +54,7 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE TABLE daily_employee_results (
+      CREATE TABLE IF NOT EXISTS daily_employee_results (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         report_id INTEGER NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
         employee_name TEXT NOT NULL,
@@ -61,7 +67,7 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE TABLE daily_period_details (
+      CREATE TABLE IF NOT EXISTS daily_period_details (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         employee_result_id INTEGER NOT NULL REFERENCES daily_employee_results(id) ON DELETE CASCADE,
         period_index INTEGER NOT NULL,
@@ -77,7 +83,7 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE TABLE shift_employee_results (
+      CREATE TABLE IF NOT EXISTS shift_employee_results (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         report_id INTEGER NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
         employee_name TEXT NOT NULL,
@@ -89,7 +95,7 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE TABLE shift_period_details (
+      CREATE TABLE IF NOT EXISTS shift_period_details (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         employee_result_id INTEGER NOT NULL REFERENCES shift_employee_results(id) ON DELETE CASCADE,
         period_index INTEGER NOT NULL,
@@ -106,7 +112,7 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE TABLE app_settings (
+      CREATE TABLE IF NOT EXISTS app_settings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         key TEXT NOT NULL UNIQUE,
         value TEXT NOT NULL
@@ -114,7 +120,7 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE TABLE column_headers (
+      CREATE TABLE IF NOT EXISTS column_headers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         file_type TEXT NOT NULL,
         field_key TEXT NOT NULL,
@@ -151,7 +157,15 @@ class DatabaseHelper {
       );
     }
 
-    // column_headers defaults
+    await batch.commit(noResult: true);
+
+    // column_headers defaults — only seed when the table is empty so that
+    // onOpen does not duplicate rows on subsequent launches.
+    final countResult = await db
+        .rawQuery('SELECT COUNT(*) AS c FROM column_headers WHERE is_default = 1');
+    final alreadySeeded = (countResult.first['c'] as int) > 0;
+    if (alreadySeeded) return;
+
     const headers = [
       ('attendance', 'employee_name', 'اسم الموظف'),
       ('attendance', 'datetime', 'التاريخ والوقت'),
@@ -162,15 +176,15 @@ class DatabaseHelper {
       ('holidays', 'occasion', 'مناسبة العطلة'),
     ];
 
+    final headerBatch = db.batch();
     for (final (fileType, fieldKey, headerValue) in headers) {
-      batch.insert('column_headers', {
+      headerBatch.insert('column_headers', {
         'file_type': fileType,
         'field_key': fieldKey,
         'header_value': headerValue,
         'is_default': 1,
       });
     }
-
-    await batch.commit(noResult: true);
+    await headerBatch.commit(noResult: true);
   }
 }

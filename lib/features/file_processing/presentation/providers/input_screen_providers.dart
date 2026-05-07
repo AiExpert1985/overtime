@@ -44,6 +44,7 @@ class InputScreenState {
   final DateTime? startDate;
   final DateTime? endDate;
   final int maxDateRange;
+  final String? unexpectedError;
 
   const InputScreenState({
     required this.attendanceState,
@@ -55,6 +56,7 @@ class InputScreenState {
     required this.startDate,
     required this.endDate,
     required this.maxDateRange,
+    this.unexpectedError,
   });
 
   factory InputScreenState.initial() => const InputScreenState(
@@ -67,6 +69,7 @@ class InputScreenState {
         startDate: null,
         endDate: null,
         maxDateRange: 31,
+        unexpectedError: null,
       );
 
   bool get canGenerate =>
@@ -99,8 +102,10 @@ class InputScreenState {
     DateTime? startDate,
     DateTime? endDate,
     int? maxDateRange,
+    String? unexpectedError,
     bool clearStartDate = false,
     bool clearEndDate = false,
+    bool clearUnexpectedError = false,
   }) {
     return InputScreenState(
       attendanceState: attendanceState ?? this.attendanceState,
@@ -112,6 +117,8 @@ class InputScreenState {
       startDate: clearStartDate ? null : (startDate ?? this.startDate),
       endDate: clearEndDate ? null : (endDate ?? this.endDate),
       maxDateRange: maxDateRange ?? this.maxDateRange,
+      unexpectedError:
+          clearUnexpectedError ? null : (unexpectedError ?? this.unexpectedError),
     );
   }
 }
@@ -139,94 +146,132 @@ class InputScreenNotifier extends Notifier<InputScreenState> {
   }
 
   Future<void> pickAttendanceFiles() async {
-    final result = await FilePicker.pickFiles(
-      allowMultiple: true,
-      type: FileType.custom,
-      allowedExtensions: ['xlsx', 'xls'],
-    );
-    if (result == null) return;
+    try {
+      final result = await FilePicker.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: ['xlsx', 'xls'],
+      );
+      if (result == null) return;
 
-    final paths = result.files.map((f) => f.path!).toList();
-    final names = result.files.map((f) => f.name).toList();
+      final paths = result.files.map((f) => f.path!).toList();
+      final names = result.files.map((f) => f.name).toList();
 
-    final headers = await _headersRepo.getHeadersForFileType('attendance');
-    final parsed = await _service.parseAttendanceFiles(paths, headers);
+      final headers = await _headersRepo.getHeadersForFileType('attendance');
+      final parsed = await _service.parseAttendanceFiles(paths, headers);
 
-    switch (parsed) {
-      case FileParseSuccess(:final data):
-        state = state.copyWith(
-          attendanceState: FileCardValid(names),
-          attendanceData: data,
-        );
-      case FileParseFailure(:final errorMessage):
-        state = state.copyWith(
-          attendanceState:
-              FileCardInvalid(fileNames: names, errorMessage: errorMessage),
-          attendanceData: [],
-        );
+      switch (parsed) {
+        case FileParseSuccess(:final data):
+          state = state.copyWith(
+            attendanceState: FileCardValid(names),
+            attendanceData: data,
+          );
+        case FileParseFailure(:final errorMessage):
+          state = state.copyWith(
+            attendanceState:
+                FileCardInvalid(fileNames: names, errorMessage: errorMessage),
+            attendanceData: [],
+          );
+      }
+    } catch (e) {
+      debugPrint('pickAttendanceFiles error: $e');
+      state = state.copyWith(
+        attendanceState: FileCardInvalid(
+          fileNames: [],
+          errorMessage: 'تعذّرت قراءة الملف، تأكد من أنه غير مفتوح في برنامج آخر',
+        ),
+        attendanceData: [],
+        unexpectedError: 'خطأ غير متوقع في ملف الحضور',
+      );
     }
   }
 
   Future<void> pickEmployeesFiles() async {
-    final result = await FilePicker.pickFiles(
-      allowMultiple: true,
-      type: FileType.custom,
-      allowedExtensions: ['xlsx', 'xls'],
-    );
-    if (result == null) return;
+    try {
+      final result = await FilePicker.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: ['xlsx', 'xls'],
+      );
+      if (result == null) return;
 
-    final paths = result.files.map((f) => f.path!).toList();
-    final names = result.files.map((f) => f.name).toList();
+      final paths = result.files.map((f) => f.path!).toList();
+      final names = result.files.map((f) => f.name).toList();
 
-    final headers = await _headersRepo.getHeadersForFileType('employees');
-    final parsed = await _service.parseEmployeesFiles(paths, headers);
+      final headers = await _headersRepo.getHeadersForFileType('employees');
+      final parsed = await _service.parseEmployeesFiles(paths, headers);
 
-    switch (parsed) {
-      case FileParseSuccess(:final data):
-        state = state.copyWith(
-          employeesState: FileCardValid(names),
-          employeesData: data,
-        );
-      case FileParseFailure(:final errorMessage):
-        state = state.copyWith(
-          employeesState:
-              FileCardInvalid(fileNames: names, errorMessage: errorMessage),
-          employeesData: [],
-        );
+      switch (parsed) {
+        case FileParseSuccess(:final data):
+          state = state.copyWith(
+            employeesState: FileCardValid(names),
+            employeesData: data,
+          );
+        case FileParseFailure(:final errorMessage):
+          state = state.copyWith(
+            employeesState:
+                FileCardInvalid(fileNames: names, errorMessage: errorMessage),
+            employeesData: [],
+          );
+      }
+    } catch (e) {
+      debugPrint('pickEmployeesFiles error: $e');
+      state = state.copyWith(
+        employeesState: FileCardInvalid(
+          fileNames: [],
+          errorMessage: 'تعذّرت قراءة الملف، تأكد من أنه غير مفتوح في برنامج آخر',
+        ),
+        employeesData: [],
+        unexpectedError: 'خطأ غير متوقع في ملف الموظفين',
+      );
     }
   }
 
   Future<void> pickHolidaysFile() async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['xlsx', 'xls'],
-    );
-    if (result == null) return;
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['xlsx', 'xls'],
+      );
+      if (result == null) return;
 
-    final path = result.files.single.path!;
-    final name = result.files.single.name;
+      final path = result.files.single.path!;
+      final name = result.files.single.name;
 
-    final headers = await _headersRepo.getHeadersForFileType('holidays');
-    final parsed = await _service.parseHolidaysFile(path, headers);
+      final headers = await _headersRepo.getHeadersForFileType('holidays');
+      final parsed = await _service.parseHolidaysFile(path, headers);
 
-    switch (parsed) {
-      case FileParseSuccess(:final data):
-        state = state.copyWith(
-          holidaysState: FileCardValid([name]),
-          holidaysData: data,
-        );
-      case FileParseFailure(:final errorMessage):
-        state = state.copyWith(
-          holidaysState:
-              FileCardInvalid(fileNames: [name], errorMessage: errorMessage),
-          holidaysData: [],
-        );
+      switch (parsed) {
+        case FileParseSuccess(:final data):
+          state = state.copyWith(
+            holidaysState: FileCardValid([name]),
+            holidaysData: data,
+          );
+        case FileParseFailure(:final errorMessage):
+          state = state.copyWith(
+            holidaysState:
+                FileCardInvalid(fileNames: [name], errorMessage: errorMessage),
+            holidaysData: [],
+          );
+      }
+    } catch (e) {
+      debugPrint('pickHolidaysFile error: $e');
+      state = state.copyWith(
+        holidaysState: FileCardInvalid(
+          fileNames: [],
+          errorMessage: 'تعذّرت قراءة الملف، تأكد من أنه غير مفتوح في برنامج آخر',
+        ),
+        holidaysData: [],
+        unexpectedError: 'خطأ غير متوقع في ملف العطل',
+      );
     }
   }
 
   void setStartDate(DateTime date) => state = state.copyWith(startDate: date);
 
   void setEndDate(DateTime date) => state = state.copyWith(endDate: date);
+
+  void clearError() => state = state.copyWith(clearUnexpectedError: true);
 
   void reset() => state = InputScreenState.initial();
 }

@@ -20,6 +20,11 @@ class _OvertimeApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    const seedColor = Color(0xFF00796B); // teal 700
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: seedColor,
+      brightness: Brightness.light,
+    );
     return MaterialApp.router(
       title: 'الإضافي',
       routerConfig: router,
@@ -30,6 +35,40 @@ class _OvertimeApp extends ConsumerWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
+      theme: ThemeData(
+        colorScheme: colorScheme,
+        useMaterial3: true,
+        appBarTheme: AppBarTheme(
+          backgroundColor: colorScheme.primary,
+          foregroundColor: colorScheme.onPrimary,
+          elevation: 0,
+          centerTitle: false,
+        ),
+        cardTheme: CardThemeData(
+          elevation: 1,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: colorScheme.primary,
+            foregroundColor: colorScheme.onPrimary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: colorScheme.primary,
+            side: BorderSide(color: colorScheme.primary.withValues(alpha: 0.5)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
