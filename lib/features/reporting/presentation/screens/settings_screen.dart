@@ -23,22 +23,40 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-class _SettingsBody extends ConsumerWidget {
+class _SettingsBody extends ConsumerStatefulWidget {
   final SettingsState settings;
   const _SettingsBody({required this.settings});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final notifier = ref.read(settingsProvider.notifier);
+  ConsumerState<_SettingsBody> createState() => _SettingsBodyState();
+}
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+class _SettingsBodyState extends ConsumerState<_SettingsBody> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final notifier = ref.read(settingsProvider.notifier);
+    final settings = widget.settings;
+
+    return Scrollbar(
+      controller: _scrollController,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _scrollController,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
               // ── Daily Employee Settings ───────────────────────────────────
               _SectionHeader(title: 'إعدادات موظف الدوام الصباحي'),
               _TimeRow(
@@ -149,6 +167,7 @@ class _SettingsBody extends ConsumerWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }
