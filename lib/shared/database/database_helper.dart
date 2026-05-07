@@ -138,7 +138,7 @@ class DatabaseHelper {
       'daily_start_time': '09:00',
       'daily_work_duration': '8',
       'daily_max_overtime': '3',
-      'shift_start_times': '["08:00"]',
+      'shift_start_times': '["08:00","11:00"]',
       'shift_duration': '24',
       'shift_zone_interval': '6',
       'shift_start_end_tolerance': '30',
@@ -158,6 +158,12 @@ class DatabaseHelper {
     }
 
     await batch.commit(noResult: true);
+
+    // Migrate shift_start_times from single-entry to dual-entry default.
+    await db.execute(
+      "UPDATE app_settings SET value = ? WHERE key = 'shift_start_times' AND value = ?",
+      ['["08:00","11:00"]', '["08:00"]'],
+    );
 
     // column_headers defaults — only seed when the table is empty so that
     // onOpen does not duplicate rows on subsequent launches.

@@ -9,6 +9,7 @@ import '../../../../shared/domain/attendance_record.dart';
 import '../../../../shared/domain/employee.dart';
 import '../../../../shared/domain/holiday.dart';
 import '../../application/file_processing_service.dart';
+import '../../../reporting/presentation/providers/column_headers_providers.dart';
 
 // ── File card state ───────────────────────────────────────────────────────────
 
@@ -136,6 +137,21 @@ class InputScreenNotifier extends Notifier<InputScreenState> {
     _headersRepo = ColumnHeadersRepository(DatabaseHelper.instance);
     _settingsRepo = SettingsRepository(DatabaseHelper.instance);
     Future.microtask(_loadMaxDateRange);
+
+    // Reset file cards whenever column headers are changed in Settings.
+    ref.listen<int>(headersVersionProvider, (prev, next) {
+      if (prev != null && next != prev) {
+        state = state.copyWith(
+          attendanceState: const FileCardEmpty(),
+          attendanceData: [],
+          employeesState: const FileCardEmpty(),
+          employeesData: [],
+          holidaysState: const FileCardEmpty(),
+          holidaysData: [],
+        );
+      }
+    });
+
     return InputScreenState.initial();
   }
 
