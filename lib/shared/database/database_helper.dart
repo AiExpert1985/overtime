@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -6,6 +7,9 @@ class DatabaseHelper {
   static Database? _database;
 
   DatabaseHelper._();
+
+  @visibleForTesting
+  static void injectDatabase(Database db) => _database = db;
 
   Future<Database> get database async {
     _database ??= await _open();

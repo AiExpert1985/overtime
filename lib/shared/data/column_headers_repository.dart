@@ -59,13 +59,24 @@ class ColumnHeadersRepository {
     return result;
   }
 
-  Future<bool> headerValueExists(String fileType, String fieldKey, String value) async {
+  Future<bool> headerValueExists(
+    String fileType,
+    String fieldKey,
+    String value, {
+    int? excludeId,
+  }) async {
     final db = await _db.database;
+    final where = excludeId != null
+        ? 'file_type = ? AND field_key = ? AND header_value = ? AND id != ?'
+        : 'file_type = ? AND field_key = ? AND header_value = ?';
+    final args = excludeId != null
+        ? [fileType, fieldKey, value, excludeId]
+        : [fileType, fieldKey, value];
     final rows = await db.query(
       'column_headers',
       columns: ['id'],
-      where: 'file_type = ? AND field_key = ? AND header_value = ?',
-      whereArgs: [fileType, fieldKey, value],
+      where: where,
+      whereArgs: args,
       limit: 1,
     );
     return rows.isNotEmpty;

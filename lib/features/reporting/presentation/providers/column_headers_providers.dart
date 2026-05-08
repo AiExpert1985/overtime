@@ -38,7 +38,7 @@ class ColumnHeadersNotifier
   Future<String?> updateHeader(int id, String fileType, String fieldKey, String newValue) async {
     final trimmed = newValue.trim();
     if (trimmed.isEmpty) return 'القيمة لا يمكن أن تكون فارغة';
-    final exists = await _repo.headerValueExists(fileType, fieldKey, trimmed);
+    final exists = await _repo.headerValueExists(fileType, fieldKey, trimmed, excludeId: id);
     if (exists) return 'هذه القيمة موجودة بالفعل';
 
     await _repo.updateHeader(id, trimmed);
