@@ -37,3 +37,11 @@
 **Task:** Wired the Generate button to run the full report generation pipeline (Stages 2–6). Dictionary build, period extraction, and overtime calculation are pure functions in the reporting application layer. A generation service orchestrates the pipeline and persists results to the database in a single transaction. Generation state is managed by a dedicated notifier that the Input screen observes — handling the loading indicator, unmatched-employee review dialog (continue / abort / export names to Excel), error snackbar, and post-success navigation. On success the app navigates directly to the new report and refreshes the reports list. All three stub screens (Reports List, Report, Detail) are fully implemented and load exclusively from the database. The reports list refreshes via a version counter incremented after generation and after delete. Rounding is display-only; raw minutes are always stored.
 
 **Rejected:** Excel export button on the Report screen — deferred to next task.
+
+---
+
+## 20260509-1200 | Excel Export from Report Screen | TASK
+
+**Task:** Implemented the Excel export button on the Report screen. A new application-layer service builds a two-sheet `.xlsx` saved to Downloads: Sheet 1 mirrors the Report screen (summary header + daily table + shift table); Sheet 2 mirrors the Detail screen (one section per matched employee, daily then shift, alphabetical, with header info and period rows). An auto-dispose notifier manages export state. The Report screen listens for success/error and shows snackbars; the action bar with loading-aware button sits between the report header and the tab bar. Rounding logic is duplicated in the service to respect the no-upward-import rule.
+
+**Rejected:** Including unmatched employees in Sheet 2 — no detail view exists for them, so they are omitted.

@@ -38,6 +38,24 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
   Widget build(BuildContext context) {
     final reportAsync = ref.watch(reportProvider(widget.reportId));
     final settingsAsync = ref.watch(settingsProvider);
+    final exportState = ref.watch(reportExportProvider);
+
+    ref.listen<ReportExportState>(reportExportProvider, (_, next) {
+      if (next.successPath != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تم الحفظ في: ${next.successPath}')),
+        );
+        ref.read(reportExportProvider.notifier).clearResult();
+      } else if (next.errorMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.errorMessage!),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+        ref.read(reportExportProvider.notifier).clearResult();
+      }
+    });
 
     return reportAsync.when(
       loading: () => Scaffold(
@@ -59,13 +77,20 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
             body: const Center(child: Text('التقرير غير موجود')),
           );
         }
-        final roundingMode =
-            settingsAsync.value?.roundingMode ?? 'none';
+        final settings = settingsAsync.value;
+        final roundingMode = settings?.roundingMode ?? 'none';
         return _ReportBody(
           report: report,
           tabController: _tabController,
           roundingMode: roundingMode,
           reportId: widget.reportId,
+          isExporting: exportState.isExporting,
+          onExport: settings == null
+              ? null
+              : () => ref.read(reportExportProvider.notifier).export(
+                    report: report,
+                    settings: settings,
+                  ),
         );
       },
     );
@@ -77,12 +102,16 @@ class _ReportBody extends StatelessWidget {
   final TabController tabController;
   final String roundingMode;
   final int reportId;
+  final bool isExporting;
+  final VoidCallback? onExport;
 
   const _ReportBody({
     required this.report,
     required this.tabController,
     required this.roundingMode,
     required this.reportId,
+    required this.isExporting,
+    this.onExport,
   });
 
   @override
@@ -108,6 +137,7 @@ class _ReportBody extends StatelessWidget {
             summary: summary,
             roundingMode: roundingMode,
           ),
+          _ActionBar(isExporting: isExporting, onExport: onExport),
           Expanded(
             child: TabBarView(
               controller: tabController,
@@ -123,6 +153,38 @@ class _ReportBody extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Action Bar ────────────────────────────────────────────────────────────────
+
+class _ActionBar extends StatelessWidget {
+  final bool isExporting;
+  final VoidCallback? onExport;
+
+  const _ActionBar({required this.isExporting, this.onExport});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          FilledButton.icon(
+            onPressed: isExporting ? null : onExport,
+            icon: isExporting
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.download),
+            label: Text(isExporting ? 'جارٍ التصدير...' : 'تصدير Excel'),
           ),
         ],
       ),
