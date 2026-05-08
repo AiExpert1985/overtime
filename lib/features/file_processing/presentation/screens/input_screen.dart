@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../reporting/presentation/providers/report_generation_providers.dart';
+import '../../../reporting/presentation/providers/report_providers.dart';
 import '../providers/input_screen_providers.dart';
 
 class InputScreen extends ConsumerWidget {
@@ -11,6 +14,8 @@ class InputScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(inputScreenProvider);
     final notifier = ref.read(inputScreenProvider.notifier);
+    final genState = ref.watch(generationProvider);
+    final isLoading = genState is GenerationLoading;
 
     ref.listen<InputScreenState>(inputScreenProvider, (prev, next) {
       if (next.unexpectedError != null &&
@@ -24,6 +29,31 @@ class InputScreen extends ConsumerWidget {
           ),
         );
         notifier.clearError();
+      }
+    });
+
+    ref.listen<GenerationState>(generationProvider, (prev, next) {
+      switch (next) {
+        case GenerationUnmatchedReview(:final unmatchedNames):
+          _showUnmatchedDialog(context, ref, unmatchedNames);
+        case GenerationSuccess(:final reportId):
+          ref.read(reportsVersionProvider.notifier).increment();
+          notifier.reset();
+          ref.read(generationProvider.notifier).reset();
+          context.goNamed('report',
+              pathParameters: {'reportId': reportId.toString()});
+        case GenerationError(:final message):
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(message),
+              backgroundColor: Theme.of(context).colorScheme.error,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+          ref.read(generationProvider.notifier).reset();
+        default:
+          break;
       }
     });
 
@@ -42,22 +72,148 @@ class InputScreen extends ConsumerWidget {
               child: SizedBox(
                 width: 260,
                 child: FilledButton(
-                  onPressed: state.canGenerate
-                      ? () => debugPrint('توليد التقرير — غير منفَّذ بعد')
+                  onPressed: (state.canGenerate && !isLoading)
+                      ? () => ref.read(generationProvider.notifier).generate(
+                            attendance: state.attendanceData,
+                            employees: state.employeesData,
+                            holidays: state.holidaysData,
+                            startDate: state.startDate!,
+                            endDate: state.endDate!,
+                          )
                       : null,
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: const Text(
-                    'توليد التقرير',
-                    style: TextStyle(fontSize: 16),
-                  ),
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'توليد التقرير',
+                          style: TextStyle(fontSize: 16),
+                        ),
                 ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  void _showUnmatchedDialog(
+    BuildContext context,
+    WidgetRef ref,
+    List<String> names,
+  ) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _UnmatchedDialog(names: names, ref: ref),
+    );
+  }
+}
+
+// ── Unmatched Dialog ──────────────────────────────────────────────────────────
+
+class _UnmatchedDialog extends ConsumerStatefulWidget {
+  final List<String> names;
+  final WidgetRef ref;
+
+  const _UnmatchedDialog({required this.names, required this.ref});
+
+  @override
+  ConsumerState<_UnmatchedDialog> createState() => _UnmatchedDialogState();
+}
+
+class _UnmatchedDialogState extends ConsumerState<_UnmatchedDialog> {
+  bool _exporting = false;
+  String? _exportMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AlertDialog(
+      title: const Text('موظفون غير موجودون في ملف الحضور'),
+      content: SizedBox(
+        width: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'لم يتم العثور على سجلات حضور للموظفين التاليين:',
+              style: theme.textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 200),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: widget.names.length,
+                itemBuilder: (_, i) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Text('• ${widget.names[i]}',
+                      style: theme.textTheme.bodySmall),
+                ),
+              ),
+            ),
+            if (_exportMessage != null) ...[
+              const SizedBox(height: 8),
+              Text(_exportMessage!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                  )),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _exporting
+              ? null
+              : () async {
+                  setState(() => _exporting = true);
+                  final path = await ref
+                      .read(generationProvider.notifier)
+                      .exportUnmatchedNames(widget.names);
+                  if (mounted) {
+                    setState(() {
+                      _exporting = false;
+                      _exportMessage = path != null
+                          ? 'تم التصدير: $path'
+                          : 'تعذّر التصدير';
+                    });
+                  }
+                },
+          child: _exporting
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('تصدير الأسماء'),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            ref.read(generationProvider.notifier).abort();
+          },
+          child: const Text('إلغاء'),
+        ),
+        FilledButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            ref.read(generationProvider.notifier).continueWithUnmatched();
+          },
+          child: const Text('متابعة'),
+        ),
+      ],
     );
   }
 }
