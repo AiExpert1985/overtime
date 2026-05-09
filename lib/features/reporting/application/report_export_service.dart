@@ -15,7 +15,7 @@ class ReportExportService {
     required int ceilingHours,
   }) async {
     final excel = Excel.createExcel();
-    excel.delete('Sheet1');
+    excel.rename('Sheet1', 'ملخص التقرير');
 
     _buildSummarySheet(excel, report, roundingMode);
     _buildDetailSheet(excel, report, roundingMode, baselineHours, ceilingHours);
@@ -162,7 +162,7 @@ class ReportExportService {
     bool firstSection = true;
 
     for (final r in matchedDaily) {
-      if (!firstSection) sheet.appendRow([]);
+      if (!firstSection) sheet.appendRow([TextCellValue('')]);
       firstSection = false;
 
       final total =
@@ -224,7 +224,7 @@ class ReportExportService {
     }
 
     for (final r in matchedShift) {
-      if (!firstSection) sheet.appendRow([]);
+      if (!firstSection) sheet.appendRow([TextCellValue('')]);
       firstSection = false;
 
       final totalActualMinutes =
