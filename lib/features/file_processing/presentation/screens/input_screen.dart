@@ -230,9 +230,8 @@ class _FileCardsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Occupy ~60% of available width, clamped between 540 and 900px.
         final rowWidth = (constraints.maxWidth * 0.6).clamp(540.0, 900.0);
-        final cardWidth = (rowWidth - 24) / 3; // 24 = 2 gaps of 12px
+        final cardWidth = (rowWidth - 24) / 3;
 
         return Center(
           child: SizedBox(
@@ -250,9 +249,9 @@ class _FileCardsRow extends StatelessWidget {
                         '• اسم الموظف\n'
                         '• التاريخ والوقت\n\n'
                         'يمكن تقديم أكثر من ملف، وكل ملف يمكن أن يحتوي على أكثر من ورقة عمل.',
-                    cardState: state.attendanceState,
-                    isMultiFile: true,
-                    onPick: notifier.pickAttendanceFiles,
+                    entries: state.attendanceViews,
+                    cardType: FileCardType.attendance,
+                    onAddFiles: notifier.addAttendanceFiles,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -267,9 +266,9 @@ class _FileCardsRow extends StatelessWidget {
                         '• نوع التوظيف (مناوب أو صباحي)\n'
                         '• القسم\n\n'
                         'يمكن تقديم أكثر من ملف.',
-                    cardState: state.employeesState,
-                    isMultiFile: true,
-                    onPick: notifier.pickEmployeesFiles,
+                    entries: state.employeesViews,
+                    cardType: FileCardType.employees,
+                    onAddFiles: notifier.addEmployeesFiles,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -281,10 +280,11 @@ class _FileCardsRow extends StatelessWidget {
                     infoBody:
                         'ملف Excel يحتوي على عمودين:\n\n'
                         '• التاريخ\n'
-                        '• مناسبة العطلة',
-                    cardState: state.holidaysState,
-                    isMultiFile: false,
-                    onPick: notifier.pickHolidaysFile,
+                        '• مناسبة العطلة\n\n'
+                        'يمكن تقديم أكثر من ملف.',
+                    entries: state.holidaysViews,
+                    cardType: FileCardType.holidays,
+                    onAddFiles: notifier.addHolidaysFiles,
                   ),
                 ),
               ],
@@ -302,40 +302,46 @@ class _FilePickerCard extends StatelessWidget {
   final String label;
   final String infoTitle;
   final String infoBody;
-  final FileCardState cardState;
-  final bool isMultiFile;
-  final VoidCallback onPick;
+  final List<FileEntryView> entries;
+  final FileCardType cardType;
+  final VoidCallback onAddFiles;
 
   const _FilePickerCard({
     required this.label,
     required this.infoTitle,
     required this.infoBody,
-    required this.cardState,
-    required this.isMultiFile,
-    required this.onPick,
+    required this.entries,
+    required this.cardType,
+    required this.onAddFiles,
   });
+
+  bool get _isEmpty => entries.isEmpty;
+  bool get _allValid => entries.isNotEmpty && entries.every((e) => e.isValid);
+  int get _invalidCount => entries.where((e) => !e.isValid).length;
+
+  Color? _cardColor(ThemeData theme) {
+    if (_isEmpty) return null;
+    if (_allValid) return Colors.green.shade50;
+    return theme.colorScheme.errorContainer.withValues(alpha: 0.25);
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final cardColor = switch (cardState) {
-      FileCardValid() => Colors.green.shade50,
-      FileCardInvalid() => theme.colorScheme.errorContainer.withValues(alpha: 0.25),
-      FileCardEmpty() => null,
-    };
 
     return Card(
       elevation: 1,
-      color: cardColor,
+      color: _cardColor(theme),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 10, 8, 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Header row: label/status + info button
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(child: _buildStatus(theme)),
+                Expanded(child: _buildHeader(context, theme)),
                 IconButton(
                   icon: const Icon(Icons.info_outline, size: 20),
                   tooltip: 'معلومات',
@@ -346,23 +352,57 @@ class _FilePickerCard extends StatelessWidget {
                 ),
               ],
             ),
-            if (cardState is FileCardInvalid) ...[
+            // Clickable file count row (shown when files exist)
+            if (!_isEmpty) ...[
               const SizedBox(height: 6),
-              Text(
-                (cardState as FileCardInvalid).errorMessage,
-                style: TextStyle(
-                  color: theme.colorScheme.error,
-                  fontSize: 12,
+              InkWell(
+                onTap: () => _showFileList(context),
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _allValid
+                            ? Icons.check_circle
+                            : Icons.error_outline,
+                        size: 15,
+                        color: _allValid
+                            ? Colors.green.shade700
+                            : theme.colorScheme.error,
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          _statusLabel,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: _allValid
+                                ? Colors.green.shade700
+                                : theme.colorScheme.error,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_left,
+                        size: 16,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
                 ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
               ),
             ],
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             OutlinedButton.icon(
-              onPressed: onPick,
+              onPressed: onAddFiles,
               icon: const Icon(Icons.upload_file, size: 18),
-              label: Text(_buttonLabel, overflow: TextOverflow.ellipsis),
+              label: Text(
+                _isEmpty ? 'اختر ملفات' : 'إضافة ملفات',
+                overflow: TextOverflow.ellipsis,
+              ),
               style: OutlinedButton.styleFrom(
                 padding:
                     const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
@@ -374,98 +414,37 @@ class _FilePickerCard extends StatelessWidget {
     );
   }
 
-  Widget _buildStatus(ThemeData theme) {
-    return switch (cardState) {
-      FileCardEmpty() => Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Text(
-            label,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w500,
-            ),
+  Widget _buildHeader(BuildContext context, ThemeData theme) {
+    if (_isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Text(
+          label,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w500,
           ),
         ),
-      FileCardValid(:final fileNames) => Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.check_circle,
-                      color: Colors.green.shade700, size: 16),
-                  const SizedBox(width: 6),
-                  Text(
-                    label,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 3),
-              Text(
-                _validLabel(fileNames),
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(fontWeight: FontWeight.w500),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
-              ),
-            ],
-          ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Text(
+        label,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
         ),
-      FileCardInvalid(:final fileNames) => Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Row(
-            children: [
-              Icon(Icons.error_outline,
-                  color: theme.colorScheme.error, size: 16),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (fileNames.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        _invalidLabel(fileNames),
-                        style: theme.textTheme.bodyMedium,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-    };
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
   }
 
-  String get _buttonLabel => switch (cardState) {
-        FileCardEmpty() => isMultiFile ? 'اختر ملفات' : 'اختر ملفاً',
-        FileCardValid() => isMultiFile ? 'تغيير الملفات' : 'تغيير الملف',
-        FileCardInvalid() =>
-          isMultiFile ? 'اختر ملفات أخرى' : 'اختر ملفاً آخر',
-      };
-
-  String _validLabel(List<String> names) {
-    if (names.length == 1) return names.first;
-    return '${names.length} ملفات';
-  }
-
-  String _invalidLabel(List<String> names) {
-    if (names.length == 1) return names.first;
-    return '${names.length} ملفات';
+  String get _statusLabel {
+    final count = entries.length;
+    final countLabel = count == 1 ? 'ملف واحد' : '$count ملفات';
+    if (_allValid) return '$countLabel • صالحة';
+    if (_invalidCount == count) return '$countLabel • غير صالحة';
+    return '$countLabel • $_invalidCount غير صالح';
   }
 
   void _showInfo(BuildContext context) {
@@ -479,6 +458,211 @@ class _FilePickerCard extends StatelessWidget {
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('إغلاق'),
           ),
+        ],
+      ),
+    );
+  }
+
+  void _showFileList(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => _FileListDialog(
+        title: label,
+        cardType: cardType,
+      ),
+    );
+  }
+}
+
+// ── File List Dialog ──────────────────────────────────────────────────────────
+
+class _FileListDialog extends ConsumerWidget {
+  final String title;
+  final FileCardType cardType;
+
+  const _FileListDialog({required this.title, required this.cardType});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(inputScreenProvider);
+    final notifier = ref.read(inputScreenProvider.notifier);
+
+    final entries = switch (cardType) {
+      FileCardType.attendance => state.attendanceViews,
+      FileCardType.employees => state.employeesViews,
+      FileCardType.holidays => state.holidaysViews,
+    };
+
+    void removeAt(int index) {
+      switch (cardType) {
+        case FileCardType.attendance:
+          notifier.removeAttendanceFile(index);
+        case FileCardType.employees:
+          notifier.removeEmployeesFile(index);
+        case FileCardType.holidays:
+          notifier.removeHolidaysFile(index);
+      }
+    }
+
+    // Auto-close when all files are removed
+    if (entries.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) Navigator.of(context).pop();
+      });
+    }
+
+    final theme = Theme.of(context);
+
+    return AlertDialog(
+      title: Text(title),
+      contentPadding: const EdgeInsets.fromLTRB(0, 16, 0, 0),
+      content: SizedBox(
+        width: 460,
+        child: entries.isEmpty
+            ? const SizedBox(height: 48)
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Column headers
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'اسم الملف',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          'الحالة',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(width: 40),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 12),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 300),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: entries.length,
+                      separatorBuilder: (_, _) =>
+                          const Divider(height: 1, indent: 20, endIndent: 20),
+                      itemBuilder: (ctx, i) {
+                        final entry = entries[i];
+                        return _FileRow(
+                          entry: entry,
+                          onRemove: () => removeAt(i),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('إغلاق'),
+        ),
+      ],
+    );
+  }
+}
+
+// ── File Row (inside dialog) ──────────────────────────────────────────────────
+
+class _FileRow extends StatelessWidget {
+  final FileEntryView entry;
+  final VoidCallback onRemove;
+
+  const _FileRow({required this.entry, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  entry.name,
+                  style: theme.textTheme.bodySmall,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: entry.isValid
+                      ? Colors.green.shade50
+                      : theme.colorScheme.errorContainer.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      entry.isValid
+                          ? Icons.check_circle_outline
+                          : Icons.error_outline,
+                      size: 13,
+                      color: entry.isValid
+                          ? Colors.green.shade700
+                          : theme.colorScheme.error,
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      entry.isValid ? 'صالح' : 'غير صالح',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: entry.isValid
+                            ? Colors.green.shade700
+                            : theme.colorScheme.error,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                color: Colors.red.shade400,
+                tooltip: 'حذف',
+                padding: const EdgeInsets.all(4),
+                constraints:
+                    const BoxConstraints(minWidth: 32, minHeight: 32),
+                onPressed: onRemove,
+              ),
+            ],
+          ),
+          if (entry.errorMessage != null) ...[
+            const SizedBox(height: 3),
+            Padding(
+              padding: const EdgeInsets.only(left: 0, right: 40),
+              child: Text(
+                entry.errorMessage!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                  fontSize: 11,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ],
       ),
     );

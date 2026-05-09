@@ -45,3 +45,11 @@
 **Task:** Implemented the Excel export button on the Report screen. A new application-layer service builds a two-sheet `.xlsx` saved to Downloads: Sheet 1 mirrors the Report screen (summary header + daily table + shift table); Sheet 2 mirrors the Detail screen (one section per matched employee, daily then shift, alphabetical, with header info and period rows). An auto-dispose notifier manages export state. The Report screen listens for success/error and shows snackbars; the action bar with loading-aware button sits between the report header and the tab bar. Rounding logic is duplicated in the service to respect the no-upward-import rule.
 
 **Rejected:** Including unmatched employees in Sheet 2 — no detail view exists for them, so they are omitted.
+
+---
+
+## 20260509-1500 | Name Matching Fix + Additive Multi-File Upload | TASK
+
+**Task:** Fixed two issues. (1) Name mismatch bug: Excel embeds invisible Unicode characters (RTL/LTR marks, zero-width spaces, BOM, directional embeddings, non-breaking spaces) in Arabic text cells that standard trim() does not remove, causing names that look identical to fail the exact-string dictionary lookup. The fix strips these characters from all cell values and column headers at parse time. (2) All three file cards (attendance, employees, holidays) now support incremental additive uploads: each pick appends new files to the existing list rather than replacing it; duplicate paths are silently skipped. Each file is parsed individually and carries its own valid/invalid status. The card displays a count + validity summary line that opens a list dialog showing each file's name, status chip, and a delete button; the dialog auto-closes when the last file is removed. The holidays card was upgraded from single-file-only to multi-file, matching the other two cards. Card validity requires all entries to be valid; the generate button remains disabled while any file is invalid.
+
+**Rejected:** "Replace all" button in the valid state — removed entirely; users delete unwanted files via the dialog instead.

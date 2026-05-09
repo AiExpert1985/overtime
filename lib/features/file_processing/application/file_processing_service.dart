@@ -21,42 +21,68 @@ class FileParseFailure<T> extends FileParseResult<T> {
 }
 
 class FileProcessingService {
-  static const _shiftType = 'مناوب';
-  static const _dailyType = 'صباحي';
+  static const _shiftType = 'مناوب'; // مناوب
+  static const _dailyType = 'صباحي'; // صباحي
+
+  // Strips invisible Unicode chars that Excel embeds in Arabic text cells.
+  // Standard trim() does not remove RTL/LTR marks, zero-width spaces, BOM, etc.
+  static final _invisiblePattern = RegExp(
+    '[\u{00A0}\u{200B}\u{200C}\u{200D}\u{200E}\u{200F}\u{202A}\u{202B}\u{202C}\u{202D}\u{202E}\u{2060}\u{FEFF}]',
+  );
 
   // columnHeaders: { fieldKey: [acceptedHeaderValues] }
+
+  // ── Multi-file entry points (used by tests and legacy callers) ─────────────
 
   Future<FileParseResult<List<AttendanceRecord>>> parseAttendanceFiles(
     List<String> paths,
     Map<String, List<String>> columnHeaders,
   ) async {
-    final Map<String, List<DateTime>> grouped = {};
+    final List<(String, DateTime)> allPairs = [];
 
     for (final path in paths) {
-      final result = await _parseAttendanceFile(path, columnHeaders);
+      final result = await parseAttendanceSingle(path, columnHeaders);
       switch (result) {
         case FileParseFailure(:final errorMessage):
           return FileParseFailure(errorMessage);
         case FileParseSuccess(:final data):
-          for (final row in data) {
-            grouped.putIfAbsent(row.$1, () => []).add(row.$2);
-          }
+          allPairs.addAll(data);
       }
     }
 
-    if (grouped.isEmpty) {
+    if (allPairs.isEmpty) {
       return const FileParseFailure('الملف لا يحتوي على صفوف صالحة');
     }
-
-    final records = grouped.entries.map((e) {
-      final sorted = List<DateTime>.from(e.value)..sort();
-      return AttendanceRecord(employeeName: e.key, fingerprints: sorted);
-    }).toList();
-
-    return FileParseSuccess(records);
+    return FileParseSuccess(combineAttendanceData(allPairs));
   }
 
-  Future<FileParseResult<List<(String, DateTime)>>> _parseAttendanceFile(
+  Future<FileParseResult<List<Employee>>> parseEmployeesFiles(
+    List<String> paths,
+    Map<String, List<String>> columnHeaders,
+  ) async {
+    final List<Employee> employees = [];
+
+    for (final path in paths) {
+      final result = await parseEmployeesSingle(path, columnHeaders);
+      switch (result) {
+        case FileParseFailure(:final errorMessage):
+          return FileParseFailure(errorMessage);
+        case FileParseSuccess(:final data):
+          employees.addAll(data);
+      }
+    }
+
+    if (employees.isEmpty) {
+      return const FileParseFailure('الملف لا يحتوي على صفوف صالحة');
+    }
+    return FileParseSuccess(employees);
+  }
+
+  // ── Per-file parsers (public — used by notifier for per-file status) ───────
+
+  /// Parses one attendance file and returns raw (name, datetime) pairs.
+  /// Callers combine the results with [combineAttendanceData].
+  Future<FileParseResult<List<(String, DateTime)>>> parseAttendanceSingle(
     String path,
     Map<String, List<String>> columnHeaders,
   ) async {
@@ -97,29 +123,8 @@ class FileProcessingService {
     return FileParseSuccess(rows);
   }
 
-  Future<FileParseResult<List<Employee>>> parseEmployeesFiles(
-    List<String> paths,
-    Map<String, List<String>> columnHeaders,
-  ) async {
-    final List<Employee> employees = [];
-
-    for (final path in paths) {
-      final result = await _parseEmployeesFile(path, columnHeaders);
-      switch (result) {
-        case FileParseFailure(:final errorMessage):
-          return FileParseFailure(errorMessage);
-        case FileParseSuccess(:final data):
-          employees.addAll(data);
-      }
-    }
-
-    if (employees.isEmpty) {
-      return const FileParseFailure('الملف لا يحتوي على صفوف صالحة');
-    }
-    return FileParseSuccess(employees);
-  }
-
-  Future<FileParseResult<List<Employee>>> _parseEmployeesFile(
+  /// Parses one employees file and returns the employee list.
+  Future<FileParseResult<List<Employee>>> parseEmployeesSingle(
     String path,
     Map<String, List<String>> columnHeaders,
   ) async {
@@ -175,6 +180,7 @@ class FileProcessingService {
     return FileParseSuccess(employees);
   }
 
+  /// Parses one holidays file and returns the holidays list.
   Future<FileParseResult<List<Holiday>>> parseHolidaysFile(
     String path,
     Map<String, List<String>> columnHeaders,
@@ -218,6 +224,23 @@ class FileProcessingService {
     return FileParseSuccess(holidays);
   }
 
+  // ── Combine helper ────────────────────────────────────────────────────────
+
+  /// Groups raw (name, datetime) pairs by employee name, sorts timestamps
+  /// ascending per employee, and returns AttendanceRecords.
+  static List<AttendanceRecord> combineAttendanceData(
+    List<(String, DateTime)> allPairs,
+  ) {
+    final grouped = <String, List<DateTime>>{};
+    for (final (name, dt) in allPairs) {
+      grouped.putIfAbsent(name, () => []).add(dt);
+    }
+    return grouped.entries.map((e) {
+      final sorted = List<DateTime>.from(e.value)..sort();
+      return AttendanceRecord(employeeName: e.key, fingerprints: sorted);
+    }).toList();
+  }
+
   // ── helpers ──────────────────────────────────────────────────────────────
 
   Future<Excel?> _openExcel(String path) async {
@@ -229,8 +252,10 @@ class FileProcessingService {
     }
   }
 
-  List<String> _headerRow(List<Data?> row) =>
-      row.map((c) => c?.value?.toString().trim() ?? '').toList();
+  List<String> _headerRow(List<Data?> row) => row.map((c) {
+        final raw = c?.value?.toString().trim() ?? '';
+        return raw.replaceAll(_invisiblePattern, '').trim();
+      }).toList();
 
   int? _findColumn(List<String> headers, List<String> acceptable) {
     for (int i = 0; i < headers.length; i++) {
@@ -239,10 +264,11 @@ class FileProcessingService {
     return null;
   }
 
-  // Returns trimmed non-empty string or null.
   String? _cellText(Data? cell) {
-    final text = cell?.value?.toString().trim();
-    return (text == null || text.isEmpty) ? null : text;
+    final raw = cell?.value?.toString().trim();
+    if (raw == null || raw.isEmpty) return null;
+    final cleaned = raw.replaceAll(_invisiblePattern, '').trim();
+    return cleaned.isEmpty ? null : cleaned;
   }
 
   EmploymentType? _parseEmploymentType(String value) {

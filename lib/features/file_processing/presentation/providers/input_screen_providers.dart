@@ -11,49 +11,78 @@ import '../../../../shared/domain/holiday.dart';
 import '../../application/file_processing_service.dart';
 import '../../../reporting/presentation/providers/column_headers_providers.dart';
 
-// ── File card state ───────────────────────────────────────────────────────────
+// ── Type alias ────────────────────────────────────────────────────────────────
 
-sealed class FileCardState {
-  const FileCardState();
+typedef AttendanceRawData = List<(String, DateTime)>;
+
+// ── FileEntry models ──────────────────────────────────────────────────────────
+
+sealed class FileEntry<T> {
+  final String path;
+  final String name;
+  const FileEntry({required this.path, required this.name});
+
+  FileEntryView toView() => FileEntryView(
+        name: name,
+        isValid: this is FileEntryValid<T>,
+        errorMessage: switch (this) {
+          FileEntryInvalid(:final errorMessage) => errorMessage,
+          _ => null,
+        },
+      );
 }
 
-class FileCardEmpty extends FileCardState {
-  const FileCardEmpty();
+class FileEntryValid<T> extends FileEntry<T> {
+  final T data;
+  const FileEntryValid({
+    required super.path,
+    required super.name,
+    required this.data,
+  });
 }
 
-class FileCardValid extends FileCardState {
-  final List<String> fileNames;
-  const FileCardValid(this.fileNames);
-}
-
-class FileCardInvalid extends FileCardState {
-  final List<String> fileNames;
+class FileEntryInvalid<T> extends FileEntry<T> {
   final String errorMessage;
-  const FileCardInvalid({required this.fileNames, required this.errorMessage});
+  const FileEntryInvalid({
+    required super.path,
+    required super.name,
+    required this.errorMessage,
+  });
 }
 
-// ── Screen state ─────────────────────────────────────────────────────────────
+// ── FileEntryView (UI-facing, type-erased) ────────────────────────────────────
+
+class FileEntryView {
+  final String name;
+  final bool isValid;
+  final String? errorMessage;
+  const FileEntryView({
+    required this.name,
+    required this.isValid,
+    this.errorMessage,
+  });
+}
+
+// ── Card type enum (used by dialog to know which list to watch) ───────────────
+
+enum FileCardType { attendance, employees, holidays }
+
+// ── Screen state ──────────────────────────────────────────────────────────────
 
 @immutable
 class InputScreenState {
-  final FileCardState attendanceState;
-  final List<AttendanceRecord> attendanceData;
-  final FileCardState employeesState;
-  final List<Employee> employeesData;
-  final FileCardState holidaysState;
-  final List<Holiday> holidaysData;
+  final List<FileEntry<AttendanceRawData>> attendanceFiles;
+  final List<FileEntry<List<Employee>>> employeesFiles;
+  final List<FileEntry<List<Holiday>>> holidaysFiles;
   final DateTime? startDate;
   final DateTime? endDate;
   final int maxDateRange;
   final String? unexpectedError;
 
   const InputScreenState({
-    required this.attendanceState,
-    required this.attendanceData,
-    required this.employeesState,
-    required this.employeesData,
-    required this.holidaysState,
-    required this.holidaysData,
+    required this.attendanceFiles,
+    required this.employeesFiles,
+    required this.holidaysFiles,
     required this.startDate,
     required this.endDate,
     required this.maxDateRange,
@@ -61,22 +90,64 @@ class InputScreenState {
   });
 
   factory InputScreenState.initial() => const InputScreenState(
-        attendanceState: FileCardEmpty(),
-        attendanceData: [],
-        employeesState: FileCardEmpty(),
-        employeesData: [],
-        holidaysState: FileCardEmpty(),
-        holidaysData: [],
+        attendanceFiles: [],
+        employeesFiles: [],
+        holidaysFiles: [],
         startDate: null,
         endDate: null,
         maxDateRange: 31,
         unexpectedError: null,
       );
 
+  // ── Computed: combined data passed to generation pipeline ─────────────────
+
+  List<AttendanceRecord> get attendanceData {
+    final allPairs = attendanceFiles
+        .whereType<FileEntryValid<AttendanceRawData>>()
+        .expand((e) => e.data)
+        .toList();
+    return FileProcessingService.combineAttendanceData(allPairs);
+  }
+
+  List<Employee> get employeesData => employeesFiles
+      .whereType<FileEntryValid<List<Employee>>>()
+      .expand((e) => e.data)
+      .toList();
+
+  List<Holiday> get holidaysData => holidaysFiles
+      .whereType<FileEntryValid<List<Holiday>>>()
+      .expand((e) => e.data)
+      .toList();
+
+  // ── Computed: UI view models ───────────────────────────────────────────────
+
+  List<FileEntryView> get attendanceViews =>
+      attendanceFiles.map((f) => f.toView()).toList();
+
+  List<FileEntryView> get employeesViews =>
+      employeesFiles.map((f) => f.toView()).toList();
+
+  List<FileEntryView> get holidaysViews =>
+      holidaysFiles.map((f) => f.toView()).toList();
+
+  // ── Generate readiness ────────────────────────────────────────────────────
+
+  bool get _attendanceReady =>
+      attendanceFiles.isNotEmpty &&
+      attendanceFiles.every((f) => f is FileEntryValid);
+
+  bool get _employeesReady =>
+      employeesFiles.isNotEmpty &&
+      employeesFiles.every((f) => f is FileEntryValid);
+
+  bool get _holidaysReady =>
+      holidaysFiles.isNotEmpty &&
+      holidaysFiles.every((f) => f is FileEntryValid);
+
   bool get canGenerate =>
-      attendanceState is FileCardValid &&
-      employeesState is FileCardValid &&
-      holidaysState is FileCardValid &&
+      _attendanceReady &&
+      _employeesReady &&
+      _holidaysReady &&
       startDate != null &&
       endDate != null &&
       dateRangeError == null;
@@ -94,12 +165,9 @@ class InputScreenState {
   }
 
   InputScreenState copyWith({
-    FileCardState? attendanceState,
-    List<AttendanceRecord>? attendanceData,
-    FileCardState? employeesState,
-    List<Employee>? employeesData,
-    FileCardState? holidaysState,
-    List<Holiday>? holidaysData,
+    List<FileEntry<AttendanceRawData>>? attendanceFiles,
+    List<FileEntry<List<Employee>>>? employeesFiles,
+    List<FileEntry<List<Holiday>>>? holidaysFiles,
     DateTime? startDate,
     DateTime? endDate,
     int? maxDateRange,
@@ -109,22 +177,20 @@ class InputScreenState {
     bool clearUnexpectedError = false,
   }) {
     return InputScreenState(
-      attendanceState: attendanceState ?? this.attendanceState,
-      attendanceData: attendanceData ?? this.attendanceData,
-      employeesState: employeesState ?? this.employeesState,
-      employeesData: employeesData ?? this.employeesData,
-      holidaysState: holidaysState ?? this.holidaysState,
-      holidaysData: holidaysData ?? this.holidaysData,
+      attendanceFiles: attendanceFiles ?? this.attendanceFiles,
+      employeesFiles: employeesFiles ?? this.employeesFiles,
+      holidaysFiles: holidaysFiles ?? this.holidaysFiles,
       startDate: clearStartDate ? null : (startDate ?? this.startDate),
       endDate: clearEndDate ? null : (endDate ?? this.endDate),
       maxDateRange: maxDateRange ?? this.maxDateRange,
-      unexpectedError:
-          clearUnexpectedError ? null : (unexpectedError ?? this.unexpectedError),
+      unexpectedError: clearUnexpectedError
+          ? null
+          : (unexpectedError ?? this.unexpectedError),
     );
   }
 }
 
-// ── Notifier ─────────────────────────────────────────────────────────────────
+// ── Notifier ──────────────────────────────────────────────────────────────────
 
 class InputScreenNotifier extends Notifier<InputScreenState> {
   late final FileProcessingService _service;
@@ -138,16 +204,13 @@ class InputScreenNotifier extends Notifier<InputScreenState> {
     _settingsRepo = SettingsRepository(DatabaseHelper.instance);
     Future.microtask(_loadMaxDateRange);
 
-    // Reset file cards whenever column headers are changed in Settings.
+    // Reset file lists whenever column headers change in Settings.
     ref.listen<int>(headersVersionProvider, (prev, next) {
       if (prev != null && next != prev) {
         state = state.copyWith(
-          attendanceState: const FileCardEmpty(),
-          attendanceData: [],
-          employeesState: const FileCardEmpty(),
-          employeesData: [],
-          holidaysState: const FileCardEmpty(),
-          holidaysData: [],
+          attendanceFiles: [],
+          employeesFiles: [],
+          holidaysFiles: [],
         );
       }
     });
@@ -161,7 +224,9 @@ class InputScreenNotifier extends Notifier<InputScreenState> {
     state = state.copyWith(maxDateRange: max);
   }
 
-  Future<void> pickAttendanceFiles() async {
+  // ── Add files ──────────────────────────────────────────────────────────────
+
+  Future<void> addAttendanceFiles() async {
     try {
       final result = await FilePicker.pickFiles(
         allowMultiple: true,
@@ -170,39 +235,38 @@ class InputScreenNotifier extends Notifier<InputScreenState> {
       );
       if (result == null) return;
 
-      final paths = result.files.map((f) => f.path!).toList();
-      final names = result.files.map((f) => f.name).toList();
+      final existingPaths = {
+        for (final f in state.attendanceFiles) f.path.toLowerCase(),
+      };
+      final headers =
+          await _headersRepo.getHeadersForFileType('attendance');
 
-      final headers = await _headersRepo.getHeadersForFileType('attendance');
-      final parsed = await _service.parseAttendanceFiles(paths, headers);
-
-      switch (parsed) {
-        case FileParseSuccess(:final data):
-          state = state.copyWith(
-            attendanceState: FileCardValid(names),
-            attendanceData: data,
-          );
-        case FileParseFailure(:final errorMessage):
-          state = state.copyWith(
-            attendanceState:
-                FileCardInvalid(fileNames: names, errorMessage: errorMessage),
-            attendanceData: [],
-          );
+      final newEntries = <FileEntry<AttendanceRawData>>[];
+      for (final file in result.files) {
+        final path = file.path!;
+        if (existingPaths.contains(path.toLowerCase())) continue;
+        final parsed = await _service.parseAttendanceSingle(path, headers);
+        newEntries.add(switch (parsed) {
+          FileParseSuccess(:final data) =>
+            FileEntryValid(path: path, name: file.name, data: data),
+          FileParseFailure(:final errorMessage) =>
+            FileEntryInvalid(path: path, name: file.name, errorMessage: errorMessage),
+        });
       }
-    } catch (e) {
-      debugPrint('pickAttendanceFiles error: $e');
+
+      if (newEntries.isEmpty) return;
       state = state.copyWith(
-        attendanceState: FileCardInvalid(
-          fileNames: [],
-          errorMessage: 'تعذّرت قراءة الملف، تأكد من أنه غير مفتوح في برنامج آخر',
-        ),
-        attendanceData: [],
+        attendanceFiles: [...state.attendanceFiles, ...newEntries],
+      );
+    } catch (e) {
+      debugPrint('addAttendanceFiles error: $e');
+      state = state.copyWith(
         unexpectedError: 'خطأ غير متوقع في ملف الحضور',
       );
     }
   }
 
-  Future<void> pickEmployeesFiles() async {
+  Future<void> addEmployeesFiles() async {
     try {
       final result = await FilePicker.pickFiles(
         allowMultiple: true,
@@ -211,84 +275,99 @@ class InputScreenNotifier extends Notifier<InputScreenState> {
       );
       if (result == null) return;
 
-      final paths = result.files.map((f) => f.path!).toList();
-      final names = result.files.map((f) => f.name).toList();
+      final existingPaths = {
+        for (final f in state.employeesFiles) f.path.toLowerCase(),
+      };
+      final headers =
+          await _headersRepo.getHeadersForFileType('employees');
 
-      final headers = await _headersRepo.getHeadersForFileType('employees');
-      final parsed = await _service.parseEmployeesFiles(paths, headers);
-
-      switch (parsed) {
-        case FileParseSuccess(:final data):
-          state = state.copyWith(
-            employeesState: FileCardValid(names),
-            employeesData: data,
-          );
-        case FileParseFailure(:final errorMessage):
-          state = state.copyWith(
-            employeesState:
-                FileCardInvalid(fileNames: names, errorMessage: errorMessage),
-            employeesData: [],
-          );
+      final newEntries = <FileEntry<List<Employee>>>[];
+      for (final file in result.files) {
+        final path = file.path!;
+        if (existingPaths.contains(path.toLowerCase())) continue;
+        final parsed = await _service.parseEmployeesSingle(path, headers);
+        newEntries.add(switch (parsed) {
+          FileParseSuccess(:final data) =>
+            FileEntryValid(path: path, name: file.name, data: data),
+          FileParseFailure(:final errorMessage) =>
+            FileEntryInvalid(path: path, name: file.name, errorMessage: errorMessage),
+        });
       }
-    } catch (e) {
-      debugPrint('pickEmployeesFiles error: $e');
+
+      if (newEntries.isEmpty) return;
       state = state.copyWith(
-        employeesState: FileCardInvalid(
-          fileNames: [],
-          errorMessage: 'تعذّرت قراءة الملف، تأكد من أنه غير مفتوح في برنامج آخر',
-        ),
-        employeesData: [],
+        employeesFiles: [...state.employeesFiles, ...newEntries],
+      );
+    } catch (e) {
+      debugPrint('addEmployeesFiles error: $e');
+      state = state.copyWith(
         unexpectedError: 'خطأ غير متوقع في ملف الموظفين',
       );
     }
   }
 
-  Future<void> pickHolidaysFile() async {
+  Future<void> addHolidaysFiles() async {
     try {
       final result = await FilePicker.pickFiles(
+        allowMultiple: true,
         type: FileType.custom,
         allowedExtensions: ['xlsx', 'xls'],
       );
       if (result == null) return;
 
-      final path = result.files.single.path!;
-      final name = result.files.single.name;
+      final existingPaths = {
+        for (final f in state.holidaysFiles) f.path.toLowerCase(),
+      };
+      final headers =
+          await _headersRepo.getHeadersForFileType('holidays');
 
-      final headers = await _headersRepo.getHeadersForFileType('holidays');
-      final parsed = await _service.parseHolidaysFile(path, headers);
-
-      switch (parsed) {
-        case FileParseSuccess(:final data):
-          state = state.copyWith(
-            holidaysState: FileCardValid([name]),
-            holidaysData: data,
-          );
-        case FileParseFailure(:final errorMessage):
-          state = state.copyWith(
-            holidaysState:
-                FileCardInvalid(fileNames: [name], errorMessage: errorMessage),
-            holidaysData: [],
-          );
+      final newEntries = <FileEntry<List<Holiday>>>[];
+      for (final file in result.files) {
+        final path = file.path!;
+        if (existingPaths.contains(path.toLowerCase())) continue;
+        final parsed = await _service.parseHolidaysFile(path, headers);
+        newEntries.add(switch (parsed) {
+          FileParseSuccess(:final data) =>
+            FileEntryValid(path: path, name: file.name, data: data),
+          FileParseFailure(:final errorMessage) =>
+            FileEntryInvalid(path: path, name: file.name, errorMessage: errorMessage),
+        });
       }
-    } catch (e) {
-      debugPrint('pickHolidaysFile error: $e');
+
+      if (newEntries.isEmpty) return;
       state = state.copyWith(
-        holidaysState: FileCardInvalid(
-          fileNames: [],
-          errorMessage: 'تعذّرت قراءة الملف، تأكد من أنه غير مفتوح في برنامج آخر',
-        ),
-        holidaysData: [],
+        holidaysFiles: [...state.holidaysFiles, ...newEntries],
+      );
+    } catch (e) {
+      debugPrint('addHolidaysFiles error: $e');
+      state = state.copyWith(
         unexpectedError: 'خطأ غير متوقع في ملف العطل',
       );
     }
   }
 
+  // ── Remove individual files ────────────────────────────────────────────────
+
+  void removeAttendanceFile(int index) {
+    final updated = List.of(state.attendanceFiles)..removeAt(index);
+    state = state.copyWith(attendanceFiles: updated);
+  }
+
+  void removeEmployeesFile(int index) {
+    final updated = List.of(state.employeesFiles)..removeAt(index);
+    state = state.copyWith(employeesFiles: updated);
+  }
+
+  void removeHolidaysFile(int index) {
+    final updated = List.of(state.holidaysFiles)..removeAt(index);
+    state = state.copyWith(holidaysFiles: updated);
+  }
+
+  // ── Other ─────────────────────────────────────────────────────────────────
+
   void setStartDate(DateTime date) => state = state.copyWith(startDate: date);
-
   void setEndDate(DateTime date) => state = state.copyWith(endDate: date);
-
   void clearError() => state = state.copyWith(clearUnexpectedError: true);
-
   void reset() => state = InputScreenState.initial();
 }
 
