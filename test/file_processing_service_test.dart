@@ -254,10 +254,107 @@ void main() {
       );
     });
 
-    test('accepts single file only — method signature enforces this', () {
-      // parseHolidaysFile takes a single String path, not List<String>.
-      // This test documents the design constraint via the type system.
-      expect(service.parseHolidaysFile, isNotNull);
+    test('parses a single file per call — notifier calls in a loop for multi-file support', () async {
+      // parseHolidaysFile is a per-file function. The holidays card now supports
+      // multiple files (task 20260509-1500): the notifier calls this once per file.
+      final path = await _makeExcel(tmp, 'hol2.xlsx', [
+        [TextCellValue('التاريخ'), TextCellValue('مناسبة العطلة')],
+        [TextCellValue('2024-03-01'), TextCellValue('عطلة مارس')],
+      ]);
+      final result = await service.parseHolidaysFile(path, holidaysCols);
+      expect(result, isA<FileParseSuccess>());
+    });
+  });
+
+  // ── invisible character stripping ─────────────────────────────────────────
+
+  group('invisible character stripping', () {
+    test('RTL mark appended to column header still matches accepted value', () async {
+      final path = await _makeExcel(tmp, 'att_rtl_hdr.xlsx', [
+        // ‏ = right-to-left mark, embedded by Excel in Arabic cells
+        [TextCellValue('اسم الموظف‏'), TextCellValue('التاريخ والوقت')],
+        [TextCellValue('أحمد'), TextCellValue('2024-01-01 08:00:00')],
+      ]);
+
+      final result = await service.parseAttendanceSingle(path, attendanceCols);
+      expect(result, isA<FileParseSuccess>());
+    });
+
+    test('BOM prepended to column header still matches accepted value', () async {
+      final path = await _makeExcel(tmp, 'att_bom_hdr.xlsx', [
+        // ﻿ = byte-order mark, sometimes prepended by Excel
+        [TextCellValue('اسم الموظف'), TextCellValue('﻿التاريخ والوقت')],
+        [TextCellValue('سارة'), TextCellValue('2024-02-01 09:00:00')],
+      ]);
+
+      final result = await service.parseAttendanceSingle(path, attendanceCols);
+      expect(result, isA<FileParseSuccess>());
+    });
+
+    test('RTL/LTR marks wrapping employee name are stripped — visible name preserved', () async {
+      final path = await _makeExcel(tmp, 'att_rtl_name.xlsx', [
+        [TextCellValue('اسم الموظف'), TextCellValue('التاريخ والوقت')],
+        // ‎ = LTR mark, ‏ = RTL mark
+        [TextCellValue('‎أحمد علي‏'), TextCellValue('2024-01-15 08:00:00')],
+      ]);
+
+      final result = await service.parseAttendanceSingle(path, attendanceCols);
+      final pairs = (result as FileParseSuccess<List<(String, DateTime)>>).data;
+      expect(pairs.first.$1, 'أحمد علي');
+    });
+
+    test('zero-width space inside employee name is stripped', () async {
+      final path = await _makeExcel(tmp, 'att_zwsp.xlsx', [
+        [TextCellValue('اسم الموظف'), TextCellValue('التاريخ والوقت')],
+        // ​ = zero-width space between name parts
+        [TextCellValue('محمد​علي'), TextCellValue('2024-01-01 09:00:00')],
+      ]);
+
+      final result = await service.parseAttendanceSingle(path, attendanceCols);
+      final pairs = (result as FileParseSuccess<List<(String, DateTime)>>).data;
+      expect(pairs.first.$1, 'محمدعلي');
+    });
+
+    test('name cell containing only invisible characters is treated as empty — row skipped', () async {
+      final path = await _makeExcel(tmp, 'att_invisible_only.xlsx', [
+        [TextCellValue('اسم الموظف'), TextCellValue('التاريخ والوقت')],
+        // zero-width space + BOM + LTR mark — all invisible, cleaned to empty string
+        [TextCellValue('​﻿‎'), TextCellValue('2024-01-01 08:00:00')],
+      ]);
+
+      final result = await service.parseAttendanceSingle(path, attendanceCols);
+      expect(result, isA<FileParseFailure>());
+      expect(
+        (result as FileParseFailure).errorMessage,
+        'الملف لا يحتوي على صفوف صالحة',
+      );
+    });
+
+    test('invisible chars stripped from employment type cell — shift type recognized', () async {
+      final path = await _makeExcel(tmp, 'emp_rtl_type.xlsx', [
+        [TextCellValue('اسم الموظف'), TextCellValue('نوع التوظيف'), TextCellValue('القسم')],
+        // ‏ appended to employment type value by Excel
+        [TextCellValue('فاطمة'), TextCellValue('مناوب‏'), TextCellValue('الأمن')],
+      ]);
+
+      final result = await service.parseEmployeesSingle(path, employeesCols);
+      final employees = (result as FileParseSuccess<List<Employee>>).data;
+      expect(employees.first.employmentType, EmploymentType.shift);
+    });
+
+    test('invisible chars stripped from employees column headers', () async {
+      final path = await _makeExcel(tmp, 'emp_inv_hdr.xlsx', [
+        [
+          // \u202B = RTL embedding, \u202C = pop directional formatting
+          TextCellValue('\u202Bاسم الموظف\u202C'),
+          TextCellValue('نوع التوظيف'),
+          TextCellValue('القسم'),
+        ],
+        [TextCellValue('علي'), TextCellValue('صباحي'), TextCellValue('المالية')],
+      ]);
+
+      final result = await service.parseEmployeesSingle(path, employeesCols);
+      expect(result, isA<FileParseSuccess>());
     });
   });
 }
