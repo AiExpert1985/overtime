@@ -266,6 +266,70 @@ void main() {
     });
   });
 
+  // ── timestamp format: M/D/YYYY AM/PM ────────────────────────────────────
+
+  group('timestamp format M/D/yyyy H:mm:ss AM/PM', () {
+    test('parses AM timestamp correctly — month is first', () async {
+      final path = await _makeExcel(tmp, 'att_ampm.xlsx', [
+        [TextCellValue('اسم الموظف'), TextCellValue('التاريخ والوقت')],
+        // 10/2/2025 = October 2, 2025 (M/D/yyyy); 7:53 AM
+        [TextCellValue('أحمد'), TextCellValue('10/2/2025  7:53:07 AM')],
+      ]);
+
+      final result = await service.parseAttendanceSingle(path, attendanceCols);
+      final pairs = (result as FileParseSuccess<List<(String, DateTime)>>).data;
+      expect(pairs.first.$2, DateTime(2025, 10, 2, 7, 53, 7));
+    });
+
+    test('parses PM timestamp — hour shifted to 24-hour', () async {
+      final path = await _makeExcel(tmp, 'att_pm.xlsx', [
+        [TextCellValue('اسم الموظف'), TextCellValue('التاريخ والوقت')],
+        // 3:30 PM → hour 15
+        [TextCellValue('سارة'), TextCellValue('10/2/2025  3:30:00 PM')],
+      ]);
+
+      final result = await service.parseAttendanceSingle(path, attendanceCols);
+      final pairs = (result as FileParseSuccess<List<(String, DateTime)>>).data;
+      expect(pairs.first.$2, DateTime(2025, 10, 2, 15, 30, 0));
+    });
+
+    test('12:00 PM stays 12 (noon)', () async {
+      final path = await _makeExcel(tmp, 'att_noon.xlsx', [
+        [TextCellValue('اسم الموظف'), TextCellValue('التاريخ والوقت')],
+        [TextCellValue('علي'), TextCellValue('10/2/2025  12:00:00 PM')],
+      ]);
+
+      final result = await service.parseAttendanceSingle(path, attendanceCols);
+      final pairs = (result as FileParseSuccess<List<(String, DateTime)>>).data;
+      expect(pairs.first.$2, DateTime(2025, 10, 2, 12, 0, 0));
+    });
+
+    test('12:00 AM converts to midnight (hour 0)', () async {
+      final path = await _makeExcel(tmp, 'att_midnight.xlsx', [
+        [TextCellValue('اسم الموظف'), TextCellValue('التاريخ والوقت')],
+        [TextCellValue('خالد'), TextCellValue('10/2/2025  12:00:00 AM')],
+      ]);
+
+      final result = await service.parseAttendanceSingle(path, attendanceCols);
+      final pairs = (result as FileParseSuccess<List<(String, DateTime)>>).data;
+      expect(pairs.first.$2, DateTime(2025, 10, 2, 0, 0, 0));
+    });
+
+    test('unrecognized datetime text returns failure immediately', () async {
+      final path = await _makeExcel(tmp, 'att_bad_dt.xlsx', [
+        [TextCellValue('اسم الموظف'), TextCellValue('التاريخ والوقت')],
+        [TextCellValue('محمد'), TextCellValue('not-a-date')],
+      ]);
+
+      final result = await service.parseAttendanceSingle(path, attendanceCols);
+      expect(result, isA<FileParseFailure>());
+      expect(
+        (result as FileParseFailure).errorMessage,
+        'تعذّر تحليل تاريخ الحضور في أحد الصفوف',
+      );
+    });
+  });
+
   // ── invisible character stripping ─────────────────────────────────────────
 
   group('invisible character stripping', () {

@@ -109,7 +109,11 @@ class FileProcessingService {
 
       for (final row in table.rows.skip(1)) {
         final name = _cellText(row.elementAtOrNull(nameCol));
-        final dt = _parseDateTime(row.elementAtOrNull(dtCol)?.value);
+        final rawDtCell = row.elementAtOrNull(dtCol)?.value;
+        final dt = _parseDateTime(rawDtCell);
+        if (rawDtCell != null && dt == null) {
+          return const FileParseFailure('تعذّر تحليل تاريخ الحضور في أحد الصفوف');
+        }
         if (name != null && dt != null) rows.add((name, dt));
       }
     }
@@ -305,16 +309,21 @@ class FileProcessingService {
     final iso = DateTime.tryParse(text);
     if (iso != null) return iso;
 
-    // dd/MM/yyyy HH:mm[:ss]
+    // M/D/yyyy H:mm[:ss] [AM|PM]
     final m = RegExp(
-      r'^(\d{1,2})/(\d{1,2})/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$',
+      r'^(\d{1,2})/(\d{1,2})/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$',
+      caseSensitive: false,
     ).firstMatch(text);
     if (m != null) {
+      var hour = int.parse(m.group(4)!);
+      final amPm = m.group(7)?.toUpperCase();
+      if (amPm == 'AM' && hour == 12) hour = 0;
+      if (amPm == 'PM' && hour != 12) hour += 12;
       return DateTime(
         int.parse(m.group(3)!),
-        int.parse(m.group(2)!),
         int.parse(m.group(1)!),
-        int.parse(m.group(4)!),
+        int.parse(m.group(2)!),
+        hour,
         int.parse(m.group(5)!),
         int.parse(m.group(6) ?? '0'),
       );
