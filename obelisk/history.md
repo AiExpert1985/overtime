@@ -59,3 +59,9 @@
 ## 20260511-1200 | Attendance Timestamp Parser Fix | TASK
 
 **Task:** Fixed the attendance file timestamp parser to correctly handle the real-world format `M/D/YYYY H:MM:SS AM/PM` (e.g. `10/2/2025  7:53:07 AM`). Two bugs were present: (1) the parser treated position 1 as day and position 2 as month (D/M order), but the attendance file uses M/D order — months and days were swapped for all text-cell timestamps; (2) AM/PM suffixes were not handled, causing the regex to fail entirely for 12-hour timestamps. The fix corrects the group order, adds AM/PM capture with 12→24-hour conversion (12 AM → midnight, 12 PM stays noon). Additionally, silent row-skipping on unparseable datetime cells was replaced with a fail-fast failure returned immediately, surfacing an Arabic error on the file card instead of producing a silently incomplete report.
+
+---
+
+## 20260511-1500 | Report + Detail Screen Scrollable and Centered | TASK
+
+**Task:** Made the data tables in the Report screen (Daily and Shift tabs) and the Detail screen (Daily and Shift variants) both scrollable and horizontally centered. Tables are centered on screen when narrower than the screen width, and horizontally scrollable when wider. The Report screen tabs also support vertical scrolling within their fixed-height tab area.

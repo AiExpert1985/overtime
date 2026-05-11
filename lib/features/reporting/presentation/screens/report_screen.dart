@@ -295,54 +295,61 @@ class _DailyTab extends StatelessWidget {
       ..sort((a, b) => a.name.compareTo(b.name));
     final sorted = [...matched, ...unmatched];
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: SingleChildScrollView(
-        child: DataTable(
-          columns: const [
-            DataColumn(label: Text('اسم الموظف')),
-            DataColumn(label: Text('القسم')),
-            DataColumn(label: Text('ساعات عادية')),
-            DataColumn(label: Text('ساعات عطلة')),
-            DataColumn(label: Text('المجموع')),
-          ],
-          rows: sorted.map((r) {
-            final isUnmatched = r.isUnmatched;
-            final regular = formatMinutes(r.totalRegularOvertimeMinutes, roundingMode);
-            final holiday = formatMinutes(r.totalHolidayOvertimeMinutes, roundingMode);
-            final total = formatMinutes(
-                r.totalRegularOvertimeMinutes + r.totalHolidayOvertimeMinutes,
-                roundingMode);
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minWidth: constraints.maxWidth),
+          child: SingleChildScrollView(
+            child: Center(
+              child: DataTable(
+                columns: const [
+                  DataColumn(label: Text('اسم الموظف')),
+                  DataColumn(label: Text('القسم')),
+                  DataColumn(label: Text('ساعات عادية')),
+                  DataColumn(label: Text('ساعات عطلة')),
+                  DataColumn(label: Text('المجموع')),
+                ],
+                rows: sorted.map((r) {
+                  final isUnmatched = r.isUnmatched;
+                  final regular = formatMinutes(r.totalRegularOvertimeMinutes, roundingMode);
+                  final holiday = formatMinutes(r.totalHolidayOvertimeMinutes, roundingMode);
+                  final total = formatMinutes(
+                      r.totalRegularOvertimeMinutes + r.totalHolidayOvertimeMinutes,
+                      roundingMode);
 
-            return DataRow(
-              color: isUnmatched
-                  ? WidgetStateProperty.all(Colors.red.shade50)
-                  : null,
-              onSelectChanged: isUnmatched
-                  ? null
-                  : (_) => context.goNamed(
-                        'detail',
-                        pathParameters: {
-                          'reportId': reportId.toString(),
-                          'employeeName': r.name,
-                        },
-                      ),
-              cells: [
-                DataCell(Text(r.name)),
-                DataCell(Text(r.department)),
-                DataCell(Text(isUnmatched ? '—' : regular)),
-                DataCell(Text(isUnmatched ? '—' : holiday)),
-                DataCell(isUnmatched
-                    ? Text(
-                        r.notes ?? '',
-                        style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
-                            fontSize: 12),
-                      )
-                    : Text(total)),
-              ],
-            );
-          }).toList(),
+                  return DataRow(
+                    color: isUnmatched
+                        ? WidgetStateProperty.all(Colors.red.shade50)
+                        : null,
+                    onSelectChanged: isUnmatched
+                        ? null
+                        : (_) => context.goNamed(
+                              'detail',
+                              pathParameters: {
+                                'reportId': reportId.toString(),
+                                'employeeName': r.name,
+                              },
+                            ),
+                    cells: [
+                      DataCell(Text(r.name)),
+                      DataCell(Text(r.department)),
+                      DataCell(Text(isUnmatched ? '—' : regular)),
+                      DataCell(Text(isUnmatched ? '—' : holiday)),
+                      DataCell(isUnmatched
+                          ? Text(
+                              r.notes ?? '',
+                              style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                  fontSize: 12),
+                            )
+                          : Text(total)),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -369,45 +376,52 @@ class _ShiftTab extends StatelessWidget {
       ..sort((a, b) => a.name.compareTo(b.name));
     final sorted = [...matched, ...unmatched];
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: SingleChildScrollView(
-        child: DataTable(
-          columns: const [
-            DataColumn(label: Text('اسم الموظف')),
-            DataColumn(label: Text('القسم')),
-            DataColumn(label: Text('ساعات إضافية')),
-          ],
-          rows: sorted.map((r) {
-            final isUnmatched = r.isUnmatched;
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minWidth: constraints.maxWidth),
+          child: SingleChildScrollView(
+            child: Center(
+              child: DataTable(
+                columns: const [
+                  DataColumn(label: Text('اسم الموظف')),
+                  DataColumn(label: Text('القسم')),
+                  DataColumn(label: Text('ساعات إضافية')),
+                ],
+                rows: sorted.map((r) {
+                  final isUnmatched = r.isUnmatched;
 
-            return DataRow(
-              color: isUnmatched
-                  ? WidgetStateProperty.all(Colors.red.shade50)
-                  : null,
-              onSelectChanged: isUnmatched
-                  ? null
-                  : (_) => context.goNamed(
-                        'detail',
-                        pathParameters: {
-                          'reportId': reportId.toString(),
-                          'employeeName': r.name,
-                        },
-                      ),
-              cells: [
-                DataCell(Text(r.name)),
-                DataCell(Text(r.department)),
-                DataCell(isUnmatched
-                    ? Text(
-                        r.notes ?? '',
-                        style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
-                            fontSize: 12),
-                      )
-                    : Text('${r.totalOvertimeHours} س')),
-              ],
-            );
-          }).toList(),
+                  return DataRow(
+                    color: isUnmatched
+                        ? WidgetStateProperty.all(Colors.red.shade50)
+                        : null,
+                    onSelectChanged: isUnmatched
+                        ? null
+                        : (_) => context.goNamed(
+                              'detail',
+                              pathParameters: {
+                                'reportId': reportId.toString(),
+                                'employeeName': r.name,
+                              },
+                            ),
+                    cells: [
+                      DataCell(Text(r.name)),
+                      DataCell(Text(r.department)),
+                      DataCell(isUnmatched
+                          ? Text(
+                              r.notes ?? '',
+                              style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                  fontSize: 12),
+                            )
+                          : Text('${r.totalOvertimeHours} س')),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
         ),
       ),
     );

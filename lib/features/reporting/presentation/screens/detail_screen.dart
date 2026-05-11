@@ -125,56 +125,63 @@ class _DailyDetailScreen extends StatelessWidget {
                 child: Text('لا توجد بيانات'),
               )
             else
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: DataTable(
-                  columns: const [
-                    DataColumn(label: Text('التاريخ')),
-                    DataColumn(label: Text('اليوم')),
-                    DataColumn(label: Text('نوع اليوم')),
-                    DataColumn(label: Text('الدخول')),
-                    DataColumn(label: Text('البصمات')),
-                    DataColumn(label: Text('الخروج')),
-                    DataColumn(label: Text('ساعات الحضور')),
-                    DataColumn(label: Text('الوقت الإضافي')),
-                    DataColumn(label: Text('ملاحظات')),
-                  ],
-                  rows: result.periods.map((p) {
-                    final tf = DateFormat('H:mm', 'ar');
-                    final firstTs =
-                        p.timestamps.isNotEmpty ? tf.format(p.timestamps.first) : '—';
-                    final lastTs =
-                        p.timestamps.isNotEmpty ? tf.format(p.timestamps.last) : '—';
-                    final middle = p.timestamps.length > 2
-                        ? p.timestamps
-                            .sublist(1, p.timestamps.length - 1)
-                            .map(tf.format)
-                            .join('\n')
-                        : '';
-                    final durationH = p.totalAttendanceDuration ~/ 60;
-                    final durationM = p.totalAttendanceDuration % 60;
-                    final durationText =
-                        durationM == 0 ? '$durationH س' : '$durationH س $durationM د';
+              LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                    child: Center(
+                      child: DataTable(
+                        columns: const [
+                          DataColumn(label: Text('التاريخ')),
+                          DataColumn(label: Text('اليوم')),
+                          DataColumn(label: Text('نوع اليوم')),
+                          DataColumn(label: Text('الدخول')),
+                          DataColumn(label: Text('البصمات')),
+                          DataColumn(label: Text('الخروج')),
+                          DataColumn(label: Text('ساعات الحضور')),
+                          DataColumn(label: Text('الوقت الإضافي')),
+                          DataColumn(label: Text('ملاحظات')),
+                        ],
+                        rows: result.periods.map((p) {
+                          final tf = DateFormat('H:mm', 'ar');
+                          final firstTs =
+                              p.timestamps.isNotEmpty ? tf.format(p.timestamps.first) : '—';
+                          final lastTs =
+                              p.timestamps.isNotEmpty ? tf.format(p.timestamps.last) : '—';
+                          final middle = p.timestamps.length > 2
+                              ? p.timestamps
+                                  .sublist(1, p.timestamps.length - 1)
+                                  .map(tf.format)
+                                  .join('\n')
+                              : '';
+                          final durationH = p.totalAttendanceDuration ~/ 60;
+                          final durationM = p.totalAttendanceDuration % 60;
+                          final durationText =
+                              durationM == 0 ? '$durationH س' : '$durationH س $durationM د';
 
-                    return DataRow(
-                      color: WidgetStateProperty.all(
-                        p.isValid ? Colors.white : Colors.red.shade50,
+                          return DataRow(
+                            color: WidgetStateProperty.all(
+                              p.isValid ? Colors.white : Colors.red.shade50,
+                            ),
+                            cells: [
+                              DataCell(Text(DateFormat('dd/MM').format(p.date))),
+                              DataCell(Text(p.weekday)),
+                              DataCell(Text(_dayTypeLabel(p.dayType))),
+                              DataCell(Text(firstTs)),
+                              DataCell(Text(middle, style: const TextStyle(fontSize: 12))),
+                              DataCell(Text(lastTs)),
+                              DataCell(Text(durationText)),
+                              DataCell(Text(p.isValid
+                                  ? formatMinutes(p.overtimeMinutes, roundingMode)
+                                  : '—')),
+                              DataCell(Text(p.notes ?? '')),
+                            ],
+                          );
+                        }).toList(),
                       ),
-                      cells: [
-                        DataCell(Text(DateFormat('dd/MM').format(p.date))),
-                        DataCell(Text(p.weekday)),
-                        DataCell(Text(_dayTypeLabel(p.dayType))),
-                        DataCell(Text(firstTs)),
-                        DataCell(Text(middle, style: const TextStyle(fontSize: 12))),
-                        DataCell(Text(lastTs)),
-                        DataCell(Text(durationText)),
-                        DataCell(Text(p.isValid
-                            ? formatMinutes(p.overtimeMinutes, roundingMode)
-                            : '—')),
-                        DataCell(Text(p.notes ?? '')),
-                      ],
-                    );
-                  }).toList(),
+                    ),
+                  ),
                 ),
               ),
           ],
@@ -247,52 +254,59 @@ class _ShiftDetailScreen extends StatelessWidget {
                 child: Text('لا توجد بيانات'),
               )
             else
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: DataTable(
-                  columns: const [
-                    DataColumn(label: Text('تاريخ البداية')),
-                    DataColumn(label: Text('تاريخ النهاية')),
-                    DataColumn(label: Text('بصمة البداية')),
-                    DataColumn(label: Text('نقاط التحقق')),
-                    DataColumn(label: Text('ساعات الحضور')),
-                    DataColumn(label: Text('الساعات المحتسبة')),
-                    DataColumn(label: Text('ملاحظات')),
-                  ],
-                  rows: result.periods.map((p) {
-                    final df = DateFormat('dd/MM');
-                    final tf = DateFormat('H:mm', 'ar');
-                    final durationH = p.totalAttendanceDuration ~/ 60;
-                    final durationM = p.totalAttendanceDuration % 60;
-                    final durationText =
-                        durationM == 0 ? '$durationH س' : '$durationH س $durationM د';
+              LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                    child: Center(
+                      child: DataTable(
+                        columns: const [
+                          DataColumn(label: Text('تاريخ البداية')),
+                          DataColumn(label: Text('تاريخ النهاية')),
+                          DataColumn(label: Text('بصمة البداية')),
+                          DataColumn(label: Text('نقاط التحقق')),
+                          DataColumn(label: Text('ساعات الحضور')),
+                          DataColumn(label: Text('الساعات المحتسبة')),
+                          DataColumn(label: Text('ملاحظات')),
+                        ],
+                        rows: result.periods.map((p) {
+                          final df = DateFormat('dd/MM');
+                          final tf = DateFormat('H:mm', 'ar');
+                          final durationH = p.totalAttendanceDuration ~/ 60;
+                          final durationM = p.totalAttendanceDuration % 60;
+                          final durationText =
+                              durationM == 0 ? '$durationH س' : '$durationH س $durationM د';
 
-                    final zonesText = p.zoneResults.asMap().entries.map((e) {
-                      final idx = e.key + 1;
-                      final z = e.value;
-                      final satisfied = z.isSatisfied ? '✓' : '✗';
-                      final times = z.timestamps.isEmpty
-                          ? '—'
-                          : z.timestamps.map(tf.format).join(', ');
-                      return 'نقطة $idx: $times $satisfied';
-                    }).join('\n');
+                          final zonesText = p.zoneResults.asMap().entries.map((e) {
+                            final idx = e.key + 1;
+                            final z = e.value;
+                            final satisfied = z.isSatisfied ? '✓' : '✗';
+                            final times = z.timestamps.isEmpty
+                                ? '—'
+                                : z.timestamps.map(tf.format).join(', ');
+                            return 'نقطة $idx: $times $satisfied';
+                          }).join('\n');
 
-                    return DataRow(
-                      color: WidgetStateProperty.all(
-                        p.isValid ? Colors.white : Colors.red.shade50,
+                          return DataRow(
+                            color: WidgetStateProperty.all(
+                              p.isValid ? Colors.white : Colors.red.shade50,
+                            ),
+                            cells: [
+                              DataCell(Text(df.format(p.startDate))),
+                              DataCell(Text(df.format(p.endDate))),
+                              DataCell(Text(tf.format(p.anchorTimestamp))),
+                              DataCell(Text(zonesText,
+                                  style: const TextStyle(fontSize: 11))),
+                              DataCell(Text(durationText)),
+                              DataCell(Text('${p.hoursCounted} س')),
+                              DataCell(Text(p.notes ?? '')),
+                            ],
+                          );
+                        }).toList(),
                       ),
-                      cells: [
-                        DataCell(Text(df.format(p.startDate))),
-                        DataCell(Text(df.format(p.endDate))),
-                        DataCell(Text(tf.format(p.anchorTimestamp))),
-                        DataCell(Text(zonesText,
-                            style: const TextStyle(fontSize: 11))),
-                        DataCell(Text(durationText)),
-                        DataCell(Text('${p.hoursCounted} س')),
-                        DataCell(Text(p.notes ?? '')),
-                      ],
-                    );
-                  }).toList(),
+                    ),
+                  ),
                 ),
               ),
           ],
