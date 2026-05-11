@@ -65,3 +65,11 @@
 ## 20260511-1500 | Report + Detail Screen Scrollable and Centered | TASK
 
 **Task:** Made the data tables in the Report screen (Daily and Shift tabs) and the Detail screen (Daily and Shift variants) both scrollable and horizontally centered. Tables are centered on screen when narrower than the screen width, and horizontally scrollable when wider. The Report screen tabs also support vertical scrolling within their fixed-height tab area.
+
+---
+
+## 20260511-1600 | File Parse Exception Logging | TASK
+
+**Task:** Added debug logging to the file open helper so that the real exception and stack trace are printed to the console whenever a file fails to decode. Previously all exceptions were silently swallowed, making it impossible to diagnose why a file was rejected.
+
+**Rejected:** XLS file support — not in scope; files in the legacy binary `.xls` format are intentionally unsupported and the existing "file invalid" error is acceptable.

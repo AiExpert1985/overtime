@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:excel/excel.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../shared/domain/attendance_record.dart';
 import '../../../shared/domain/employee.dart';
@@ -251,7 +252,8 @@ class FileProcessingService {
     try {
       final bytes = await File(path).readAsBytes();
       return Excel.decodeBytes(bytes);
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('[FileProcessingService] Failed to open "$path": $e\n$st');
       return null;
     }
   }
