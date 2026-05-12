@@ -18,6 +18,9 @@ Future<Database> setupTestDatabase() async {
     inMemoryDatabasePath,
     options: OpenDatabaseOptions(
       version: 1,
+      onConfigure: (db) async {
+        await db.execute('PRAGMA foreign_keys = ON');
+      },
       onOpen: (db) async {
         await _createTables(db);
         await _seedDefaults(db);
@@ -31,6 +34,31 @@ Future<Database> setupTestDatabase() async {
 }
 
 Future<void> _createTables(Database db) async {
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS employees (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      employee_number TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      employment_type TEXT NOT NULL,
+      department TEXT NOT NULL
+    )
+  ''');
+
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS holidays (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL,
+      occasion TEXT NOT NULL
+    )
+  ''');
+
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS report_selected_employees (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE
+    )
+  ''');
+
   await db.execute('''
     CREATE TABLE IF NOT EXISTS app_settings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
