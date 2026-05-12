@@ -10,19 +10,19 @@ Folders to search recursively for design docs:
 
 ### architecture_overview.md
 About: Platform, tech stack, package list, and feature/layer structure rules.
-Covers: Flutter Windows desktop, Riverpod 3.x (AsyncNotifier/Notifier only), go_router, sqflite, excel, file_picker, path_provider, intl; Arabic RTL; two features (FileProcessing, Reporting); four layers (Presentation, Application, Domain, Data); feature boundary rules; Windows initialization.
+Covers: Flutter Windows desktop, Riverpod 3.x (AsyncNotifier/Notifier only), go_router, sqflite, excel, file_picker, path_provider, intl; Arabic RTL; features (FileProcessing, Reporting, ReferenceData); four layers (Presentation, Application, Domain, Data); feature boundary rules; Windows initialization.
 Relevant for: Any new feature, dependency decisions, layer/folder structure, Riverpod provider choices.
 Depends on: none
 
 ### config.md
 About: All user-configurable app settings with defaults and Arabic labels.
-Covers: Daily employee settings (start time, work duration, max overtime); shift employee settings (start times, duration, zone interval, tolerances, gap, baseline, ceiling hours); display settings (rounding mode, max date range); default column headers for three file types.
+Covers: Daily employee settings (start time, work duration, max overtime); shift employee settings (start times, duration, zone interval, tolerances, gap, baseline, ceiling hours); display settings (rounding mode, max date range); default column headers for attendance file only — employees and holidays are no longer file-based.
 Relevant for: Settings screen, database seeding, any feature reading config values.
 Depends on: none
 
 ### database_schema.md
 About: SQLite table definitions and relationships.
-Covers: reports, daily_employee_results, daily_period_details, shift_employee_results, shift_period_details, app_settings, column_headers tables; cascade delete; ISO 8601 dates; append-only reports.
+Covers: employees, holidays, report_selected_employees (new permanent reference tables); reports, daily_employee_results, daily_period_details, shift_employee_results, shift_period_details (report result tables); app_settings, column_headers (attendance only); cascade delete; ISO 8601 dates; append-only reports.
 Relevant for: Database setup, repositories, any feature reading/writing persisted data.
 Depends on: none
 
@@ -34,20 +34,20 @@ Depends on: none
 
 ### main_workflow.md
 About: The 6-stage report generation workflow and its error handling rules.
-Covers: Stage 1–6 (File Upload, Trigger, Dictionary Build, Period Extraction, Overtime Calculation, Navigate to Report); abort-on-failure; inputs never stored; dictionary discarded after results; extractors/calculators are pure functions.
+Covers: Stage 1–6 (File Upload, Trigger, Dictionary Build, Period Extraction, Overtime Calculation, Navigate to Report); abort-on-failure; inputs never stored; dictionary discarded after results; extractors/calculators are pure functions. Employees and holidays are now read from DB, not uploaded files.
 Relevant for: Report generation orchestration, application layer design, error handling strategy.
 Depends on: architecture_overview.md
 
 ### dictionary_build.md
 About: Stage 3 — building the employee lookup dictionary from uploaded files.
-Covers: Employee lookup set from target employees file; single-pass fingerprint filtering (O(n)); sort timestamps ascending per employee; unmatched detection and user prompt; exact string name matching; unmatched names export.
+Covers: Employee lookup set from target employees source; single-pass fingerprint filtering (O(n)); sort timestamps ascending per employee; unmatched detection and user prompt; exact string name matching; unmatched names export.
 Relevant for: Dictionary build step in report generation, name matching logic.
 Depends on: main_workflow.md, data_shared_models.md
 
 ### file_processing.md
-About: File upload, parsing, and validation rules for the FileProcessing feature.
-Covers: .xlsx and .xls support; multi-sheet; column header validation via database; attendance (employee_name, datetime), target employees (employee_name, employment_type, department), holidays (date, occasion) required fields; Arabic validation error messages.
-Relevant for: FileProcessing feature — file parsing, validation, column header lookup.
+About: Attendance file upload, parsing, and validation rules for the FileProcessing feature. Employees and holidays are no longer file-based.
+Covers: .xlsx/.xls support; multi-sheet; attendance (employee_name, datetime) required fields only; column header validation via database; Arabic validation error messages.
+Relevant for: FileProcessing feature — attendance file parsing and validation only.
 Depends on: architecture_overview.md, database_schema.md, data_shared_models.md
 
 ### period_extractor_daily.md
@@ -75,26 +75,38 @@ Relevant for: Shift overtime calculator step in report generation.
 Depends on: data_shared_models.md, config.md, period_extractor_shift.md
 
 ### router.md
-About: App navigation structure using go_router.
-Covers: Bottom tab shell (3 tabs: Input, Reports List, Settings); named routes (/input, /reports, /reports/:reportId, /reports/:reportId/detail/:employeeName, /settings, /settings/column-headers); Arabic names percent-encoded; back stack preserved; error route.
+About: App navigation structure using go_router with 4 tabs.
+Covers: Bottom tab shell (4 tabs: Employees, Holidays, Reports List, Settings); named routes (/employees, /holidays, /reports, /reports/generate, /reports/:reportId, /reports/:reportId/detail/:employeeName, /settings, /settings/column-headers); Arabic names percent-encoded; back stack preserved; error route.
 Relevant for: Router setup, navigation between screens, any new screen added.
 Depends on: architecture_overview.md
 
-### screen_input.md
-About: Input screen UI and behavior (Tab 1 — الإدخال).
-Covers: File Picker Cards (3 cards, multi-file for attendance/employees, single for holidays, states: empty/valid/invalid); info hint dialog; Date Range Pickers (start/end, validation); Generate Report Button (enabled when all valid); state persists across tabs, resets on success.
-Relevant for: Input screen implementation, file upload UX.
-Depends on: file_processing.md, router.md, config.md
+### screen_employees.md
+About: Employees screen UI and behavior (Tab 1 — الموظفون).
+Covers: Permanent employees list with CRUD; FAB to add; table (employee number, name, employment type, department, actions); Add/Edit dialog with uniqueness check on employee number; delete with confirmation (cascade deletes from report_selected_employees); data from employees table via ReferenceData repository.
+Relevant for: Employees screen implementation, reference data management, employee CRUD.
+Depends on: database_schema.md, router.md
 
-### screen_report_list.md
-About: Reports List screen UI and behavior (Tab 2 — التقارير).
-Covers: Table of past reports ordered by generation datetime descending; columns (generation datetime, period from, period to, delete); empty state; tap navigates to Report screen; delete with confirmation; list loaded on tab open/return.
+### screen_holidays.md
+About: Holidays screen UI and behavior (Tab 2 — العطل).
+Covers: Permanent holidays list with CRUD; FAB to add; table (date, occasion, actions); Add/Edit dialog with date picker; delete with confirmation; no uniqueness enforced on date; data from holidays table via ReferenceData repository.
+Relevant for: Holidays screen implementation, reference data management, holiday CRUD.
+Depends on: database_schema.md, router.md
+
+### screen_history.md
+About: Reports List screen UI and behavior (Tab 3 — التقارير).
+Covers: Table of past reports ordered by generation datetime descending; columns (generation datetime, period from, period to, delete); empty state; tap navigates to Report screen; delete with confirmation; FAB in bottom-left pushes the Report Generation screen; list loaded on tab open/return.
 Relevant for: Reports List screen implementation.
 Depends on: database_schema.md, router.md
 
+### screen_report_generate.md
+About: Report Generation screen pushed from Reports List FAB.
+Covers: Attendance file picker card (multi-file, states: empty/valid/invalid); date range pickers with validation; employee selection card (opens full-screen Employee Selection Dialog with live search, checkboxes, confirm/discard); Generate button enabled condition; report_selected_employees persistence (saved on success only); loading state; error banner; screen state preserved within session.
+Relevant for: Report generation entry point, employee selection UX, report_selected_employees read/write.
+Depends on: file_processing.md, router.md, config.md, database_schema.md, screen_employees.md
+
 ### screen_report.md
 About: Report screen UI and behavior (report detail view).
-Covers: RTL fixed header + tab bar + scrollable table; report header (date range, totals, unmatched count); Excel export to Downloads (2 sheets: summary + detail); Daily tab (name, department, regular, holiday, total); Shift tab (name, department, hours); alphabetical sort; color coding; loads from DB on mount.
+Covers: RTL fixed header + search/filter bar + tab bar + scrollable table; report header (date range, totals, unmatched count); Excel export to Downloads (2 sheets: summary + detail); Daily tab (name, department, regular, holiday, total); Shift tab (name, department, hours); live search + filter chips; alphabetical sort; color coding; loads from DB on mount.
 Relevant for: Report screen implementation, Excel export feature.
 Depends on: database_schema.md, router.md, overtime_calculation_daily.md, overtime_calculation_shift.md
 
@@ -105,7 +117,13 @@ Relevant for: Detail screen implementation.
 Depends on: screen_report.md, data_shared_models.md, router.md
 
 ### screen_configuration.md
-About: Settings screen UI and behavior (Tab 3 — الإعدادات).
-Covers: Daily Employee Settings (time/duration/max); Shift Employee Settings (8 parameters); Display Settings (rounding mode); Column Header Management (sub-screen); RTL layout; inline editing; help button with descriptions.
+About: Settings screen UI and behavior (Tab 4 — الإعدادات).
+Covers: Daily Employee Settings (time/duration/max); Shift Employee Settings (8 parameters); Display Settings (rounding mode); Column Header Management (attendance file only — employee/holiday file headers removed); RTL layout; inline editing; help button with descriptions.
 Relevant for: Settings screen implementation, column header management sub-screen.
 Depends on: config.md, database_schema.md, router.md
+
+### screen_input.md
+About: ⚠️ SUPERSEDED by screen_report_generate.md and screen_employees.md / screen_holidays.md. The old Input screen (3-file upload + date range) no longer exists in this design. Do not use for new implementation.
+Covers: Old 3-file upload pattern (attendance + employees + holidays), old 3-tab shell. Kept for historical reference only.
+Relevant for: Historical reference only.
+Depends on: none
