@@ -85,3 +85,11 @@
 ## 20260512-1200 | Excel numFmt Styles Compatibility Fix | TASK
 
 **Task:** Fixed a crash when uploading xlsx files that declare built-in numFmt IDs (< 164) in their custom numFmts section — a format produced by some Excel variants. The `excel` package rejects these with a hard exception. The fix pre-processes the raw xlsx bytes before parsing: unzips the file, strips the offending `<numFmt>` entries from `xl/styles.xml`, updates the count attribute, and rezips. If pre-processing fails for any reason the original bytes are passed through unchanged. The `archive` package (already a transitive dependency at 3.6.1) was made an explicit dependency.
+
+---
+
+## 20260512-1400 | Report Screen Live Search and Filter | TASK
+
+**Task:** Added a combined search-and-filter bar to the Report screen, sitting between the report header and the tab bar. The bar contains: a live search field (filters by employee name or department on each keystroke, scoped to the active tab); three filter chips (مع وقت إضافي / بدون وقت إضافي / غير موجودين) all checked by default — unchecking any hides that category; and the Excel export button at the end of the same row. Search and filter combine with AND logic. When the combined filter yields an empty list the tab shows "لا توجد نتائج مطابقة" instead of the normal empty-report message. The export action continues to export the full unfiltered data. The separate Action Bar row was removed; the export button was folded into the unified bar.
+
+**Rejected:** Per-tab separate search fields — a single shared field covers the active tab. Hiding unmatched employees from search results — they are included if their name/department matches.

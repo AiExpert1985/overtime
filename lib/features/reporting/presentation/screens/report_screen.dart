@@ -97,7 +97,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
   }
 }
 
-class _ReportBody extends StatelessWidget {
+class _ReportBody extends StatefulWidget {
   final ReportData report;
   final TabController tabController;
   final String roundingMode;
@@ -115,8 +115,56 @@ class _ReportBody extends StatelessWidget {
   });
 
   @override
+  State<_ReportBody> createState() => _ReportBodyState();
+}
+
+class _ReportBodyState extends State<_ReportBody> {
+  final _searchController = TextEditingController();
+  bool _showWithOvertime = true;
+  bool _showWithoutOvertime = true;
+  bool _showUnmatched = true;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<DailyEmployeeResult> get _filteredDaily {
+    final query = _searchController.text.trim().toLowerCase();
+    return widget.report.dailyResults.where((r) {
+      if (!_categoryMatchDaily(r)) return false;
+      if (query.isEmpty) return true;
+      return r.name.toLowerCase().contains(query) ||
+          r.department.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  List<ShiftEmployeeResult> get _filteredShift {
+    final query = _searchController.text.trim().toLowerCase();
+    return widget.report.shiftResults.where((r) {
+      if (!_categoryMatchShift(r)) return false;
+      if (query.isEmpty) return true;
+      return r.name.toLowerCase().contains(query) ||
+          r.department.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  bool _categoryMatchDaily(DailyEmployeeResult r) {
+    if (r.isUnmatched) return _showUnmatched;
+    final hasOvertime =
+        r.totalRegularOvertimeMinutes + r.totalHolidayOvertimeMinutes > 0;
+    return hasOvertime ? _showWithOvertime : _showWithoutOvertime;
+  }
+
+  bool _categoryMatchShift(ShiftEmployeeResult r) {
+    if (r.isUnmatched) return _showUnmatched;
+    return r.totalOvertimeHours > 0 ? _showWithOvertime : _showWithoutOvertime;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final summary = report.summary;
+    final summary = widget.report.summary;
     final dateFormat = DateFormat('yyyy/MM/dd');
 
     return Scaffold(
@@ -124,7 +172,7 @@ class _ReportBody extends StatelessWidget {
         title: Text(
             '${dateFormat.format(summary.rangeStart)} — ${dateFormat.format(summary.rangeEnd)}'),
         bottom: TabBar(
-          controller: tabController,
+          controller: widget.tabController,
           tabs: const [
             Tab(text: 'الدوام الصباحي'),
             Tab(text: 'الدوام بالمناوبة'),
@@ -135,21 +183,36 @@ class _ReportBody extends StatelessWidget {
         children: [
           _ReportHeader(
             summary: summary,
-            roundingMode: roundingMode,
+            roundingMode: widget.roundingMode,
           ),
-          _ActionBar(isExporting: isExporting, onExport: onExport),
+          _SearchAndFilterBar(
+            controller: _searchController,
+            showWithOvertime: _showWithOvertime,
+            showWithoutOvertime: _showWithoutOvertime,
+            showUnmatched: _showUnmatched,
+            isExporting: widget.isExporting,
+            onExport: widget.onExport,
+            onChanged: (withOvertime, withoutOvertime, unmatched) => setState(() {
+              _showWithOvertime = withOvertime;
+              _showWithoutOvertime = withoutOvertime;
+              _showUnmatched = unmatched;
+            }),
+            onSearchChanged: () => setState(() {}),
+          ),
           Expanded(
             child: TabBarView(
-              controller: tabController,
+              controller: widget.tabController,
               children: [
                 _DailyTab(
-                  results: report.dailyResults,
-                  roundingMode: roundingMode,
-                  reportId: reportId,
+                  results: _filteredDaily,
+                  roundingMode: widget.roundingMode,
+                  reportId: widget.reportId,
+                  isFiltered: _isFiltering,
                 ),
                 _ShiftTab(
-                  results: report.shiftResults,
-                  reportId: reportId,
+                  results: _filteredShift,
+                  reportId: widget.reportId,
+                  isFiltered: _isFiltering,
                 ),
               ],
             ),
@@ -158,36 +221,121 @@ class _ReportBody extends StatelessWidget {
       ),
     );
   }
+
+  bool get _isFiltering =>
+      _searchController.text.trim().isNotEmpty ||
+      !_showWithOvertime ||
+      !_showWithoutOvertime ||
+      !_showUnmatched;
 }
 
-// ── Action Bar ────────────────────────────────────────────────────────────────
+// ── Search and Filter Bar ────────────────────────────────────────────────────
 
-class _ActionBar extends StatelessWidget {
+class _SearchAndFilterBar extends StatelessWidget {
+  final TextEditingController controller;
+  final bool showWithOvertime;
+  final bool showWithoutOvertime;
+  final bool showUnmatched;
   final bool isExporting;
   final VoidCallback? onExport;
+  final void Function(bool withOvertime, bool withoutOvertime, bool unmatched)
+      onChanged;
+  final VoidCallback onSearchChanged;
 
-  const _ActionBar({required this.isExporting, this.onExport});
+  const _SearchAndFilterBar({
+    required this.controller,
+    required this.showWithOvertime,
+    required this.showWithoutOvertime,
+    required this.showUnmatched,
+    required this.isExporting,
+    required this.onChanged,
+    required this.onSearchChanged,
+    this.onExport,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          FilledButton.icon(
-            onPressed: isExporting ? null : onExport,
-            icon: isExporting
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
-                  )
-                : const Icon(Icons.download),
-            label: Text(isExporting ? 'جارٍ التصدير...' : 'تصدير Excel'),
-          ),
-        ],
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Center(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 180,
+              child: TextField(
+                controller: controller,
+                onChanged: (_) => onSearchChanged(),
+                decoration: const InputDecoration(
+                  hintText: 'بحث...',
+                  prefixIcon: Icon(Icons.search, size: 18),
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                  contentPadding:
+                      EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            _FilterChip(
+              label: 'مع وقت إضافي',
+              selected: showWithOvertime,
+              onTap: () => onChanged(
+                  !showWithOvertime, showWithoutOvertime, showUnmatched),
+            ),
+            const SizedBox(width: 6),
+            _FilterChip(
+              label: 'بدون وقت إضافي',
+              selected: showWithoutOvertime,
+              onTap: () => onChanged(
+                  showWithOvertime, !showWithoutOvertime, showUnmatched),
+            ),
+            const SizedBox(width: 6),
+            _FilterChip(
+              label: 'غير موجودين',
+              selected: showUnmatched,
+              onTap: () => onChanged(
+                  showWithOvertime, showWithoutOvertime, !showUnmatched),
+            ),
+            const SizedBox(width: 12),
+            FilledButton.icon(
+              onPressed: isExporting ? null : onExport,
+              icon: isExporting
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.download, size: 16),
+              label: Text(isExporting ? 'جارٍ التصدير...' : 'تصدير Excel'),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FilterChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onTap(),
+      showCheckmark: true,
+      visualDensity: VisualDensity.compact,
     );
   }
 }
@@ -276,17 +424,23 @@ class _DailyTab extends StatelessWidget {
   final List<DailyEmployeeResult> results;
   final String roundingMode;
   final int reportId;
+  final bool isFiltered;
 
   const _DailyTab({
     required this.results,
     required this.roundingMode,
     required this.reportId,
+    required this.isFiltered,
   });
 
   @override
   Widget build(BuildContext context) {
     if (results.isEmpty) {
-      return const Center(child: Text('لا يوجد موظفون بنظام الدوام الصباحي'));
+      return Center(
+        child: Text(isFiltered
+            ? 'لا توجد نتائج مطابقة'
+            : 'لا يوجد موظفون بنظام الدوام الصباحي'),
+      );
     }
 
     final matched = results.where((r) => !r.isUnmatched).toList()
@@ -362,13 +516,22 @@ class _DailyTab extends StatelessWidget {
 class _ShiftTab extends StatelessWidget {
   final List<ShiftEmployeeResult> results;
   final int reportId;
+  final bool isFiltered;
 
-  const _ShiftTab({required this.results, required this.reportId});
+  const _ShiftTab({
+    required this.results,
+    required this.reportId,
+    required this.isFiltered,
+  });
 
   @override
   Widget build(BuildContext context) {
     if (results.isEmpty) {
-      return const Center(child: Text('لا يوجد موظفون بنظام المناوبة'));
+      return Center(
+        child: Text(isFiltered
+            ? 'لا توجد نتائج مطابقة'
+            : 'لا يوجد موظفون بنظام المناوبة'),
+      );
     }
 
     final matched = results.where((r) => !r.isUnmatched).toList()
