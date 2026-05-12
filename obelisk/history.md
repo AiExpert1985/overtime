@@ -73,3 +73,9 @@
 **Task:** Added debug logging to the file open helper so that the real exception and stack trace are printed to the console whenever a file fails to decode. Previously all exceptions were silently swallowed, making it impossible to diagnose why a file was rejected.
 
 **Rejected:** XLS file support — not in scope; files in the legacy binary `.xls` format are intentionally unsupported and the existing "file invalid" error is acceptable.
+
+---
+
+## 20260512-0000 | Report Screen Scroll + Row Navigation Fix | TASK
+
+**Task:** Fixed two bugs on the Report screen. (1) DataTable tabs (Daily and Shift) were not vertically scrollable — the scroll nesting was reversed (horizontal outer, vertical inner) which doesn't work reliably on Windows desktop; fixed by making vertical the outer scroll and horizontal the inner, matching the Detail screen's approach. (2) Tapping a matched employee row did nothing — the checkbox column rendered by default when `onSelectChanged` is set was interfering with hit-testing on desktop; fixed by setting `showCheckboxColumn: false` on both DataTables. Navigation callback itself (`goNamed('detail', ...)`) was already correct.

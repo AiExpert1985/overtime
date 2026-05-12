@@ -297,12 +297,13 @@ class _DailyTab extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) => SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minWidth: constraints.maxWidth),
-          child: SingleChildScrollView(
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: constraints.maxWidth),
             child: Center(
               child: DataTable(
+                showCheckboxColumn: false,
                 columns: const [
                   DataColumn(label: Text('اسم الموظف')),
                   DataColumn(label: Text('القسم')),
@@ -378,12 +379,13 @@ class _ShiftTab extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) => SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minWidth: constraints.maxWidth),
-          child: SingleChildScrollView(
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: constraints.maxWidth),
             child: Center(
               child: DataTable(
+                showCheckboxColumn: false,
                 columns: const [
                   DataColumn(label: Text('اسم الموظف')),
                   DataColumn(label: Text('القسم')),
