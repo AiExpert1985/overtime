@@ -792,7 +792,17 @@ class _EmployeeSelectionDialogState
           leading: IconButton(
             icon: const Icon(Icons.close),
             tooltip: 'إغلاق',
-            onPressed: () => Navigator.of(context).pop(null),
+            onPressed: () {
+              final employees = employeesAsync.value;
+              if (employees == null) {
+                Navigator.of(context).pop(widget.currentSelection);
+                return;
+              }
+              final selected = employees
+                  .where((e) => _checkedIds.contains(e.id))
+                  .toList();
+              Navigator.of(context).pop(selected);
+            },
           ),
           actions: [
             TextButton(

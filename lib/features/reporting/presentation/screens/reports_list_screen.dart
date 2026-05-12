@@ -18,7 +18,7 @@ class ReportsListScreen extends ConsumerWidget {
         onPressed: () => context.goNamed('report_generate'),
         child: const Icon(Icons.add),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: listAsync.when(
         loading: () =>
             const Center(child: CircularProgressIndicator()),

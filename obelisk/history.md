@@ -102,6 +102,14 @@
 
 ---
 
+## 20260512-2000 | Employee Selection Dialog Fix + FAB Position | TASK
+
+**Task:** Fixed two issues on the Report Generation flow. (1) The ✕ button in the employee selection dialog was calling `pop(null)`, silently discarding the user's checkbox selections — users expected ✕ to confirm like it does in typical Windows desktop overlays. Fixed by making ✕ pop with the current selection (same as the confirm button); if the employee list hasn't loaded yet, it falls back to the original selection to leave it unchanged. (2) The Reports List FAB was positioned on the right side due to `startFloat` resolving to the RTL start (right). Changed to `endFloat` so the FAB sits on the physical left, matching the design doc.
+
+**Rejected:** Adding an explicit "إلغاء" discard button — "مسح الكل" on the selection card covers the clear-all case.
+
+---
+
 ## 20260512-1600 | Reference Data Foundation | TASK
 
 **Task:** Added permanent employee and holiday management as new DB tables and dedicated CRUD screens. Employees (Tab 1) and Holidays (Tab 2) are now managed directly in the app rather than uploaded as files. The app shell expanded from 3 to 4 tabs: Employees / Holidays / Reports / Settings. A new reference_data feature owns the domain models, repository, providers, and screens for both entities. A saved-selection cache table was also added (used in Task 2). Existing column_header rows for the old employees and holidays file types are cleaned up from existing installs on first open. Column headers management now covers attendance only. The existing report generation pipeline and its domain models were not touched.
