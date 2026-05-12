@@ -93,3 +93,11 @@
 **Task:** Added a combined search-and-filter bar to the Report screen, sitting between the report header and the tab bar. The bar contains: a live search field (filters by employee name or department on each keystroke, scoped to the active tab); three filter chips (مع وقت إضافي / بدون وقت إضافي / غير موجودين) all checked by default — unchecking any hides that category; and the Excel export button at the end of the same row. Search and filter combine with AND logic. When the combined filter yields an empty list the tab shows "لا توجد نتائج مطابقة" instead of the normal empty-report message. The export action continues to export the full unfiltered data. The separate Action Bar row was removed; the export button was folded into the unified bar.
 
 **Rejected:** Per-tab separate search fields — a single shared field covers the active tab. Hiding unmatched employees from search results — they are included if their name/department matches.
+
+---
+
+## 20260512-1600 | Reference Data Foundation | TASK
+
+**Task:** Added permanent employee and holiday management as new DB tables and dedicated CRUD screens. Employees (Tab 1) and Holidays (Tab 2) are now managed directly in the app rather than uploaded as files. The app shell expanded from 3 to 4 tabs: Employees / Holidays / Reports / Settings. A new reference_data feature owns the domain models, repository, providers, and screens for both entities. A saved-selection cache table was also added (used in Task 2). Existing column_header rows for the old employees and holidays file types are cleaned up from existing installs on first open. Column headers management now covers attendance only. The existing report generation pipeline and its domain models were not touched.
+
+**Rejected:** Report generation access is intentionally unavailable after this task — the old Input Screen was removed from the router; the Report Generation Screen is Task 2.

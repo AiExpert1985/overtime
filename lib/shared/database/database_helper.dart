@@ -44,6 +44,31 @@ class DatabaseHelper {
 
   Future<void> _createTables(Database db) async {
     await db.execute('''
+      CREATE TABLE IF NOT EXISTS employees (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        employee_number TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        employment_type TEXT NOT NULL,
+        department TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS holidays (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        occasion TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS report_selected_employees (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
       CREATE TABLE IF NOT EXISTS reports (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         generation_datetime TEXT NOT NULL,
@@ -169,6 +194,9 @@ class DatabaseHelper {
       ['["08:00","11:00"]', '["08:00"]'],
     );
 
+    // Remove obsolete employees/holidays file-type headers from any existing install.
+    await db.delete('column_headers', where: "file_type IN ('employees', 'holidays')");
+
     // column_headers defaults — only seed when the table is empty so that
     // onOpen does not duplicate rows on subsequent launches.
     final countResult = await db
@@ -179,11 +207,6 @@ class DatabaseHelper {
     const headers = [
       ('attendance', 'employee_name', 'اسم الموظف'),
       ('attendance', 'datetime', 'التاريخ والوقت'),
-      ('employees', 'employee_name', 'اسم الموظف'),
-      ('employees', 'employment_type', 'نوع التوظيف'),
-      ('employees', 'department', 'القسم'),
-      ('holidays', 'date', 'التاريخ'),
-      ('holidays', 'occasion', 'مناسبة العطلة'),
     ];
 
     final headerBatch = db.batch();

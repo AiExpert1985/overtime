@@ -46,27 +46,6 @@ class _ColumnHeadersBody extends StatelessWidget {
                 },
                 headers: headers['attendance'] ?? {},
               ),
-              const SizedBox(height: 20),
-              _FileTypeSection(
-                title: 'ملف الموظفين',
-                fileType: 'employees',
-                fieldLabels: const {
-                  'employee_name': 'عمود اسم الموظف',
-                  'employment_type': 'عمود نوع التوظيف',
-                  'department': 'عمود القسم',
-                },
-                headers: headers['employees'] ?? {},
-              ),
-              const SizedBox(height: 20),
-              _FileTypeSection(
-                title: 'ملف العطل',
-                fileType: 'holidays',
-                fieldLabels: const {
-                  'date': 'عمود التاريخ',
-                  'occasion': 'عمود المناسبة',
-                },
-                headers: headers['holidays'] ?? {},
-              ),
               const SizedBox(height: 32),
             ],
           ),

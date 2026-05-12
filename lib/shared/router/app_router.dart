@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/file_processing/presentation/screens/input_screen.dart';
+import '../../features/reference_data/presentation/screens/employees_screen.dart';
+import '../../features/reference_data/presentation/screens/holidays_screen.dart';
 import '../../features/reporting/presentation/screens/column_headers_screen.dart';
 import '../../features/reporting/presentation/screens/detail_screen.dart';
 import '../../features/reporting/presentation/screens/report_screen.dart';
@@ -11,7 +12,7 @@ import '../../features/reporting/presentation/screens/settings_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
-    initialLocation: '/input',
+    initialLocation: '/employees',
     routes: [
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
@@ -20,9 +21,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/input',
-                name: 'input',
-                builder: (context, state) => const InputScreen(),
+                path: '/employees',
+                name: 'employees',
+                builder: (context, state) => const EmployeesScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/holidays',
+                name: 'holidays',
+                builder: (context, state) => const HolidaysScreen(),
               ),
             ],
           ),
@@ -103,9 +113,14 @@ class _AppShell extends StatelessWidget {
         ),
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.upload_file_outlined),
-            selectedIcon: Icon(Icons.upload_file),
-            label: 'الإدخال',
+            icon: Icon(Icons.people_outlined),
+            selectedIcon: Icon(Icons.people),
+            label: 'الموظفون',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.event_outlined),
+            selectedIcon: Icon(Icons.event),
+            label: 'العطل',
           ),
           NavigationDestination(
             icon: Icon(Icons.list_alt_outlined),

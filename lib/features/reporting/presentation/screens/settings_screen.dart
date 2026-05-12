@@ -159,7 +159,7 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
               _SectionHeader(title: 'رؤوس الأعمدة'),
               _NavigationRow(
                 label: 'إدارة رؤوس الأعمدة',
-                description: 'تخصيص أسماء أعمدة ملفات الحضور والموظفين والعطل',
+                description: 'تخصيص أسماء أعمدة ملف الحضور',
                 onTap: () => context.pushNamed('column_headers'),
               ),
               const SizedBox(height: 32),
