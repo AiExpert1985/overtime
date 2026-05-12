@@ -133,4 +133,23 @@ class ReferenceDataRepository {
       occasion: row['occasion'] as String,
     );
   }
+
+  // ── Report Selected Employees ──────────────────────────────────────────────
+
+  Future<List<int>> getSelectedEmployeeIds() async {
+    final db = await _db.database;
+    final rows =
+        await db.query('report_selected_employees', columns: ['employee_id']);
+    return rows.map((r) => r['employee_id'] as int).toList();
+  }
+
+  Future<void> saveSelectedEmployeeIds(List<int> ids) async {
+    final db = await _db.database;
+    await db.transaction((txn) async {
+      await txn.delete('report_selected_employees');
+      for (final id in ids) {
+        await txn.insert('report_selected_employees', {'employee_id': id});
+      }
+    });
+  }
 }

@@ -3,21 +3,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../../../reporting/presentation/providers/report_generation_providers.dart';
-import '../../../reporting/presentation/providers/report_providers.dart';
-import '../providers/input_screen_providers.dart';
+import '../../../../shared/domain/employee.dart';
+import '../../../reference_data/domain/employee_record.dart';
+import '../../../reference_data/presentation/providers/reference_data_providers.dart';
+import '../providers/report_generation_providers.dart';
+import '../providers/report_generation_screen_providers.dart';
+import '../providers/report_providers.dart';
 
-class InputScreen extends ConsumerWidget {
-  const InputScreen({super.key});
+class ReportGenerationScreen extends ConsumerWidget {
+  const ReportGenerationScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(inputScreenProvider);
-    final notifier = ref.read(inputScreenProvider.notifier);
+    final state = ref.watch(reportGenerationScreenProvider);
+    final screenNotifier =
+        ref.read(reportGenerationScreenProvider.notifier);
     final genState = ref.watch(generationProvider);
     final isLoading = genState is GenerationLoading;
 
-    ref.listen<InputScreenState>(inputScreenProvider, (prev, next) {
+    ref.listen<ReportGenerationScreenState>(reportGenerationScreenProvider,
+        (prev, next) {
       if (next.unexpectedError != null &&
           next.unexpectedError != prev?.unexpectedError) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -28,7 +33,7 @@ class InputScreen extends ConsumerWidget {
             duration: const Duration(seconds: 4),
           ),
         );
-        notifier.clearError();
+        screenNotifier.clearError();
       }
     });
 
@@ -37,8 +42,8 @@ class InputScreen extends ConsumerWidget {
         case GenerationUnmatchedReview(:final unmatchedNames):
           _showUnmatchedDialog(context, ref, unmatchedNames);
         case GenerationSuccess(:final reportId):
+          screenNotifier.saveSelectionToDb();
           ref.read(reportsVersionProvider.notifier).increment();
-          notifier.reset();
           ref.read(generationProvider.notifier).reset();
           context.goNamed('report',
               pathParameters: {'reportId': reportId.toString()});
@@ -57,60 +62,79 @@ class InputScreen extends ConsumerWidget {
       }
     });
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('الإدخال')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _FileCardsRow(state: state, notifier: notifier),
-            const SizedBox(height: 28),
-            _DateRangeSection(state: state, notifier: notifier),
-            const SizedBox(height: 28),
-            Center(
-              child: SizedBox(
-                width: 260,
-                child: FilledButton(
-                  onPressed: (state.canGenerate && !isLoading)
-                      ? () => ref.read(generationProvider.notifier).generate(
-                            attendance: state.attendanceData,
-                            employees: state.employeesData,
-                            holidays: state.holidaysData,
-                            startDate: state.startDate!,
-                            endDate: state.endDate!,
-                          )
-                      : null,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+    return AbsorbPointer(
+      absorbing: isLoading,
+      child: Scaffold(
+        appBar: AppBar(title: const Text('توليد تقرير')),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 680),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _AttendanceFileCard(
+                    state: state,
+                    notifier: screenNotifier,
                   ),
-                  child: isLoading
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: Colors.white,
+                  const SizedBox(height: 24),
+                  _DateRangeSection(state: state, notifier: screenNotifier),
+                  const SizedBox(height: 24),
+                  _EmployeeSelectionCard(
+                    state: state,
+                    notifier: screenNotifier,
+                  ),
+                  const SizedBox(height: 32),
+                  FilledButton(
+                    onPressed: (state.canGenerate && !isLoading)
+                        ? () => _generate(ref, state)
+                        : null,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: isLoading
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'توليد التقرير',
+                            style: TextStyle(fontSize: 16),
                           ),
-                        )
-                      : const Text(
-                          'توليد التقرير',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
+  void _generate(WidgetRef ref, ReportGenerationScreenState state) {
+    final employees = state.selectedEmployees
+        .map((e) => Employee(
+              name: e.name,
+              employmentType: e.employmentType,
+              department: e.department,
+            ))
+        .toList();
+
+    ref.read(generationProvider.notifier).generate(
+          attendance: state.attendanceData,
+          employees: employees,
+          startDate: state.startDate!,
+          endDate: state.endDate!,
+        );
+  }
+
   void _showUnmatchedDialog(
-    BuildContext context,
-    WidgetRef ref,
-    List<String> names,
-  ) {
+      BuildContext context, WidgetRef ref, List<String> names) {
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -185,9 +209,8 @@ class _UnmatchedDialogState extends ConsumerState<_UnmatchedDialog> {
                   if (mounted) {
                     setState(() {
                       _exporting = false;
-                      _exportMessage = path != null
-                          ? 'تم التصدير: $path'
-                          : 'تعذّر التصدير';
+                      _exportMessage =
+                          path != null ? 'تم التصدير: $path' : 'تعذّر التصدير';
                     });
                   }
                 },
@@ -218,111 +241,34 @@ class _UnmatchedDialogState extends ConsumerState<_UnmatchedDialog> {
   }
 }
 
-// ── File Cards Row ────────────────────────────────────────────────────────────
+// ── Attendance File Card ──────────────────────────────────────────────────────
 
-class _FileCardsRow extends StatelessWidget {
-  final InputScreenState state;
-  final InputScreenNotifier notifier;
+class _AttendanceFileCard extends StatelessWidget {
+  final ReportGenerationScreenState state;
+  final ReportGenerationScreenNotifier notifier;
 
-  const _FileCardsRow({required this.state, required this.notifier});
+  const _AttendanceFileCard(
+      {required this.state, required this.notifier});
 
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final rowWidth = (constraints.maxWidth * 0.6).clamp(540.0, 900.0);
-        final cardWidth = (rowWidth - 24) / 3;
-
-        return Center(
-          child: SizedBox(
-            width: rowWidth,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: cardWidth,
-                  child: _FilePickerCard(
-                    label: 'ملف الحضور',
-                    infoTitle: 'هيكل ملف الحضور',
-                    infoBody:
-                        'ملف Excel يحتوي على عمودين:\n\n'
-                        '• اسم الموظف\n'
-                        '• التاريخ والوقت\n\n'
-                        'يمكن تقديم أكثر من ملف، وكل ملف يمكن أن يحتوي على أكثر من ورقة عمل.',
-                    entries: state.attendanceViews,
-                    cardType: FileCardType.attendance,
-                    onAddFiles: notifier.addAttendanceFiles,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: cardWidth,
-                  child: _FilePickerCard(
-                    label: 'ملف الموظفين',
-                    infoTitle: 'هيكل ملف الموظفين',
-                    infoBody:
-                        'ملف Excel يحتوي على 3 أعمدة:\n\n'
-                        '• اسم الموظف\n'
-                        '• نوع التوظيف (مناوب أو صباحي)\n'
-                        '• القسم\n\n'
-                        'يمكن تقديم أكثر من ملف.',
-                    entries: state.employeesViews,
-                    cardType: FileCardType.employees,
-                    onAddFiles: notifier.addEmployeesFiles,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: cardWidth,
-                  child: _FilePickerCard(
-                    label: 'ملف العطل الرسمية',
-                    infoTitle: 'هيكل ملف العطل',
-                    infoBody:
-                        'ملف Excel يحتوي على عمودين:\n\n'
-                        '• التاريخ\n'
-                        '• مناسبة العطلة\n\n'
-                        'يمكن تقديم أكثر من ملف.',
-                    entries: state.holidaysViews,
-                    cardType: FileCardType.holidays,
-                    onAddFiles: notifier.addHolidaysFiles,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ── File Picker Card ──────────────────────────────────────────────────────────
-
-class _FilePickerCard extends StatelessWidget {
-  final String label;
-  final String infoTitle;
-  final String infoBody;
-  final List<FileEntryView> entries;
-  final FileCardType cardType;
-  final VoidCallback onAddFiles;
-
-  const _FilePickerCard({
-    required this.label,
-    required this.infoTitle,
-    required this.infoBody,
-    required this.entries,
-    required this.cardType,
-    required this.onAddFiles,
-  });
-
-  bool get _isEmpty => entries.isEmpty;
-  bool get _allValid => entries.isNotEmpty && entries.every((e) => e.isValid);
-  int get _invalidCount => entries.where((e) => !e.isValid).length;
+  bool get _isEmpty => state.attendanceViews.isEmpty;
+  bool get _allValid =>
+      state.attendanceViews.isNotEmpty &&
+      state.attendanceViews.every((e) => e.isValid);
+  int get _invalidCount =>
+      state.attendanceViews.where((e) => !e.isValid).length;
 
   Color? _cardColor(ThemeData theme) {
     if (_isEmpty) return null;
     if (_allValid) return Colors.green.shade50;
     return theme.colorScheme.errorContainer.withValues(alpha: 0.25);
+  }
+
+  String get _statusLabel {
+    final count = state.attendanceViews.length;
+    final countLabel = count == 1 ? 'ملف واحد' : '$count ملفات';
+    if (_allValid) return '$countLabel • صالحة';
+    if (_invalidCount == count) return '$countLabel • غير صالحة';
+    return '$countLabel • $_invalidCount غير صالح';
   }
 
   @override
@@ -337,11 +283,25 @@ class _FilePickerCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header row: label/status + info button
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(child: _buildHeader(context, theme)),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      'ملف الحضور',
+                      style: _isEmpty
+                          ? theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
+                            )
+                          : theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                    ),
+                  ),
+                ),
                 IconButton(
                   icon: const Icon(Icons.info_outline, size: 20),
                   tooltip: 'معلومات',
@@ -352,7 +312,6 @@ class _FilePickerCard extends StatelessWidget {
                 ),
               ],
             ),
-            // Clickable file count row (shown when files exist)
             if (!_isEmpty) ...[
               const SizedBox(height: 6),
               InkWell(
@@ -397,7 +356,7 @@ class _FilePickerCard extends StatelessWidget {
             ],
             const SizedBox(height: 8),
             OutlinedButton.icon(
-              onPressed: onAddFiles,
+              onPressed: notifier.addAttendanceFiles,
               icon: const Icon(Icons.upload_file, size: 18),
               label: Text(
                 _isEmpty ? 'اختر ملفات' : 'إضافة ملفات',
@@ -414,45 +373,14 @@ class _FilePickerCard extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, ThemeData theme) {
-    if (_isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 6),
-        child: Text(
-          label,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Text(
-        label,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-        overflow: TextOverflow.ellipsis,
-      ),
-    );
-  }
-
-  String get _statusLabel {
-    final count = entries.length;
-    final countLabel = count == 1 ? 'ملف واحد' : '$count ملفات';
-    if (_allValid) return '$countLabel • صالحة';
-    if (_invalidCount == count) return '$countLabel • غير صالحة';
-    return '$countLabel • $_invalidCount غير صالح';
-  }
-
   void _showInfo(BuildContext context) {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(infoTitle),
-        content: Text(infoBody),
+        title: const Text('ملف الحضور'),
+        content: const Text(
+          'ملف Excel يحتوي على عمودين: اسم الموظف، التاريخ والوقت. يمكن تقديم أكثر من ملف.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
@@ -466,45 +394,23 @@ class _FilePickerCard extends StatelessWidget {
   void _showFileList(BuildContext context) {
     showDialog<void>(
       context: context,
-      builder: (ctx) => _FileListDialog(
-        title: label,
-        cardType: cardType,
-      ),
+      builder: (ctx) => _AttendanceFileListDialog(notifier: notifier),
     );
   }
 }
 
-// ── File List Dialog ──────────────────────────────────────────────────────────
+// ── Attendance File List Dialog ───────────────────────────────────────────────
 
-class _FileListDialog extends ConsumerWidget {
-  final String title;
-  final FileCardType cardType;
+class _AttendanceFileListDialog extends ConsumerWidget {
+  final ReportGenerationScreenNotifier notifier;
 
-  const _FileListDialog({required this.title, required this.cardType});
+  const _AttendanceFileListDialog({required this.notifier});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(inputScreenProvider);
-    final notifier = ref.read(inputScreenProvider.notifier);
+    final state = ref.watch(reportGenerationScreenProvider);
+    final entries = state.attendanceViews;
 
-    final entries = switch (cardType) {
-      FileCardType.attendance => state.attendanceViews,
-      FileCardType.employees => state.employeesViews,
-      FileCardType.holidays => state.holidaysViews,
-    };
-
-    void removeAt(int index) {
-      switch (cardType) {
-        case FileCardType.attendance:
-          notifier.removeAttendanceFile(index);
-        case FileCardType.employees:
-          notifier.removeEmployeesFile(index);
-        case FileCardType.holidays:
-          notifier.removeHolidaysFile(index);
-      }
-    }
-
-    // Auto-close when all files are removed
     if (entries.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (context.mounted) Navigator.of(context).pop();
@@ -514,7 +420,7 @@ class _FileListDialog extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return AlertDialog(
-      title: Text(title),
+      title: const Text('ملف الحضور'),
       contentPadding: const EdgeInsets.fromLTRB(0, 16, 0, 0),
       content: SizedBox(
         width: 460,
@@ -523,25 +429,20 @@ class _FileListDialog extends ConsumerWidget {
             : Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Column headers
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            'اسم الملف',
+                          child: Text('اسم الملف',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              )),
+                        ),
+                        Text('الحالة',
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          'الحالة',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
+                            )),
                         const SizedBox(width: 40),
                       ],
                     ),
@@ -554,13 +455,10 @@ class _FileListDialog extends ConsumerWidget {
                       itemCount: entries.length,
                       separatorBuilder: (_, _) =>
                           const Divider(height: 1, indent: 20, endIndent: 20),
-                      itemBuilder: (ctx, i) {
-                        final entry = entries[i];
-                        return _FileRow(
-                          entry: entry,
-                          onRemove: () => removeAt(i),
-                        );
-                      },
+                      itemBuilder: (ctx, i) => _FileRow(
+                        entry: entries[i],
+                        onRemove: () => notifier.removeAttendanceFile(i),
+                      ),
                     ),
                   ),
                 ],
@@ -576,7 +474,7 @@ class _FileListDialog extends ConsumerWidget {
   }
 }
 
-// ── File Row (inside dialog) ──────────────────────────────────────────────────
+// ── File Row ──────────────────────────────────────────────────────────────────
 
 class _FileRow extends StatelessWidget {
   final FileEntryView entry;
@@ -651,7 +549,7 @@ class _FileRow extends StatelessWidget {
           if (entry.errorMessage != null) ...[
             const SizedBox(height: 3),
             Padding(
-              padding: const EdgeInsets.only(left: 0, right: 40),
+              padding: const EdgeInsets.only(right: 40),
               child: Text(
                 entry.errorMessage!,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -672,8 +570,8 @@ class _FileRow extends StatelessWidget {
 // ── Date Range Section ────────────────────────────────────────────────────────
 
 class _DateRangeSection extends StatelessWidget {
-  final InputScreenState state;
-  final InputScreenNotifier notifier;
+  final ReportGenerationScreenState state;
+  final ReportGenerationScreenNotifier notifier;
 
   const _DateRangeSection({required this.state, required this.notifier});
 
@@ -682,46 +580,41 @@ class _DateRangeSection extends StatelessWidget {
     final theme = Theme.of(context);
     final error = state.dateRangeError;
 
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _DatePickerButton(
-                    label: 'من',
-                    date: state.startDate,
-                    onPick: notifier.setStartDate,
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime(2100),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _DatePickerButton(
-                    label: 'إلى',
-                    date: state.endDate,
-                    onPick: notifier.setEndDate,
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime(2100),
-                  ),
-                ),
-              ],
-            ),
-            if (error != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                error,
-                style: TextStyle(color: theme.colorScheme.error, fontSize: 12),
-                textAlign: TextAlign.center,
+            Expanded(
+              child: _DatePickerButton(
+                label: 'من',
+                date: state.startDate,
+                onPick: notifier.setStartDate,
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2100),
               ),
-            ],
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _DatePickerButton(
+                label: 'إلى',
+                date: state.endDate,
+                onPick: notifier.setEndDate,
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2100),
+              ),
+            ),
           ],
         ),
-      ),
+        if (error != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            error,
+            style: TextStyle(color: theme.colorScheme.error, fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ],
     );
   }
 }
@@ -789,5 +682,210 @@ class _DatePickerButton extends StatelessWidget {
       lastDate: lastDate,
     );
     if (picked != null) onPick(picked);
+  }
+}
+
+// ── Employee Selection Card ───────────────────────────────────────────────────
+
+class _EmployeeSelectionCard extends StatelessWidget {
+  final ReportGenerationScreenState state;
+  final ReportGenerationScreenNotifier notifier;
+
+  const _EmployeeSelectionCard(
+      {required this.state, required this.notifier});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final count = state.selectedEmployees.length;
+    final hasSelection = count > 0;
+
+    return Card(
+      elevation: 1,
+      child: InkWell(
+        onTap: () => _openDialog(context),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Icon(
+                hasSelection ? Icons.people : Icons.people_outline,
+                color: hasSelection
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  hasSelection ? 'تم اختيار $count موظف' : 'لم يتم اختيار أي موظفين',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: hasSelection
+                        ? theme.colorScheme.onSurface
+                        : theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              if (hasSelection)
+                TextButton(
+                  onPressed: notifier.clearSelectedEmployees,
+                  child: const Text('مسح الكل'),
+                )
+              else
+                Icon(
+                  Icons.chevron_left,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openDialog(BuildContext context) {
+    showDialog<List<EmployeeRecord>>(
+      context: context,
+      builder: (ctx) => _EmployeeSelectionDialog(
+        currentSelection: state.selectedEmployees,
+      ),
+    ).then((result) {
+      if (result != null) {
+        notifier.setSelectedEmployees(result);
+      }
+    });
+  }
+}
+
+// ── Employee Selection Dialog ─────────────────────────────────────────────────
+
+class _EmployeeSelectionDialog extends ConsumerStatefulWidget {
+  final List<EmployeeRecord> currentSelection;
+
+  const _EmployeeSelectionDialog({required this.currentSelection});
+
+  @override
+  ConsumerState<_EmployeeSelectionDialog> createState() =>
+      _EmployeeSelectionDialogState();
+}
+
+class _EmployeeSelectionDialogState
+    extends ConsumerState<_EmployeeSelectionDialog> {
+  late Set<int> _checkedIds;
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _checkedIds = widget.currentSelection.map((e) => e.id).toSet();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final employeesAsync = ref.watch(employeesProvider);
+    final theme = Theme.of(context);
+
+    return Dialog.fullscreen(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('اختيار الموظفين'),
+          leading: IconButton(
+            icon: const Icon(Icons.close),
+            tooltip: 'إغلاق',
+            onPressed: () => Navigator.of(context).pop(null),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                final allEmployees =
+                    employeesAsync.value ?? [];
+                final selected = allEmployees
+                    .where((e) => _checkedIds.contains(e.id))
+                    .toList();
+                Navigator.of(context).pop(selected);
+              },
+              child: const Text('تأكيد'),
+            ),
+          ],
+        ),
+        body: Column(
+          children: [
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: TextField(
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'بحث باسم الموظف، القسم، أو الرقم الوظيفي',
+                  prefixIcon: Icon(Icons.search),
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                onChanged: (v) => setState(() => _searchQuery = v.trim()),
+              ),
+            ),
+            Expanded(
+              child: employeesAsync.when(
+                loading: () =>
+                    const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(
+                  child: Text('خطأ في تحميل الموظفين',
+                      style: TextStyle(
+                          color: theme.colorScheme.error)),
+                ),
+                data: (employees) {
+                  final filtered = _searchQuery.isEmpty
+                      ? employees
+                      : employees.where((e) {
+                          final q = _searchQuery.toLowerCase();
+                          return e.name.toLowerCase().contains(q) ||
+                              e.department.toLowerCase().contains(q) ||
+                              e.employeeNumber.toLowerCase().contains(q);
+                        }).toList();
+
+                  if (filtered.isEmpty) {
+                    return const Center(
+                      child: Text('لا توجد نتائج مطابقة'),
+                    );
+                  }
+
+                  return ListView.builder(
+                    itemCount: filtered.length,
+                    itemBuilder: (ctx, i) {
+                      final emp = filtered[i];
+                      final isChecked = _checkedIds.contains(emp.id);
+                      return CheckboxListTile(
+                        value: isChecked,
+                        onChanged: (_) => setState(() {
+                          if (isChecked) {
+                            _checkedIds.remove(emp.id);
+                          } else {
+                            _checkedIds.add(emp.id);
+                          }
+                        }),
+                        title: Text(emp.name),
+                        subtitle: Text(
+                            '${emp.employeeNumber} • ${emp.department}'),
+                        secondary: Chip(
+                          label: Text(
+                            emp.employmentType == EmploymentType.shift
+                                ? 'مناوب'
+                                : 'صباحي',
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          padding: EdgeInsets.zero,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        controlAffinity: ListTileControlAffinity.trailing,
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

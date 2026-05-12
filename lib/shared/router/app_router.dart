@@ -6,6 +6,7 @@ import '../../features/reference_data/presentation/screens/employees_screen.dart
 import '../../features/reference_data/presentation/screens/holidays_screen.dart';
 import '../../features/reporting/presentation/screens/column_headers_screen.dart';
 import '../../features/reporting/presentation/screens/detail_screen.dart';
+import '../../features/reporting/presentation/screens/report_generation_screen.dart';
 import '../../features/reporting/presentation/screens/report_screen.dart';
 import '../../features/reporting/presentation/screens/reports_list_screen.dart';
 import '../../features/reporting/presentation/screens/settings_screen.dart';
@@ -43,6 +44,12 @@ final routerProvider = Provider<GoRouter>((ref) {
                 name: 'reports',
                 builder: (context, state) => const ReportsListScreen(),
                 routes: [
+                  GoRoute(
+                    path: 'generate',
+                    name: 'report_generate',
+                    builder: (context, state) =>
+                        const ReportGenerationScreen(),
+                  ),
                   GoRoute(
                     path: ':reportId',
                     name: 'report',

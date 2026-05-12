@@ -14,6 +14,11 @@ class ReportsListScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('التقارير')),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => context.goNamed('report_generate'),
+        child: const Icon(Icons.add),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       body: listAsync.when(
         loading: () =>
             const Center(child: CircularProgressIndicator()),

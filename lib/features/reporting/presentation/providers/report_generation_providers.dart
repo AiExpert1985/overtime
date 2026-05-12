@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../shared/database/database_helper.dart';
 import '../../../../shared/domain/attendance_record.dart';
 import '../../../../shared/domain/employee.dart';
 import '../../../../shared/domain/holiday.dart';
+import '../../../reference_data/data/reference_data_repository.dart';
 import '../../application/report_generation_service.dart';
 import 'settings_providers.dart';
 
@@ -39,6 +41,7 @@ class GenerationError extends GenerationState {
 
 class ReportGenerationNotifier extends Notifier<GenerationState> {
   final _service = ReportGenerationService();
+  final _refDataRepo = ReferenceDataRepository(DatabaseHelper.instance);
 
   // Held while waiting for unmatched-review decision
   DictionaryBuildResult? _pendingDict;
@@ -53,7 +56,6 @@ class ReportGenerationNotifier extends Notifier<GenerationState> {
   Future<void> generate({
     required List<AttendanceRecord> attendance,
     required List<Employee> employees,
-    required List<Holiday> holidays,
     required DateTime startDate,
     required DateTime endDate,
   }) async {
@@ -66,6 +68,11 @@ class ReportGenerationNotifier extends Notifier<GenerationState> {
     state = const GenerationLoading();
 
     try {
+      final holidayRecords = await _refDataRepo.getAllHolidays();
+      final holidays = holidayRecords
+          .map((r) => Holiday(date: r.date, occasion: r.occasion))
+          .toList();
+
       final dictResult = _service.buildDictionary(
         employees: employees,
         attendance: attendance,
@@ -153,6 +160,6 @@ class ReportGenerationNotifier extends Notifier<GenerationState> {
 }
 
 final generationProvider =
-    NotifierProvider<ReportGenerationNotifier, GenerationState>(
+    NotifierProvider.autoDispose<ReportGenerationNotifier, GenerationState>(
   ReportGenerationNotifier.new,
 );

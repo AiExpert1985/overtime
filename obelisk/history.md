@@ -96,6 +96,12 @@
 
 ---
 
+## 20260512-1800 | Report Generation Rework | TASK
+
+**Task:** Replaced the old 3-file Input Screen with a new push-screen Report Generation Screen reached from a FAB on the Reports List. The new screen handles attendance file upload only — employees and holidays are no longer uploaded as files. Employees are selected via a full-screen dialog (live search, checkboxes) with the previous selection pre-populated from the `report_selected_employees` table on each open; the saved selection is written to DB only on successful generation. The generation pipeline was updated to fetch holidays from DB internally instead of receiving them as a parameter. The generation provider is now auto-dispose. The `report_generate` route is registered before the dynamic `:reportId` segment to prevent capture.
+
+---
+
 ## 20260512-1600 | Reference Data Foundation | TASK
 
 **Task:** Added permanent employee and holiday management as new DB tables and dedicated CRUD screens. Employees (Tab 1) and Holidays (Tab 2) are now managed directly in the app rather than uploaded as files. The app shell expanded from 3 to 4 tabs: Employees / Holidays / Reports / Settings. A new reference_data feature owns the domain models, repository, providers, and screens for both entities. A saved-selection cache table was also added (used in Task 2). Existing column_header rows for the old employees and holidays file types are cleaned up from existing installs on first open. Column headers management now covers attendance only. The existing report generation pipeline and its domain models were not touched.
