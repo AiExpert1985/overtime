@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:excel/excel.dart';
 import 'package:flutter/foundation.dart';
 
@@ -251,10 +253,51 @@ class FileProcessingService {
   Future<Excel?> _openExcel(String path) async {
     try {
       final bytes = await File(path).readAsBytes();
-      return Excel.decodeBytes(bytes);
+      return Excel.decodeBytes(_fixNumFmtIds(bytes));
     } catch (e, st) {
       debugPrint('[FileProcessingService] Failed to open "$path": $e\n$st');
       return null;
+    }
+  }
+
+  // xlsx files sometimes declare built-in numFmt IDs (< 164) in their custom
+  // numFmts section. The excel package rejects these. Strip them before parsing.
+  Uint8List _fixNumFmtIds(Uint8List bytes) {
+    try {
+      final archive = ZipDecoder().decodeBytes(bytes);
+      const stylesPath = 'xl/styles.xml';
+      final stylesFile = archive.findFile(stylesPath);
+      if (stylesFile == null) return bytes;
+
+      var xml = utf8.decode(stylesFile.content as List<int>);
+
+      final numFmtTag = RegExp(
+        r'<numFmt\b[^>]*/\s*>',
+        dotAll: true,
+      );
+      xml = xml.replaceAllMapped(numFmtTag, (m) {
+        final tag = m.group(0)!;
+        final idStr = RegExp(r'numFmtId="(\d+)"').firstMatch(tag)?.group(1);
+        final id = int.tryParse(idStr ?? '') ?? 164;
+        return id < 164 ? '' : tag;
+      });
+
+      final remaining = RegExp(r'<numFmt\b').allMatches(xml).length;
+      xml = xml.replaceAllMapped(
+        RegExp(r'(<numFmts\b[^>]*\bcount=")[^"]*(")', dotAll: true),
+        (m) => '${m.group(1)}$remaining${m.group(2)}',
+      );
+
+      final fixed = utf8.encode(xml);
+      final newFile = ArchiveFile(stylesPath, fixed.length, fixed);
+      archive.files.removeWhere((f) => f.name == stylesPath);
+      archive.files.add(newFile);
+
+      final reencoded = ZipEncoder().encode(archive);
+      if (reencoded == null) return bytes;
+      return Uint8List.fromList(reencoded);
+    } catch (_) {
+      return bytes;
     }
   }
 

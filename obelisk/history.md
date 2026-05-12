@@ -79,3 +79,9 @@
 ## 20260512-0000 | Report Screen Scroll + Row Navigation Fix | TASK
 
 **Task:** Fixed two bugs on the Report screen. (1) DataTable tabs (Daily and Shift) were not vertically scrollable — the scroll nesting was reversed (horizontal outer, vertical inner) which doesn't work reliably on Windows desktop; fixed by making vertical the outer scroll and horizontal the inner, matching the Detail screen's approach. (2) Tapping a matched employee row did nothing — the checkbox column rendered by default when `onSelectChanged` is set was interfering with hit-testing on desktop; fixed by setting `showCheckboxColumn: false` on both DataTables. Navigation callback itself (`goNamed('detail', ...)`) was already correct.
+
+---
+
+## 20260512-1200 | Excel numFmt Styles Compatibility Fix | TASK
+
+**Task:** Fixed a crash when uploading xlsx files that declare built-in numFmt IDs (< 164) in their custom numFmts section — a format produced by some Excel variants. The `excel` package rejects these with a hard exception. The fix pre-processes the raw xlsx bytes before parsing: unzips the file, strips the offending `<numFmt>` entries from `xl/styles.xml`, updates the count attribute, and rezips. If pre-processing fails for any reason the original bytes are passed through unchanged. The `archive` package (already a transitive dependency at 3.6.1) was made an explicit dependency.
