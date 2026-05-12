@@ -1,7 +1,7 @@
 # main_workflow
 
 **Created**: 27-Apr-2026
-**Modified**: 05-May-2026
+**Modified**: 12-May-2026
 
 ---
 
@@ -15,19 +15,21 @@ Highest-level description of how the app works end to end. Read this first. All 
 
 ### Stage 1 — File Upload and Validation
 
-The user uploads three Excel files on the Input screen: attendance timestamps file, target employees file, and official holidays file. Each file is validated immediately on upload — column headers are checked and at least one valid row must exist. A file card shows green on pass, red with Arabic reason on failure.
+The user uploads the attendance Excel file on the Report Generation screen. The file is validated immediately on upload — column headers are checked and at least one valid row must exist. A file card shows green on pass, red with Arabic reason on failure.
 
-See `screen_input.md` and `file_processing.md`.
+Employees and holidays are no longer uploaded as files. They are permanent reference data managed in the Employees and Holidays screens. If no employees have been added yet, the Generate button will never become active.
+
+See `screen_report_generate.md` and `file_processing.md`.
 
 ### Stage 2 — Generate Report Triggered
 
-The Generate Report button becomes active only when all three files are uploaded and valid, and both start and end dates are filled. When the user presses the button, report generation begins immediately.
+The Generate Report button becomes active only when the attendance file is uploaded and valid, both start and end dates are filled, and at least one employee is selected. When the user presses the button, report generation begins immediately.
 
-See `screen_input.md`.
+See `screen_report_generate.md`.
 
 ### Stage 3 — Dictionary Build
 
-A working dictionary is built in memory from the uploaded files and the selected date range. Records outside the target employee list or date range are discarded. The result is one entry per matched employee with their sorted timestamp list. If any employees have no attendance records, the user is prompted to abort or continue before proceeding.
+A working dictionary is built in memory from the attendance file, the selected employees (from the permanent employees table), the holidays list (from the permanent holidays table), and the selected date range. Records outside the selected employee list or date range are discarded. The result is one entry per matched employee with their sorted timestamp list. If any selected employees have no attendance records, the user is prompted to abort or continue before proceeding.
 
 See `dictionary_build.md` for the exact steps and rules.
 
@@ -45,7 +47,7 @@ See `overtime_calculation_daily.md` and `overtime_calculation_shift.md`.
 
 ### Stage 6 — Navigate to Report
 
-After results are stored, the report is loaded from the database into the report provider. The app then switches to the Reports tab automatically and pushes the newly generated Report screen. The user sees their report immediately without any manual navigation.
+After results are stored, the report is loaded from the database into the report provider. The Report Generation screen is popped, and the newly generated Report screen is pushed on top of the Reports List. The user sees their report immediately without any manual navigation.
 
 All report screens — whether reached after generation or by tapping a history row — always load from the database. There is no separate in-memory path for newly generated reports. This ensures one consistent loading code path throughout the app.
 
@@ -55,7 +57,7 @@ See `screen_report.md`.
 
 ## Error Handling
 
-Any failure during Stages 3–5 aborts generation entirely. No partial results are stored. The user sees an Arabic error message and remains on the Input screen with all file selections intact. If the user aborts at the unmatched review prompt, this is a clean abort — not an error.
+Any failure during Stages 3–5 aborts generation entirely. No partial results are stored. The user sees an Arabic error message and remains on the Report Generation screen with all selections intact. If the user aborts at the unmatched review prompt, this is a clean abort — not an error.
 
 ---
 

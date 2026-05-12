@@ -1,21 +1,22 @@
 # router
 
 **Created**: 27-Apr-2026
-**Modified**: 05-May-2026
+**Modified**: 12-May-2026
 
 ---
 
 ## Shell — Bottom Tab Bar
 
-Three persistent tabs form the app shell. The tab bar is always visible except when a push screen is active on top.
+Four persistent tabs form the app shell. The tab bar is always visible except when a push screen is active on top.
 
 | Tab | Label (Arabic) | Root Screen |
 |---|---|---|
-| 1 | الإدخال | Input Screen |
-| 2 | التقارير | Reports List Screen |
-| 3 | الإعدادات | Settings Screen |
+| 1 | الموظفون | Employees Screen |
+| 2 | العطل | Holidays Screen |
+| 3 | التقارير | Reports List Screen |
+| 4 | الإعدادات | Settings Screen |
 
-Switching tabs preserves each tab's navigation stack. If the user is deep in the Reports tab and switches to Settings, returning to Reports resumes where they left off.
+Switching tabs preserves each tab's navigation stack.
 
 ---
 
@@ -23,8 +24,10 @@ Switching tabs preserves each tab's navigation stack. If the user is deep in the
 
 | Name | Path | Screen | Parameters |
 |---|---|---|---|
-| `input` | `/input` | Input Screen | — |
+| `employees` | `/employees` | Employees Screen | — |
+| `holidays` | `/holidays` | Holidays Screen | — |
 | `reports` | `/reports` | Reports List Screen | — |
+| `report_generate` | `/reports/generate` | Report Generation Screen | — |
 | `report` | `/reports/:reportId` | Report Screen | `reportId` — integer, database id |
 | `detail` | `/reports/:reportId/detail/:employeeName` | Detail Screen | `reportId` — integer, `employeeName` — Arabic string, percent-encoded |
 | `settings` | `/settings` | Settings Screen | — |
@@ -34,29 +37,37 @@ Switching tabs preserves each tab's navigation stack. If the user is deep in the
 
 ## Route Details
 
-### input — `/input`
+### employees — `/employees`
 
-Root of Tab 1. The starting point for file upload and report generation. No parameters.
+Root of Tab 1. Lists all permanent employees. Add, edit, delete operations inline.
 
-After successful generation, the app switches to Tab 2 (Reports) and pushes the Report screen automatically. The Input tab stack is not affected.
+### holidays — `/holidays`
+
+Root of Tab 2. Lists all permanent holidays. Add, edit, delete operations inline.
 
 ### reports — `/reports`
 
-Root of Tab 2. Shows the list of all generated reports ordered by generation date descending. No parameters.
+Root of Tab 3. Shows the list of all generated reports ordered by generation datetime descending.
 
-After generation, the app navigates here automatically and pushes the new report on top of this screen.
+The floating add button in the bottom-left corner pushes the Report Generation screen.
+
+### report_generate — `/reports/generate`
+
+Pushed on top of the Reports List within Tab 3. Reached only from the floating add button.
+
+Handles attendance file upload, date range selection, and employee selection. On successful generation, this screen is popped and the new Report screen is pushed in its place.
 
 ### report — `/reports/:reportId`
 
-Pushed on top of the Reports list within Tab 2. Reached two ways: automatically after generation, or by tapping a row in the Reports list.
+Pushed on top of the Reports List within Tab 3. Reached two ways: automatically after generation, or by tapping a row in the Reports List.
 
-The screen loads the full report from the database on mount using the `reportId` parameter. No pre-loading by the caller is required — the screen is self-sufficient.
+The screen loads the full report from the database on mount using the `reportId` parameter. No pre-loading by the caller is required.
 
-Back button returns to the Reports list.
+Back button returns to the Reports List.
 
 ### detail — `/reports/:reportId/detail/:employeeName`
 
-Pushed on top of the Report screen within Tab 2. Reached only by tapping an employee row on the Report screen.
+Pushed on top of the Report screen within Tab 3. Reached only by tapping an employee row on the Report screen.
 
 Reads from the current report provider already loaded by the Report screen — no additional database fetch needed.
 
@@ -66,11 +77,11 @@ Back button returns to the Report screen.
 
 ### settings — `/settings`
 
-Root of Tab 3. Single scrollable screen with all configurable settings inline. No parameters.
+Root of Tab 4. Single scrollable screen with all configurable settings inline.
 
 ### column_headers — `/settings/column-headers`
 
-Pushed on top of the Settings screen within Tab 3. Reached by tapping the Column Headers management entry on the Settings screen.
+Pushed on top of the Settings screen within Tab 4. Reached by tapping the Column Headers management entry.
 
 Back button returns to the Settings screen.
 
@@ -79,19 +90,24 @@ Back button returns to the Settings screen.
 ## Navigation Flow
 
 ```
-Tab 1 — Input
-  └── generates report → switches to Tab 2, pushes Report Screen
-                              └── taps employee → Detail Screen
-                                                      └── back → Report Screen
-                                                  back → Reports List
+Tab 1 — Employees
+  └── (CRUD inline, no push screens)
 
-Tab 2 — Reports List
+Tab 2 — Holidays
+  └── (CRUD inline, no push screens)
+
+Tab 3 — Reports List
+  ├── floating add button → Report Generation Screen
+  │                               └── success → pops generation, pushes Report Screen
+  │                                                   └── taps employee → Detail Screen
+  │                                                                           └── back → Report Screen
+  │                                                   back → Reports List
   └── taps report row → Report Screen
                               └── taps employee → Detail Screen
                                                       └── back → Report Screen
-                                                  back → Reports List
+                              back → Reports List
 
-Tab 3 — Settings
+Tab 4 — Settings
   └── taps Column Headers → Column Header Management Screen
                                   └── back → Settings Screen
 ```
@@ -110,6 +126,7 @@ Tab 3 — Settings
 
 | From | Back goes to |
 |---|---|
+| Report Generation Screen | Reports List |
 | Report Screen | Reports List |
 | Detail Screen | Report Screen |
 | Column Header Management | Settings Screen |

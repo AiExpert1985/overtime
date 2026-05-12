@@ -1,13 +1,13 @@
 # screen_configuration
 
 **Created**: 27-Apr-2026
-**Modified**: 27-Apr-2026
+**Modified**: 12-May-2026
 
 ---
 
 ## Purpose
 
-The third tab of the app. Manages all user-configurable settings: daily employee thresholds, shift employee thresholds, display rounding mode, and column header values.
+The fourth tab of the app. Manages all user-configurable settings: daily employee thresholds, shift employee thresholds, display rounding mode, and attendance column header values.
 
 ---
 
@@ -79,13 +79,13 @@ Displayed as a single row with a brief description and a navigation arrow. Tappi
 
 Pushed from the Settings screen. Back button returns to Settings.
 
-Three subsections — one per file type: attendance (ملف الحضور), employees (ملف الموظفين), holidays (ملف العطل).
+Covers the attendance file only — employees and holidays are no longer file-based.
 
-Each subsection lists all field keys for that file. Per field:
+Lists all field keys for the attendance file. Per field:
 - Default values shown with lock icon — cannot be edited or deleted
 - User-added values shown with edit and delete icons
 - Add button opens a single-input Arabic text dialog. Value must be non-empty and unique per field.
 - Edit opens the same dialog pre-populated.
 - Delete shows Arabic confirmation prompt before removing.
 
-Changes take effect next time a file is selected on the Input tab.
+Changes take effect next time an attendance file is selected on the Report Generation screen.

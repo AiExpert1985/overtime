@@ -1,13 +1,15 @@
 # screen_report_list
 
 **Created**: 27-Apr-2026
-**Modified**: 05-May-2026
+**Modified**: 12-May-2026
 
 ---
 
 ## Purpose
 
-The second tab of the app. Lists all generated reports ordered by generation datetime descending. The user can open any report or delete it. After a new report is generated, the app switches to this tab and pushes the new Report screen automatically — this screen refreshes its list from the database when returned to.
+Tab 3 of the app. Lists all generated reports ordered by generation datetime descending. The user can open any report or delete it. After a new report is generated, the Report Generation screen is popped and the new Report screen is pushed on top of this screen automatically — this screen refreshes its list from the database when returned to.
+
+A floating add button (FAB) in the bottom-left corner pushes the Report Generation screen.
 
 ---
 

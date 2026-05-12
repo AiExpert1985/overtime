@@ -1,19 +1,23 @@
 # database_schema
 
 **Created**: 27-Apr-2026
-**Modified**: 05-May-2026
+**Modified**: 12-May-2026
 
 ---
 
 ## Purpose
 
-Defines all tables, columns, relationships, and versioning strategy. All database access is owned by the Reporting feature's repository. FileProcessing has no database presence.
+Defines all tables, columns, relationships, and versioning strategy. FileProcessing has no database presence. The Reporting feature owns report result tables. The ReferenceData feature owns employees, holidays, and the attendance column headers table.
 
 ---
 
 ## Tables Overview
 
 ```
+employees
+holidays
+report_selected_employees
+
 reports
   ├── daily_employee_results
   │     └── daily_period_details
@@ -23,6 +27,36 @@ reports
 column_headers
 app_settings
 ```
+
+---
+
+## employees
+
+One row per employee. Permanent reference data — not tied to any report. Hard delete only.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | integer, PK, auto-increment | |
+| employee_number | text, unique | Unique identifier. Enforced at DB level. |
+| name | text | Full name. Used as join key during report generation. Case-sensitive and whitespace-sensitive. |
+| employment_type | text | 'shift' or 'daily' |
+| department | text | Display only — no effect on calculation |
+
+No FK relationship to any report table. Deleting an employee has no effect on previously generated reports — all result rows are denormalized snapshots. Employee number uniqueness is enforced at the DB level — the add/edit dialog shows an Arabic error if a duplicate is entered.
+
+---
+
+## holidays
+
+One row per holiday date. Permanent reference data — flat list, no year scoping. Used only during daily overtime calculation to classify day types.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | integer, PK, auto-increment | |
+| date | text | ISO 8601 date |
+| occasion | text | Arabic name or description. Display only — no effect on calculation. |
+
+No FK relationship to any report table. Deleting a holiday has no effect on previously generated reports — day type is stored as a denormalized snapshot in `daily_period_details`.
 
 ---
 
@@ -118,6 +152,19 @@ One row per detected shift period per employee result. Cascade deleted with pare
 
 ---
 
+## report_selected_employees
+
+Persists the employee selection from the most recent report generation attempt. Loaded as the default selection when the user opens the Report Generation screen. Replaced entirely each time the user confirms a new selection and starts generation.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | integer, PK, auto-increment | |
+| employee_id | integer, FK → employees.id | Cascade delete — if employee is deleted, the saved selection row is removed |
+
+This is the only table that holds a FK to `employees`. It is safe to cascade delete because it is a UI convenience cache, not a report result.
+
+---
+
 ## app_settings
 
 One row per setting key. Seeded with defaults on first launch. Never overwrites existing rows on re-seed.
@@ -134,12 +181,12 @@ Predefined keys: `daily_start_time`, `daily_work_duration`, `daily_max_overtime`
 
 ## column_headers
 
-One row per acceptable header value per field key.
+One row per acceptable header value per field key. Only attendance file headers are managed here — employees and holidays are no longer file-based.
 
 | Column | Type | Notes |
 |---|---|---|
 | id | integer, PK, auto-increment | |
-| file_type | text | 'attendance', 'employees', or 'holidays' |
+| file_type | text | 'attendance' only |
 | field_key | text | Internal field identifier |
 | header_value | text | Arabic column header to match |
 | is_default | integer | 1 = built-in default, cannot be edited or deleted. 0 = user-added. |
@@ -154,7 +201,7 @@ Reports are always appended — generating a new report never replaces or delete
 
 ## Schema Initialization
 
-Schema created on first launch if tables do not exist. A version number tracks schema changes — migrations applied in sequence on version mismatch. Default values seeded into `column_headers` and `app_settings` on first launch, existence-checked before insert.
+Schema created on first launch if tables do not exist. A version number tracks schema changes — migrations applied in sequence on version mismatch. Default values seeded into `column_headers` and `app_settings` on first launch, existence-checked before insert. The `employees` and `holidays` tables start empty — no seeded data.
 
 ---
 

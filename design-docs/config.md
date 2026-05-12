@@ -1,7 +1,7 @@
 # config
 
 **Created**: 27-Apr-2026
-**Modified**: 27-Apr-2026
+**Modified**: 12-May-2026
 
 ---
 
@@ -51,7 +51,7 @@ Rounding options: `none` / `quarter` / `hour`. Applied at display time only — 
 
 ## Default Column Headers
 
-Seeded on first launch. Cannot be deleted or edited. Additional values added via `screen_configuration.md`.
+Seeded on first launch. Cannot be deleted or edited. Additional values added via `screen_configuration.md`. Only the attendance file has configurable column headers — employees and holidays are no longer file-based.
 
 ### Attendance File
 
@@ -59,27 +59,3 @@ Seeded on first launch. Cannot be deleted or edited. Additional values added via
 |---|---|---|---|
 | employee_name | اسم الموظف | عمود اسم الموظف | اسم العمود الذي يحتوي على أسماء الموظفين في ملف الحضور |
 | datetime | التاريخ والوقت | عمود التاريخ والوقت | اسم العمود الذي يحتوي على تاريخ ووقت البصمة معاً |
-
-### Target Employees File
-
-| Field key | Default | Arabic Name | Arabic Description |
-|---|---|---|---|
-| employee_name | اسم الموظف | عمود اسم الموظف | اسم العمود الذي يحتوي على أسماء الموظفين المستهدفين |
-| employment_type | نوع التوظيف | عمود نوع التوظيف | اسم العمود الذي يحتوي على نوع الدوام (مناوب أو صباحي) |
-| department | القسم | عمود القسم | اسم العمود الذي يحتوي على اسم القسم |
-
-### Holidays File
-
-| Field key | Default | Arabic Name | Arabic Description |
-|---|---|---|---|
-| date | التاريخ | عمود التاريخ | اسم العمود الذي يحتوي على تاريخ العطلة |
-| occasion | مناسبة العطلة | عمود المناسبة | اسم العمود الذي يحتوي على اسم أو وصف العطلة |
-
-### Employment Type Values
-
-| Type | Accepted value |
-|---|---|
-| Shift | مناوب |
-| Daily | صباحي |
-
-Fixed — not configurable.

@@ -1,7 +1,11 @@
 # architecture_overview
 
 **Created**: 27-Apr-2026
-**Modified**: 05-May-2026 working on this codebase. Read this before reading any other doc. Defines the platform, packages, layer rules, feature boundaries, and shared data concepts.
+**Modified**: 12-May-2026
+
+---
+
+Read this before reading any other doc. Defines the platform, packages, layer rules, feature boundaries, and shared data concepts.
 
 ---
 
@@ -55,11 +59,13 @@ Omitting either causes silent runtime failure.
 
 ## Features
 
-**FileProcessing** — reads and validates Excel input files, produces shared domain objects. No overtime logic.
+**FileProcessing** — reads and validates the attendance Excel file, produces `AttendanceRecord` objects. No overtime logic. No employee or holiday file parsing.
 
-**Reporting** — consumes parsed objects, runs calculations, persists results, owns all output screens. No file parsing.
+**ReferenceData** — owns the permanent employees and holidays tables. Provides employee lists (for selection UI and for report generation) and the holidays list (for day classification). No overtime logic.
 
-**Dependency direction:** Reporting → FileProcessing. Never the reverse.
+**Reporting** — consumes parsed attendance records, employee data, and holidays from the other features. Runs calculations, persists results, owns all report screens and the report generation screen. No file parsing.
+
+**Dependency direction:** Reporting → FileProcessing. Reporting → ReferenceData. Never the reverse. ReferenceData and FileProcessing do not depend on each other.
 
 ---
 
@@ -81,7 +87,7 @@ Four layers. Communication flows downward only — never upward, never sideways.
 Each feature owns its models, its service, and its repository. The rules below are absolute:
 
 - **The service is the only public interface of a feature.** When one feature needs something from another, it calls that feature's service — never its repository, never its models directly.
-- **No feature reaches into another feature's internals.** Dependency direction: Reporting → FileProcessing. Never the reverse.
+- **No feature reaches into another feature's internals.** Dependency direction: Reporting → FileProcessing, Reporting → ReferenceData. Never the reverse. ReferenceData and FileProcessing do not depend on each other.
 - **A feature must be removable without changing any other feature's code.** If removing a feature requires editing another feature, the boundaries are wrong.
 - **Intra-feature calls are allowed.** Two services within the same feature may call each other directly. The boundary rules apply across features only.
 
@@ -102,10 +108,10 @@ Each feature owns its models, its service, and its repository. The rules below a
 
 Defined in `data_shared_models.md`. Split into three groups:
 
-**Input objects** — produced by FileProcessing, consumed by Reporting:
-- **Employee** — name, employment type, department
-- **AttendanceRecord** — employee name + raw sorted fingerprint timestamps
-- **Holiday** — date + occasion name
+**Input objects** — produced by FileProcessing or ReferenceData, consumed by Reporting:
+- **Employee** — id, number, name, employment type, department. Produced by ReferenceData from the employees table.
+- **AttendanceRecord** — employee name + raw sorted fingerprint timestamps. Produced by FileProcessing from the attendance file.
+- **Holiday** — date + occasion name. Produced by ReferenceData from the holidays table.
 
 **Extractor output objects** — produced by period extractors, consumed by calculators:
 - **RawDailyEmployeePeriods** — name, department, periods with day type and timestamps
@@ -131,10 +137,12 @@ Defined in `data_shared_models.md`. Split into three groups:
 | `period_extractor_shift.md` | Shift period extractor algorithm |
 | `overtime_calculation_daily.md` | Daily employee validity rules and overtime calculation |
 | `overtime_calculation_shift.md` | Shift employee validity rules and overtime calculation |
-| `file_processing.md` | All three input files — parsing and validation |
+| `file_processing.md` | Attendance file — parsing and validation |
 | `dictionary_build.md` | Dictionary build — Stage 3 detail: filtering, merging, name matching |
-| `screen_input.md` | Input screen and components |
+| `screen_employees.md` | Employees management screen — CRUD for permanent employee list |
+| `screen_holidays.md` | Holidays management screen — CRUD for permanent holidays list |
+| `screen_report_generate.md` | Report generation screen — attendance file, date range, employee selection |
 | `screen_report.md` | Report screen — two tabs, employee tables |
 | `screen_detail.md` | Detail screen — period breakdown for both employee types |
 | `screen_report_list.md` | Report List Screen — list of all generated reports, delete |
-| `screen_configuration.md` | Configuration screen — all settings and column headers |
+| `screen_configuration.md` | Configuration screen — numeric settings and attendance column headers |

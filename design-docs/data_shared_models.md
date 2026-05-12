@@ -1,27 +1,29 @@
 # data_shared_models
 
 **Created**: 27-Apr-2026
-**Modified**: 05-May-2026
+**Modified**: 12-May-2026
 
 ---
 
 ## Purpose
 
-Defines all shared data objects used across the pipeline: input objects produced by FileProcessing and consumed by Reporting, and result objects produced by the calculators and consumed by the report screens. All are plain data containers — no behavior, no dependencies.
+Defines all shared data objects used across the pipeline: input objects produced by FileProcessing or ReferenceData and consumed by Reporting, and result objects produced by the calculators and consumed by the report screens. All are plain data containers — no behavior, no dependencies.
 
 ---
 
 ## Input Objects
 
-These cross the boundary between FileProcessing and Reporting.
+These cross the boundaries between features and feed into Reporting. Employee and Holiday objects come from ReferenceData. AttendanceRecord objects come from FileProcessing.
 
 ### Employee
 
-Represents one person from the target employees file.
+Represents one person from the permanent employees table. Produced by the ReferenceData service, consumed by Reporting during report generation.
 
 **Fields:**
 
-- **name** — the employee's full name as it appears in the target employees file. Used as the join key when matching against attendance records. Matching is exact — see `dictionary_build.md`.
+- **id** — database primary key. Used internally to persist the report generation selection. Not shown in reports.
+- **employeeNumber** — unique identifier. Enforced at DB level.
+- **name** — the employee's full name. Used as the join key when matching against attendance records. Matching is exact — see `dictionary_build.md`.
 - **employmentType** — either shift or daily. Determines which extractor and calculator apply.
 - **department** — the department this employee belongs to. Used for display only — no effect on calculation.
 
@@ -40,7 +42,7 @@ Represents all fingerprint timestamps found for one employee across all provided
 
 ### Holiday
 
-Represents one official holiday from the holidays file.
+Represents one official holiday from the permanent holidays table. Produced by the ReferenceData service, consumed by Reporting for day type classification.
 
 **Fields:**
 
