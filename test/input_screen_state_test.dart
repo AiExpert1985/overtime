@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:overtime/features/file_processing/presentation/providers/input_screen_providers.dart';
+import 'package:overtime/features/reference_data/domain/employee_record.dart';
+import 'package:overtime/features/reporting/presentation/providers/report_generation_screen_providers.dart';
 import 'package:overtime/shared/domain/employee.dart';
-import 'package:overtime/shared/domain/holiday.dart';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -11,47 +11,30 @@ FileEntryValid<AttendanceRawData> _validAtt(String path) => FileEntryValid(
       data: [('أحمد', DateTime(2024, 1, 1, 8, 0))],
     );
 
-FileEntryInvalid<AttendanceRawData> _invalidAtt(String path) => FileEntryInvalid(
+FileEntryInvalid<AttendanceRawData> _invalidAtt(String path) =>
+    FileEntryInvalid(
       path: path,
       name: path,
       errorMessage: 'الملف لا يتطابق مع القالب المطلوب',
     );
 
-FileEntryValid<List<Employee>> _validEmp(String path) => FileEntryValid(
-      path: path,
-      name: path,
-      data: [
-        Employee(name: 'أحمد', employmentType: EmploymentType.daily, department: 'IT'),
-      ],
-    );
+final _oneEmployee = EmployeeRecord(
+  id: 1,
+  employeeNumber: '001',
+  name: 'أحمد',
+  employmentType: EmploymentType.daily,
+  department: 'IT',
+);
 
-FileEntryInvalid<List<Employee>> _invalidEmp(String path) => FileEntryInvalid(
-      path: path,
-      name: path,
-      errorMessage: 'الملف لا يتطابق مع القالب المطلوب',
-    );
-
-FileEntryValid<List<Holiday>> _validHol(String path) => FileEntryValid(
-      path: path,
-      name: path,
-      data: [Holiday(date: DateTime(2024, 1, 1), occasion: 'رأس السنة')],
-    );
-
-FileEntryInvalid<List<Holiday>> _invalidHol(String path) => FileEntryInvalid(
-      path: path,
-      name: path,
-      errorMessage: 'الملف لا يتطابق مع القالب المطلوب',
-    );
-
-InputScreenState _allValid({
+ReportGenerationScreenState _allValid({
   int max = 31,
   DateTime? start,
   DateTime? end,
+  List<EmployeeRecord>? employees,
 }) =>
-    InputScreenState(
+    ReportGenerationScreenState(
       attendanceFiles: [_validAtt('a.xlsx')],
-      employeesFiles: [_validEmp('e.xlsx')],
-      holidaysFiles: [_validHol('h.xlsx')],
+      selectedEmployees: employees ?? [_oneEmployee],
       startDate: start ?? DateTime(2024, 1, 1),
       endDate: end ?? DateTime(2024, 1, 31),
       maxDateRange: max,
@@ -63,15 +46,14 @@ void main() {
   // ── canGenerate ─────────────────────────────────────────────────────────────
 
   group('canGenerate', () {
-    test('false on initial state — all lists empty, no dates', () {
-      expect(InputScreenState.initial().canGenerate, isFalse);
+    test('false on initial state — no files, no employees, no dates', () {
+      expect(ReportGenerationScreenState.initial().canGenerate, isFalse);
     });
 
     test('false when attendance list is empty', () {
-      final s = InputScreenState(
+      final s = ReportGenerationScreenState(
         attendanceFiles: [],
-        employeesFiles: [_validEmp('e.xlsx')],
-        holidaysFiles: [_validHol('h.xlsx')],
+        selectedEmployees: [_oneEmployee],
         startDate: DateTime(2024, 1, 1),
         endDate: DateTime(2024, 1, 10),
         maxDateRange: 31,
@@ -80,10 +62,9 @@ void main() {
     });
 
     test('false when any attendance file is invalid', () {
-      final s = InputScreenState(
+      final s = ReportGenerationScreenState(
         attendanceFiles: [_validAtt('a1.xlsx'), _invalidAtt('a2.xlsx')],
-        employeesFiles: [_validEmp('e.xlsx')],
-        holidaysFiles: [_validHol('h.xlsx')],
+        selectedEmployees: [_oneEmployee],
         startDate: DateTime(2024, 1, 1),
         endDate: DateTime(2024, 1, 10),
         maxDateRange: 31,
@@ -91,47 +72,10 @@ void main() {
       expect(s.canGenerate, isFalse);
     });
 
-    test('false when employees list is empty', () {
-      final s = InputScreenState(
+    test('false when no employees are selected', () {
+      final s = ReportGenerationScreenState(
         attendanceFiles: [_validAtt('a.xlsx')],
-        employeesFiles: [],
-        holidaysFiles: [_validHol('h.xlsx')],
-        startDate: DateTime(2024, 1, 1),
-        endDate: DateTime(2024, 1, 10),
-        maxDateRange: 31,
-      );
-      expect(s.canGenerate, isFalse);
-    });
-
-    test('false when any employees file is invalid', () {
-      final s = InputScreenState(
-        attendanceFiles: [_validAtt('a.xlsx')],
-        employeesFiles: [_invalidEmp('e.xlsx')],
-        holidaysFiles: [_validHol('h.xlsx')],
-        startDate: DateTime(2024, 1, 1),
-        endDate: DateTime(2024, 1, 10),
-        maxDateRange: 31,
-      );
-      expect(s.canGenerate, isFalse);
-    });
-
-    test('false when holidays list is empty', () {
-      final s = InputScreenState(
-        attendanceFiles: [_validAtt('a.xlsx')],
-        employeesFiles: [_validEmp('e.xlsx')],
-        holidaysFiles: [],
-        startDate: DateTime(2024, 1, 1),
-        endDate: DateTime(2024, 1, 10),
-        maxDateRange: 31,
-      );
-      expect(s.canGenerate, isFalse);
-    });
-
-    test('false when any holidays file is invalid', () {
-      final s = InputScreenState(
-        attendanceFiles: [_validAtt('a.xlsx')],
-        employeesFiles: [_validEmp('e.xlsx')],
-        holidaysFiles: [_invalidHol('h.xlsx')],
+        selectedEmployees: [],
         startDate: DateTime(2024, 1, 1),
         endDate: DateTime(2024, 1, 10),
         maxDateRange: 31,
@@ -150,34 +94,40 @@ void main() {
     });
 
     test('false when end date is before start date', () {
-      final s = _allValid(start: DateTime(2024, 1, 10), end: DateTime(2024, 1, 9));
+      final s =
+          _allValid(start: DateTime(2024, 1, 10), end: DateTime(2024, 1, 9));
       expect(s.canGenerate, isFalse);
     });
 
     test('false when date range exceeds max', () {
       // 32 days > 31-day max
-      final s = _allValid(max: 31, start: DateTime(2024, 1, 1), end: DateTime(2024, 2, 1));
+      final s = _allValid(
+          max: 31, start: DateTime(2024, 1, 1), end: DateTime(2024, 2, 1));
       expect(s.canGenerate, isFalse);
     });
 
-    test('true when all files valid, dates set, range within max', () {
+    test('true when attendance valid, employees selected, dates set, range ok',
+        () {
       expect(_allValid().canGenerate, isTrue);
     });
 
     test('exactly maxDateRange days is permitted — inclusive boundary', () {
       // Jan 1–31 = 31 days, max = 31
-      final s = _allValid(max: 31, start: DateTime(2024, 1, 1), end: DateTime(2024, 1, 31));
+      final s = _allValid(
+          max: 31, start: DateTime(2024, 1, 1), end: DateTime(2024, 1, 31));
       expect(s.canGenerate, isTrue);
     });
 
     test('maxDateRange + 1 days is rejected', () {
       // Jan 1 – Feb 1 = 32 days, max = 31
-      final s = _allValid(max: 31, start: DateTime(2024, 1, 1), end: DateTime(2024, 2, 1));
+      final s = _allValid(
+          max: 31, start: DateTime(2024, 1, 1), end: DateTime(2024, 2, 1));
       expect(s.canGenerate, isFalse);
     });
 
     test('single-day range (start == end) is valid', () {
-      final s = _allValid(start: DateTime(2024, 1, 15), end: DateTime(2024, 1, 15));
+      final s =
+          _allValid(start: DateTime(2024, 1, 15), end: DateTime(2024, 1, 15));
       expect(s.canGenerate, isTrue);
     });
   });
@@ -186,7 +136,7 @@ void main() {
 
   group('dateRangeError', () {
     test('null when both dates are null', () {
-      expect(InputScreenState.initial().dateRangeError, isNull);
+      expect(ReportGenerationScreenState.initial().dateRangeError, isNull);
     });
 
     test('null when range is valid', () {
@@ -194,17 +144,20 @@ void main() {
     });
 
     test('returns message when end is before start', () {
-      final s = _allValid(start: DateTime(2024, 1, 10), end: DateTime(2024, 1, 9));
+      final s =
+          _allValid(start: DateTime(2024, 1, 10), end: DateTime(2024, 1, 9));
       expect(s.dateRangeError, isNotNull);
     });
 
     test('returns message when range exceeds max', () {
-      final s = _allValid(max: 10, start: DateTime(2024, 1, 1), end: DateTime(2024, 1, 12));
+      final s = _allValid(
+          max: 10, start: DateTime(2024, 1, 1), end: DateTime(2024, 1, 12));
       expect(s.dateRangeError, isNotNull);
     });
 
     test('null when start equals end — 1-day range is always valid', () {
-      final s = _allValid(start: DateTime(2024, 6, 1), end: DateTime(2024, 6, 1));
+      final s =
+          _allValid(start: DateTime(2024, 6, 1), end: DateTime(2024, 6, 1));
       expect(s.dateRangeError, isNull);
     });
   });
@@ -212,8 +165,10 @@ void main() {
   // ── attendanceData ──────────────────────────────────────────────────────────
 
   group('attendanceData', () {
-    test('combines raw pairs from multiple valid entries into one AttendanceRecord per name', () {
-      final s = InputScreenState(
+    test(
+        'combines raw pairs from multiple valid entries into one AttendanceRecord per name',
+        () {
+      final s = ReportGenerationScreenState(
         attendanceFiles: [
           FileEntryValid(
             path: 'a1.xlsx',
@@ -226,8 +181,7 @@ void main() {
             data: [('أحمد', DateTime(2024, 1, 2, 8, 0))],
           ),
         ],
-        employeesFiles: [],
-        holidaysFiles: [],
+        selectedEmployees: [],
         startDate: null,
         endDate: null,
         maxDateRange: 31,
@@ -239,7 +193,7 @@ void main() {
     });
 
     test('excludes data from invalid entries', () {
-      final s = InputScreenState(
+      final s = ReportGenerationScreenState(
         attendanceFiles: [
           FileEntryValid(
             path: 'a1.xlsx',
@@ -248,8 +202,7 @@ void main() {
           ),
           _invalidAtt('a2.xlsx'),
         ],
-        employeesFiles: [],
-        holidaysFiles: [],
+        selectedEmployees: [],
         startDate: null,
         endDate: null,
         maxDateRange: 31,
@@ -260,110 +213,14 @@ void main() {
     });
 
     test('returns empty list when all attendance entries are invalid', () {
-      final s = InputScreenState(
+      final s = ReportGenerationScreenState(
         attendanceFiles: [_invalidAtt('a.xlsx')],
-        employeesFiles: [],
-        holidaysFiles: [],
+        selectedEmployees: [],
         startDate: null,
         endDate: null,
         maxDateRange: 31,
       );
       expect(s.attendanceData, isEmpty);
-    });
-  });
-
-  // ── employeesData ───────────────────────────────────────────────────────────
-
-  group('employeesData', () {
-    test('combines employees from multiple valid entries', () {
-      final s = InputScreenState(
-        attendanceFiles: [],
-        employeesFiles: [
-          FileEntryValid(
-            path: 'e1.xlsx',
-            name: 'e1.xlsx',
-            data: [Employee(name: 'أحمد', employmentType: EmploymentType.daily, department: 'IT')],
-          ),
-          FileEntryValid(
-            path: 'e2.xlsx',
-            name: 'e2.xlsx',
-            data: [Employee(name: 'فاطمة', employmentType: EmploymentType.shift, department: 'HR')],
-          ),
-        ],
-        holidaysFiles: [],
-        startDate: null,
-        endDate: null,
-        maxDateRange: 31,
-      );
-      expect(s.employeesData, hasLength(2));
-    });
-
-    test('excludes data from invalid entries', () {
-      final s = InputScreenState(
-        attendanceFiles: [],
-        employeesFiles: [_validEmp('e1.xlsx'), _invalidEmp('e2.xlsx')],
-        holidaysFiles: [],
-        startDate: null,
-        endDate: null,
-        maxDateRange: 31,
-      );
-      expect(s.employeesData, hasLength(1));
-    });
-  });
-
-  // ── holidaysData (multi-file — upgraded in task 20260509-1500) ──────────────
-
-  group('holidaysData', () {
-    test('combines holidays from multiple valid entries', () {
-      final s = InputScreenState(
-        attendanceFiles: [],
-        employeesFiles: [],
-        holidaysFiles: [
-          FileEntryValid(
-            path: 'h1.xlsx',
-            name: 'h1.xlsx',
-            data: [Holiday(date: DateTime(2024, 1, 1), occasion: 'رأس السنة')],
-          ),
-          FileEntryValid(
-            path: 'h2.xlsx',
-            name: 'h2.xlsx',
-            data: [Holiday(date: DateTime(2024, 3, 1), occasion: 'عطلة مارس')],
-          ),
-        ],
-        startDate: null,
-        endDate: null,
-        maxDateRange: 31,
-      );
-      expect(s.holidaysData, hasLength(2));
-    });
-
-    test('excludes data from invalid entries', () {
-      final s = InputScreenState(
-        attendanceFiles: [],
-        employeesFiles: [],
-        holidaysFiles: [_validHol('h1.xlsx'), _invalidHol('h2.xlsx')],
-        startDate: null,
-        endDate: null,
-        maxDateRange: 31,
-      );
-      expect(s.holidaysData, hasLength(1));
-    });
-
-    test('accepts more than one holidays file — multi-file upgrade', () {
-      final s = InputScreenState(
-        attendanceFiles: [],
-        employeesFiles: [],
-        holidaysFiles: [
-          _validHol('h1.xlsx'),
-          _validHol('h2.xlsx'),
-          _validHol('h3.xlsx'),
-        ],
-        startDate: null,
-        endDate: null,
-        maxDateRange: 31,
-      );
-      // 1 holiday each × 3 files
-      expect(s.holidaysData, hasLength(3));
     });
   });
 
