@@ -115,3 +115,11 @@
 **Task:** Added permanent employee and holiday management as new DB tables and dedicated CRUD screens. Employees (Tab 1) and Holidays (Tab 2) are now managed directly in the app rather than uploaded as files. The app shell expanded from 3 to 4 tabs: Employees / Holidays / Reports / Settings. A new reference_data feature owns the domain models, repository, providers, and screens for both entities. A saved-selection cache table was also added (used in Task 2). Existing column_header rows for the old employees and holidays file types are cleaned up from existing installs on first open. Column headers management now covers attendance only. The existing report generation pipeline and its domain models were not touched.
 
 **Rejected:** Report generation access is intentionally unavailable after this task — the old Input Screen was removed from the router; the Report Generation Screen is Task 2.
+
+---
+
+## 20260513-0000 | Employee Excel Import | TASK
+
+**Task:** Added an Excel import button (upload icon) to the Employees screen AppBar. Users pick a `.xlsx` file with four fixed columns (الرقم الوظيفي، الاسم، نوع التوظيف، القسم); a tooltip on the button lists the expected columns. Matching is by employee number only — found rows are updated, new rows are inserted, in a single transaction. A summary dialog shows inserted and updated counts on success; Arabic error snackbar on failure. Shared Excel parsing utilities were extracted from FileProcessingService into a new shared layer (`lib/shared/utils/excel_utils.dart`) so the ReferenceData feature can parse Excel without crossing feature boundaries.
+
+**Rejected:** Name-based matching — employee number is the sole match key. Configurable column headers — fixed headers only.

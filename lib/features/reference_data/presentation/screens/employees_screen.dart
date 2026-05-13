@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,17 +6,44 @@ import '../../../../shared/domain/employee.dart';
 import '../../domain/employee_record.dart';
 import '../providers/reference_data_providers.dart';
 
-class EmployeesScreen extends ConsumerWidget {
+class EmployeesScreen extends ConsumerStatefulWidget {
   const EmployeesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<EmployeesScreen> createState() => _EmployeesScreenState();
+}
+
+class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
+  bool _importing = false;
+
+  @override
+  Widget build(BuildContext context) {
     final asyncState = ref.watch(employeesProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('الموظفون')),
+      appBar: AppBar(
+        title: const Text('الموظفون'),
+        actions: [
+          Tooltip(
+            message: 'استيراد من Excel\nالأعمدة المطلوبة: الرقم الوظيفي، الاسم، نوع التوظيف، القسم',
+            child: _importing
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.upload_file),
+                    onPressed: _pickAndImport,
+                  ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showDialog(context, ref, null),
+        onPressed: () => _showDialog(context, null),
         tooltip: 'إضافة موظف',
         child: const Icon(Icons.add),
       ),
@@ -39,8 +67,49 @@ class EmployeesScreen extends ConsumerWidget {
     );
   }
 
-  void _showDialog(
-      BuildContext context, WidgetRef ref, EmployeeRecord? employee) {
+  Future<void> _pickAndImport() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['xlsx'],
+    );
+    if (result == null || result.files.single.path == null) return;
+
+    setState(() => _importing = true);
+    final outcome = await ref
+        .read(employeesProvider.notifier)
+        .importFromFile(result.files.single.path!);
+    if (!mounted) return;
+    setState(() => _importing = false);
+
+    if (outcome.isSuccess) {
+      _showImportSummary(context, outcome.inserted, outcome.updated);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(outcome.errorMessage ?? 'حدث خطأ أثناء الاستيراد'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
+  }
+
+  void _showImportSummary(BuildContext context, int inserted, int updated) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('اكتمل الاستيراد'),
+        content: Text('موظفون جدد: $inserted\nتم تحديثهم: $updated'),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('حسناً'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDialog(BuildContext context, EmployeeRecord? employee) {
     showDialog<void>(
       context: context,
       builder: (_) => _EmployeeDialog(

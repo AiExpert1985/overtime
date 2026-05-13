@@ -1,5 +1,6 @@
 import '../../../shared/database/database_helper.dart';
 import '../../../shared/domain/employee.dart';
+import '../domain/employee_import_result.dart';
 import '../domain/employee_record.dart';
 import '../domain/holiday_record.dart';
 
@@ -72,6 +73,50 @@ class ReferenceDataRepository {
   Future<void> deleteEmployee(int id) async {
     final db = await _db.database;
     await db.delete('employees', where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Upserts employees by employee_number. Returns (inserted, updated) counts.
+  Future<(int inserted, int updated)> upsertEmployeesByNumber(
+    List<ParsedEmployee> employees,
+  ) async {
+    final db = await _db.database;
+    int inserted = 0;
+    int updated = 0;
+
+    await db.transaction((txn) async {
+      for (final emp in employees) {
+        final existing = await txn.query(
+          'employees',
+          columns: ['id'],
+          where: 'employee_number = ?',
+          whereArgs: [emp.employeeNumber],
+          limit: 1,
+        );
+        if (existing.isNotEmpty) {
+          await txn.update(
+            'employees',
+            {
+              'name': emp.name,
+              'employment_type': emp.employmentType.name,
+              'department': emp.department,
+            },
+            where: 'id = ?',
+            whereArgs: [existing.first['id']],
+          );
+          updated++;
+        } else {
+          await txn.insert('employees', {
+            'employee_number': emp.employeeNumber,
+            'name': emp.name,
+            'employment_type': emp.employmentType.name,
+            'department': emp.department,
+          });
+          inserted++;
+        }
+      }
+    });
+
+    return (inserted, updated);
   }
 
   EmployeeRecord _rowToEmployee(Map<String, Object?> row) {

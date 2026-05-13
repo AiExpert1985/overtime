@@ -2,7 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/database/database_helper.dart';
 import '../../../../shared/domain/employee.dart';
+import '../../application/employee_import_service.dart';
 import '../../data/reference_data_repository.dart';
+import '../../domain/employee_import_result.dart';
 import '../../domain/employee_record.dart';
 import '../../domain/holiday_record.dart';
 
@@ -10,10 +12,12 @@ import '../../domain/holiday_record.dart';
 
 class EmployeesNotifier extends AsyncNotifier<List<EmployeeRecord>> {
   late final ReferenceDataRepository _repo;
+  late final EmployeeImportService _importService;
 
   @override
   Future<List<EmployeeRecord>> build() async {
     _repo = ReferenceDataRepository(DatabaseHelper.instance);
+    _importService = EmployeeImportService();
     return _repo.getAllEmployees();
   }
 
@@ -62,6 +66,45 @@ class EmployeesNotifier extends AsyncNotifier<List<EmployeeRecord>> {
     await _repo.deleteEmployee(id);
     state = AsyncData(await _repo.getAllEmployees());
   }
+
+  /// Returns an [EmployeeImportFailure] on error, or an [EmployeeImportSuccess]
+  /// with inserted/updated counts on success.
+  Future<EmployeeImportOutcome> importFromFile(String path) async {
+    final parsed = await _importService.parseFile(path);
+    switch (parsed) {
+      case EmployeeImportFailure(:final message):
+        return EmployeeImportOutcome.failure(message);
+      case EmployeeImportParsed(:final employees):
+        final (inserted, updated) =
+            await _repo.upsertEmployeesByNumber(employees);
+        state = AsyncData(await _repo.getAllEmployees());
+        return EmployeeImportOutcome.success(inserted: inserted, updated: updated);
+    }
+  }
+}
+
+class EmployeeImportOutcome {
+  final bool isSuccess;
+  final String? errorMessage;
+  final int inserted;
+  final int updated;
+
+  const EmployeeImportOutcome._({
+    required this.isSuccess,
+    this.errorMessage,
+    this.inserted = 0,
+    this.updated = 0,
+  });
+
+  factory EmployeeImportOutcome.success({
+    required int inserted,
+    required int updated,
+  }) =>
+      EmployeeImportOutcome._(
+          isSuccess: true, inserted: inserted, updated: updated);
+
+  factory EmployeeImportOutcome.failure(String message) =>
+      EmployeeImportOutcome._(isSuccess: false, errorMessage: message);
 }
 
 final employeesProvider =
