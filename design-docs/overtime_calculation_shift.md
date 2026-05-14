@@ -1,13 +1,15 @@
 # overtime_calculation_shift
 
 **Created**: 27-Apr-2026
-**Modified**: 05-May-2026
+**Modified**: 12-May-2026
 
 ---
 
 ## Purpose
 
 Defines validity rules and overtime calculation for shift employees. Receives `RawShiftEmployeePeriods` from `period_extractor_shift.md` and returns a `ShiftEmployeeResult`. Pure function — no database access, no UI dependency.
+
+Non-shift days have already been discarded by the extractor before this calculator receives the periods. Every period received here has at least one inner zone timestamp.
 
 ---
 
@@ -27,7 +29,7 @@ A period spanning 26 actual hours still counts as 24. A period spanning 23 actua
 
 Each period is valid only if all zones are satisfied — every zone must contain at least one timestamp within its tolerance window.
 
-Zone count = `shift_duration / zone_interval` (default 24h / 6h = 4 zones).
+Zone results are pre-computed by the extractor and carried in `RawShiftPeriod.zoneResults`. The calculator reads these directly — it does not recompute zone assignments.
 
 If any zone has no timestamp within its window, the period is invalid.
 
@@ -69,9 +71,11 @@ Returns `ShiftEmployeeResult`. See `data_shared_models.md`.
 |---|---|
 | Shift duration | 24 hours |
 | Zone interval | 6 hours |
-| Start/end tolerance | 30 minutes |
-| Inner zone tolerance | 60 minutes |
+| Start/end tolerance | 60 minutes |
+| Inner zone tolerance | 30 minutes |
 | Baseline hours | 154 hours |
 | Ceiling hours | 192 hours |
 
 All defined in `config.md`, managed in `screen_configuration.md`.
+
+`shift_start_times` is used by the schedule detection algorithm only — not by the extractor or calculator at report generation time. The employee's `detected_shift_start_time` is used instead. See `schedule_detection.md`.

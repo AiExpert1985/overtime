@@ -1,7 +1,7 @@
 # period_extractor_shift
 
 **Created**: 27-Apr-2026
-**Modified**: 05-May-2026
+**Modified**: 12-May-2026
 
 ---
 
@@ -13,16 +13,16 @@ Defines the period extraction algorithm for shift employees. Receives a dictiona
 
 ## What a Shift Employee Is
 
-A shift employee works continuous duty periods that span across calendar days. One period typically lasts 24 hours. The extractor identifies period boundaries from the timestamp sequence without relying on calendar dates.
+A shift employee works continuous duty periods that span across calendar days. One period typically lasts 24 hours. Each period is anchored to a calendar day using the employee's detected shift start time.
 
 ---
 
 ## Input
 
-- Dictionary entry: `{ name, department, employmentType, [timestamps] }` — timestamps sorted ascending, filtered to report date range
-- Settings: start times list, shift duration, zone interval, start/end tolerance, inner zone tolerance, period gap window (from `config.md`)
+- Dictionary entry: `{ name, department, employmentType, detectedShiftStartTime, [timestamps] }` — timestamps sorted ascending, filtered to report date range
+- Settings: `shift_duration`, `shift_zone_interval`, `shift_start_end_tolerance`, `shift_inner_tolerance` (from `config.md`)
 
-Timestamps in the list may fall on different calendar dates — a shift starting on day 1 will naturally have timestamps on day 2. The extractor works with absolute datetime values and does not treat calendar day boundaries as period boundaries. This is correct and expected behavior.
+`detectedShiftStartTime` is read from the employee record — not from the config start times list. It was determined by the schedule detection algorithm. See `schedule_detection.md`.
 
 ---
 
@@ -32,39 +32,68 @@ Timestamps in the list may fall on different calendar dates — a shift starting
 |---|---|
 | name | Employee name, carried from dictionary |
 | department | Employee department, carried from dictionary |
-| periods | List of RawShiftPeriod, ordered by anchor timestamp ascending |
+| periods | List of RawShiftPeriod, ordered by period date ascending |
 
 ### RawShiftPeriod
 
 | Field | Content |
 |---|---|
-| anchorTimestamp | The defining start timestamp of this period |
-| timestamps | All timestamps within the period span, sorted ascending |
+| periodDate | Calendar date (ISO 8601) this period is anchored to |
+| timestamps | All timestamps within the period window, sorted ascending |
+| zoneResults | List of zone results: { centerTime, timestamps[], isSatisfied } |
+
+---
+
+## Period Window Definition
+
+For each calendar day D, the period window is:
+
+`[ D @ (startTime − start_end_tolerance), (D+1) @ (startTime + start_end_tolerance) ]`
+
+Example with start time 08:00 and tolerance 60 minutes:
+`[ D @ 07:00, (D+1) @ 09:00 ]`
+
+The window always extends into the next calendar day. Timestamps near the start time on D+1 naturally fall into both D's window (as a closing stamp) and D+1's window (as an opening stamp) — this shared timestamp behavior is automatic and correct.
+
+For the last day of the report range, the window still extends into D+1. Timestamps on D+1 morning that fall within the window are collected — they belong to the last period.
+
+---
+
+## Zone Definitions
+
+Zone count = `shift_duration / shift_zone_interval` (default 24 / 6 = 4 zones).
+
+Zones are indexed from B1 (start) to BN (end):
+
+| Zone | Center time | Tolerance used |
+|---|---|---|
+| B1 (start) | startTime | start_end_tolerance |
+| B2 … B(N-1) (inner) | startTime + (i × zone_interval) | inner_tolerance |
+| BN (end) | startTime + shift_duration | start_end_tolerance |
+
+Each timestamp in the window is assigned to the zone whose window it falls within. A timestamp that falls between two zone windows is stored in the period's timestamp list but satisfies no zone.
 
 ---
 
 ## Algorithm
 
-**Step 1 — Detect fixed start time**
-Scan timestamps from earliest. Find the first timestamp that matches any time in the configured start times list, within start/end tolerance. This matched time becomes the **fixed start time for all periods of this employee**. Subsequent period anchors must match this same time.
+**Step 1 — Build candidate periods**
+For each calendar day D in the report range, define the period window. Collect all employee timestamps within that window. If a day has no timestamps in its window, skip it — no period is created for that day.
 
-**Step 2 — Build first period**
-From the anchor timestamp, span forward `shift_duration` hours. All timestamps within this span belong to this period.
+**Step 2 — Zone bucketing**
+For each candidate period, assign each timestamp to its zone. Record which zones are satisfied (have at least one timestamp).
 
-**Step 3 — Define zones**
-Divide the span into zones: zone count = `shift_duration / zone_interval`.
-- Zone centers: anchor, anchor + zone_interval, anchor + 2×zone_interval, ...
-- Zone windows: start/end zones use start/end tolerance. Inner zones use inner zone tolerance.
-- Each timestamp is assigned to the zone whose window it falls within. Timestamps between zones are stored in timestamps but satisfy no zone.
+**Step 3 — Discard non-shift days**
+Discard any period where no inner zone (B2 through B(N-1)) has any timestamp. A period with only B1 and/or BN timestamps indicates a closing or stray stamp, not a genuine shift presence. These periods are not passed to the calculator.
 
-**Step 4 — Detect next period**
-From the last timestamp of the current period, look for a next timestamp within the period gap window (configured separately — default 6 hours):
-- **Found** → the last timestamp of the current period becomes the anchor of the next period (shared timestamp). Go to Step 2.
-- **Not found** → scan forward for the next timestamp matching the fixed start time. When found, go to Step 2.
-- **No more timestamps** → extraction complete.
+**Step 4 — Output**
+Return `RawShiftEmployeePeriods` with remaining periods ordered by period date ascending.
 
-**Step 5 — Shared timestamp note**
-A timestamp that closes one period and opens the next is stored in both periods — as the last timestamp of the closing period and the anchor of the opening period. This is correct and intentional.
+---
+
+## Shared Timestamps
+
+A timestamp near the start time on D+1 morning falls within both D's window (as a late B4 stamp) and D+1's window (as a B1 stamp). It is stored in both periods. This is correct and intentional — it closes one period and opens the next.
 
 ---
 
@@ -74,3 +103,4 @@ A timestamp that closes one period and opens the next is stored in both periods 
 - Does not calculate overtime
 - Does not access the database
 - Does not know about holidays or calendar dates
+- Does not run schedule detection — `detectedShiftStartTime` is already set on the employee record before extraction begins

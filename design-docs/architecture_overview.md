@@ -61,7 +61,7 @@ Omitting either causes silent runtime failure.
 
 **FileProcessing** — reads and validates the attendance Excel file, produces `AttendanceRecord` objects. No overtime logic. No employee or holiday file parsing.
 
-**ReferenceData** — owns the permanent employees and holidays tables. Provides employee lists (for selection UI and for report generation) and the holidays list (for day classification). No overtime logic.
+**ReferenceData** — owns the permanent employees and holidays tables. Provides employee lists (for selection UI and for report generation) and the holidays list (for day classification). Owns the schedule detection algorithm that detects employment type and shift start time per employee. No overtime logic.
 
 **Reporting** — consumes parsed attendance records, employee data, and holidays from the other features. Runs calculations, persists results, owns all report screens and the report generation screen. No file parsing.
 
@@ -139,6 +139,7 @@ Defined in `data_shared_models.md`. Split into three groups:
 | `overtime_calculation_shift.md` | Shift employee validity rules and overtime calculation |
 | `file_processing.md` | Attendance file — parsing and validation |
 | `dictionary_build.md` | Dictionary build — Stage 3 detail: filtering, merging, name matching |
+| `schedule_detection.md` | Schedule detection algorithm — employment type and shift start time per employee |
 | `screen_employees.md` | Employees management screen — CRUD for permanent employee list |
 | `screen_holidays.md` | Holidays management screen — CRUD for permanent holidays list |
 | `screen_report_generate.md` | Report generation screen — attendance file, date range, employee selection |

@@ -1,7 +1,7 @@
 # screen_detail
 
 **Created**: 27-Apr-2026
-**Modified**: 05-May-2026
+**Modified**: 12-May-2026
 
 ---
 
@@ -72,13 +72,12 @@ One row per calendar day with at least one timestamp, ordered by date ascending.
 
 ## Period Table — Shift Employees
 
-One row per detected shift period, ordered by anchor timestamp ascending.
+One row per detected shift period, ordered by period date ascending.
 
 | Column | Arabic Label | Content |
 |---|---|---|
-| Start date | تاريخ البداية | Date of anchor timestamp |
+| Start date | تاريخ البداية | Calendar date this period is anchored to |
 | End date | تاريخ النهاية | Date of last timestamp — read from stored endDate field |
-| Anchor | بصمة البداية | Time of anchor timestamp e.g. 8:02 ص |
 | Zones | نقاط التحقق | All zones stacked vertically. Each zone shows: label (e.g. نقطة 1: 08:00), times of timestamps within zone, or — if empty |
 | Working hours | ساعات الحضور | Actual duration from first to last timestamp of the period. Shown for all periods valid or invalid. |
 | Hours counted | الساعات المحتسبة | 24 if valid, 0 if invalid. Used in monthly overtime formula. |

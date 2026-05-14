@@ -26,6 +26,7 @@ Represents one person from the permanent employees table. Produced by the Refere
 - **name** — the employee's full name. Used as the join key when matching against attendance records. Matching is exact — see `dictionary_build.md`.
 - **employmentType** — either shift or daily. Determines which extractor and calculator apply.
 - **department** — the department this employee belongs to. Used for display only — no effect on calculation.
+- **detectedShiftStartTime** — nullable. Time string e.g. '08:00'. Set by schedule detection. Null until detected. Only meaningful for shift employees. Required for a shift employee to be includable in a report.
 
 ---
 
@@ -85,8 +86,9 @@ Output of the shift period extractor.
 
 #### RawShiftPeriod
 
-- **anchorTimestamp** — the defining start timestamp of this period
-- **timestamps** — all timestamps within the period span, sorted ascending
+- **periodDate** — the calendar date (ISO 8601) this period is anchored to
+- **timestamps** — all timestamps within the period window, sorted ascending
+- **zoneResults** — list of zone results pre-computed by the extractor: { centerTime, timestamps[], isSatisfied }
 
 ---
 
@@ -136,9 +138,8 @@ Output of the shift calculator. Stored to and loaded from the database. Read dir
 
 #### ShiftPeriodDetail
 
-- **startDate** — calendar date of the anchor timestamp. Stored at generation time.
+- **periodDate** — calendar date this period is anchored to. Stored at generation time.
 - **endDate** — calendar date of the last timestamp. Stored at generation time — not derived later to avoid dependency on shift duration setting which may change.
-- **anchorTimestamp** — the defining start timestamp of this period
 - **timestamps** — all timestamps within the period, sorted ascending
 - **totalAttendanceDuration** — duration from first to last timestamp, in minutes
 - **zoneResults** — list of zone results, one per zone: { centerTime, timestamps, isSatisfied }

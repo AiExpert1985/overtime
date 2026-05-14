@@ -41,6 +41,7 @@ One row per employee. Permanent reference data — not tied to any report. Hard 
 | name | text | Full name. Used as join key during report generation. Case-sensitive and whitespace-sensitive. |
 | employment_type | text | 'shift' or 'daily' |
 | department | text | Display only — no effect on calculation |
+| detected_shift_start_time | text, nullable | Time string e.g. '08:00'. Set by schedule detection. Null until detected. Only meaningful for shift employees. |
 
 No FK relationship to any report table. Deleting an employee has no effect on previously generated reports — all result rows are denormalized snapshots. Employee number uniqueness is enforced at the DB level — the add/edit dialog shows an Arabic error if a duplicate is entered.
 
@@ -140,9 +141,8 @@ One row per detected shift period per employee result. Cascade deleted with pare
 | id | integer, PK, auto-increment | |
 | employee_result_id | integer, FK → shift_employee_results.id | Cascade delete |
 | period_index | integer | Order of this period within the employee's results, 0-based |
-| start_date | text | ISO 8601 date of anchor timestamp |
+| period_date | text | ISO 8601 date this period is anchored to |
 | end_date | text | ISO 8601 date of last timestamp |
-| anchor_timestamp | text | ISO 8601 datetime |
 | all_timestamps | text | JSON array of ISO 8601 datetime strings, sorted ascending |
 | total_attendance_duration | integer | Duration from first to last timestamp in minutes. Audit display only. |
 | zone_data | text | JSON array of zone results: [{ centerTime, timestamps[], isSatisfied }] |
@@ -175,7 +175,7 @@ One row per setting key. Seeded with defaults on first launch. Never overwrites 
 | key | text, unique | Setting identifier — matches keys in `config.md` |
 | value | text | Current value |
 
-Predefined keys: `daily_start_time`, `daily_work_duration`, `daily_max_overtime`, `shift_start_times`, `shift_duration`, `shift_zone_interval`, `shift_start_end_tolerance`, `shift_inner_tolerance`, `shift_period_gap`, `shift_baseline_hours`, `shift_ceiling_hours`, `rounding_mode`, `max_report_date_range`.
+Predefined keys: `daily_start_time`, `daily_work_duration`, `daily_max_overtime`, `shift_start_times`, `shift_duration`, `shift_zone_interval`, `shift_start_end_tolerance`, `shift_inner_tolerance`, `shift_baseline_hours`, `shift_ceiling_hours`, `rounding_mode`, `max_report_date_range`.
 
 ---
 
