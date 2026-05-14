@@ -14,7 +14,15 @@ Defines how the attendance Excel file is opened and validated when the user sele
 
 ## Supported Formats
 
-`.xlsx` and `.xls` formats. Multiple sheets within a single file are all read. Multiple separate attendance files are supported — the user may select several files at once.
+`.xlsx` and `.xls` formats. Multiple sheets within a single file are all read. Multiple files are supported — the user may add files one at a time or several at once, and may add more files after an initial selection.
+
+---
+
+## File List Behavior
+
+Each file is validated independently as soon as it is added to the list. Adding a new file does not affect the validation status of files already in the list. Files may be deleted from the list individually at any time.
+
+At generation time, only files with valid status are read. Invalid files in the list are silently ignored — they are never passed to the dictionary build stage.
 
 ---
 

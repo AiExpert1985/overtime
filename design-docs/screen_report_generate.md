@@ -22,31 +22,45 @@ RTL. Scrollable content arranged vertically:
 
 ---
 
-## Component — Attendance File Picker Card
+## Component — Attendance File List Card
 
-### States
+A single card that acts as a container for all uploaded attendance files. The card is always visible. Files are added to it sequentially or in bulk — each upload appends to the existing list without affecting previously added files.
 
-**Empty** — no file selected:
-- Arabic label: ملف الحضور
+### Card States
+
+**Empty** — no files uploaded yet:
+- Arabic label: ملفات الحضور
 - Info icon button (!)
-- Button to pick a file
+- Prompt text: لم يتم إضافة أي ملفات بعد
+- Add files button
 
-**Valid** — file passed validation:
-- File name(s)
-- Green success indicator
+**With files** — one or more files present:
 - Info icon button (!)
-- Button to replace the file
+- List of file rows (see below)
+- Add more files button at the bottom of the card
 
-**Invalid** — file failed validation:
-- File name
-- Red error indicator
-- Arabic error message
-- Info icon button (!)
-- Button to try a different file
+### File Row
 
-### Multi-File Support
+Each uploaded file occupies one row inside the card:
 
-Multiple attendance files may be selected at once. The card shows the count of valid files. All files are processed together in Stage 3.
+| Element | Details |
+|---|---|
+| File name | Truncated if too long |
+| Status indicator | Green check if valid, red X if invalid |
+| Error message | Shown below file name if invalid — Arabic reason |
+| Delete icon | Removes this file from the list and from memory immediately. No confirmation prompt. |
+
+### Adding Files
+
+Tapping either the initial add button or the "add more" button opens the file picker. The user may select one or multiple files at once. Each selected file is appended to the list and validated immediately. Files already in the list are unaffected.
+
+### Validation
+
+Each file is validated on append — column headers checked, at least one valid row required. Validation is per-file and independent. Adding a new file does not re-validate existing files.
+
+### Invalid Files
+
+Invalid files remain visible in the list with their error reason. They are never used during generation — only valid files are processed. The user may delete them or leave them. Their presence does not block generation as long as at least one valid file exists.
 
 ### Info Hint Dialog
 
@@ -74,8 +88,10 @@ Full-width prominent button labeled توليد التقرير.
 ### Enabled Condition
 
 Enabled only when:
-- At least one attendance file card is valid
+- At least one file in the list has valid status
 - Both dates are selected and pass validation
+
+Invalid files in the list do not block the button — only valid file count matters.
 
 ### Loading State
 
@@ -93,4 +109,4 @@ Button returns to enabled state. Dismissible Arabic error banner appears at top.
 
 ## Screen State
 
-All state held in a provider. Generate button observes combined readiness. File card state and date range preserved if the user navigates away and returns within the same session.
+All state held in a provider. Generate button observes combined readiness — at least one valid file and both dates filled and valid. The file list and date range are preserved if the user navigates away and returns within the same session. On successful generation, the file list and date range are cleared.
