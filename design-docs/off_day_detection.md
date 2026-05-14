@@ -7,7 +7,7 @@
 
 ## Purpose
 
-Defines the algorithm for automatically detecting off-days from attendance data. Runs as Stage 5 of the app workflow — after schedule detection splits employees into type-specific hash tables, before period extraction begins. Produces a hash set of off-day dates consumed by the daily period extractor in Stage 6. Pure function — no database access, no side effects.
+Defines the algorithm for automatically detecting off-days from attendance data. Runs as Stage 5 of the app workflow — after schedule detection splits employees into type-specific hash tables, before period extraction begins. Produces a hash set of off-day dates consumed by the daily period extractor in Stage 7. Pure function — no database access, no side effects.
 
 Off-days include weekends, public holidays, and any other day where the majority of daily employees did not attend. No manual input is required.
 

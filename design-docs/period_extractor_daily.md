@@ -20,7 +20,7 @@ A daily employee works standard morning shifts on regular workdays. Their attend
 ## Input
 
 - Daily hash table entry: `{ name, department, [timestamps] }` — timestamps sorted ascending, filtered to report date range
-- Off-days hash set — produced by Stage 5 (off-day detection). Contains all dates classified as off-days for this report.
+- Off-days hash set — produced by Stage 5 (off-day detection). Contains all dates classified as off-days for this report. Passed in as input to this extractor at Stage 7.
 
 ---
 
