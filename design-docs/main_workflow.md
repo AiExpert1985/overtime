@@ -1,6 +1,7 @@
 # main_workflow
 
-**Created**: 27-Apr-2026 **Modified**: 14-May-2026
+**Created**: 27-Apr-2026
+**Modified**: 14-May-2026
 
 ---
 
@@ -33,7 +34,6 @@ See `dictionary_build.md`.
 ### Stage 4 — Employee Separation
 
 Runs inline on the working dictionary. For each employee, the detection algorithm determines employment type (shift or daily) and, for shift employees, the shift start time. Both are derived from the timestamp patterns in the dictionary — no stored employee data is used. the result are 3 types of employees:
-
 1. **Shift employees:** Employees in the shift bucket
 2. **Daily employees:** Employees in the daily bucket
 3. **Undetected employees:** Employees that don't fit in either bucket
@@ -46,13 +46,13 @@ Runs on the daily bucket only. Uses attendance density across the date range to 
 
 See `off_day_detection.md`.
 
-### Stage 6 — Shift Employees Period Extraction
+### Stage 6 — Shift Employees Period Extraction 
 
 periods are extracted using the detected shift start time and zone configuration.
 
 See `period_extractor_shift.md`
 
-### Stage 7 — Daily Employees Period Extraction
+### Stage 7 — Daily Employees Period Extraction 
 
 periods are extracted using calendar day grouping and the off-days hash set.
 
@@ -60,9 +60,9 @@ See `period_extractor_daily.md`
 
 ### Stage 8 — Shift Employees Overtime Calculation
 
-validated and overtime is calculated.
+ validated and overtime is calculated.
 
-See `overtime_calculation_shift.md`
+See  `overtime_calculation_shift.md`
 
 ### Stage 9 — Daily Employees Overtime Calculation
 
@@ -93,6 +93,7 @@ Any failure during Stages 3–10 aborts generation entirely. No partial results 
 - The attendance file is the sole source of employee identity — no persistent employee table
 - Every generation is completely fresh — no data carried between runs
 - Generation never pauses for user input after the button is pressed
+- **Each stage is implemented as a separate standalone function with defined inputs and outputs — the generation service orchestrates them in sequence, passing the output of each stage as input to the next**
 - All in-memory structures are discarded after results are stored
 - Report screens always load from the database — no in-memory hand-off
 - Extractors and calculators are pure functions — same input always produces same output

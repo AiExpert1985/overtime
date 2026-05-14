@@ -67,3 +67,10 @@ Return periods ordered by date ascending.
 - Does not apply the morning cutoff rule
 - Does not deduplicate timestamps
 - Does not run off-day detection — the off-days hash set is passed in as input
+
+
+---
+
+## Implementation Note
+
+This stage must be implemented as a standalone function with the inputs and outputs defined above. The generation service calls it directly and passes its output to the next stage.

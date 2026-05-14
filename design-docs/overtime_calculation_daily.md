@@ -100,3 +100,10 @@ Returns `DailyEmployeeResult`. See `data_shared_models.md`.
 | Max overtime per day | 3 hours |
 
 All defined in `config.md`, managed in `screen_configuration.md`.
+
+
+---
+
+## Implementation Note
+
+This stage must be implemented as a standalone function with the inputs and outputs defined above. The generation service calls it directly and passes its output to the next stage.

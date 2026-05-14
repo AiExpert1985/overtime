@@ -114,3 +114,10 @@ All three are in-memory only. None is persisted until Stage 7.
 - Does not use any previously stored employee data
 - Does not show any dialog or pause generation
 - Does not detect daily employee start time — all daily employees use the global `daily_start_time` from config
+
+
+---
+
+## Implementation Note
+
+This stage must be implemented as a standalone function with the inputs and outputs defined above. The generation service calls it directly and passes its output to the next stage.

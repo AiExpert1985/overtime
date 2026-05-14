@@ -71,3 +71,10 @@ Example with 10 daily employees and 50% threshold:
 | Off-day threshold | 50% |
 
 Defined in `config.md`, managed in `screen_configuration.md`.
+
+
+---
+
+## Implementation Note
+
+This stage must be implemented as a standalone function with the inputs and outputs defined above. The generation service calls it directly and passes its output to the next stage.

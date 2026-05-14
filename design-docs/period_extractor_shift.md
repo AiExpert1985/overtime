@@ -99,3 +99,10 @@ A timestamp near the start time on D+1 morning falls within both D's window (as 
 - Does not calculate overtime
 - Does not access the database
 - Does not run schedule detection — detectedShiftStartTime is passed in as input
+
+
+---
+
+## Implementation Note
+
+This stage must be implemented as a standalone function with the inputs and outputs defined above. The generation service calls it directly and passes its output to the next stage.

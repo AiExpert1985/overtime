@@ -79,3 +79,10 @@ Returns `ShiftEmployeeResult`. See `data_shared_models.md`.
 All defined in `config.md`, managed in `screen_configuration.md`.
 
 `shift_start_times` is used by the schedule detection algorithm only — not by the extractor or calculator at report generation time. The employee's `detectedShiftStartTime` from the shift hash table entry is used by the extractor instead.
+
+
+---
+
+## Implementation Note
+
+This stage must be implemented as a standalone function with the inputs and outputs defined above. The generation service calls it directly and passes its output to the next stage.
