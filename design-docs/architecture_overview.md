@@ -57,18 +57,6 @@ Omitting either causes silent runtime failure.
 
 ---
 
-## Features
-
-**FileProcessing** — reads and validates the attendance Excel file. Produces raw attendance records (employee name + timestamp). No overtime logic. No employee management.
-
-**Reporting** — owns the entire generation pipeline: dictionary build, schedule detection, off-day detection, period extraction, overtime calculation, database storage, and all report screens. Consumes FileProcessing output. No file parsing.
-
-There is no ReferenceData feature. There is no persistent employee table. Employee identity is derived entirely from the attendance file during each generation run.
-
-**Dependency direction:** Reporting → FileProcessing. FileProcessing has no dependencies on Reporting.
-
----
-
 ## Layer Architecture
 
 Four layers. Communication flows downward only — never upward, never sideways.
@@ -79,17 +67,6 @@ Four layers. Communication flows downward only — never upward, never sideways.
 | Application | Services | All business rules live here. Services write state to providers. Services call other services within the same feature freely. |
 | Domain | Plain model objects | No logic, no dependencies on any other layer. |
 | Data | Repositories | All database access. Nothing above this layer knows what is behind it. |
-
----
-
-## Feature Boundaries
-
-The app has two features: FileProcessing and Reporting. The rules below govern how they interact:
-
-- **The service is the only public interface of a feature.** When one feature needs something from another, it calls that feature's service — never its repository, never its models directly.
-- **No feature reaches into another feature's internals.** Dependency direction: Reporting → FileProcessing. Never the reverse.
-- **A feature must be removable without changing any other feature's code.** If removing a feature requires editing another feature, the boundaries are wrong.
-- **Intra-feature calls are allowed.** Two services within the same feature may call each other directly. The boundary rules apply across features only.
 
 ---
 
@@ -104,42 +81,3 @@ The app has two features: FileProcessing and Reporting. The rules below govern h
 - Aggregate totals are never stored — always computed live from stored rows.
 
 ---
-
-## Domain Models
-
-Defined in `data_shared_models.md`. Five models only:
-
-**Calculator output — stored to DB, read by report screens:**
-- **ShiftEmployeeResult** — name, department, overtimeHours, isIncluded, List\<ShiftPeriod\>
-- **DailyEmployeeResult** — name, department, overtimeMinutes, isIncluded, List\<DailyPeriod\>
-- **UndetectedEmployeeResult** — name, department, failureReason. No periods, no overtime, no toggle.
-- **ShiftPeriod** — period window, timestamps, zone results, hoursCounted, isValid
-- **DailyPeriod** — date, weekday, dayType, timestamps, overtimeMinutes, isValid
-
-No input models. No intermediate extractor models exposed beyond the Reporting feature boundary.
-
----
-
-## Document Map
-
-| Doc | Covers |
-|---|---|
-| `architecture_overview.md` | This document — platform, packages, layers, rules |
-| `main_workflow.md` | 7-stage app flow — start here after architecture_overview |
-| `router.md` | Routes, parameters, navigation rules |
-| `database_schema.md` | Tables, columns, relationships, versioning |
-| `data_shared_models.md` | Five domain models — shift/daily/undetected employee results and period models |
-| `config.md` | All thresholds, constants, configurable defaults with Arabic descriptions |
-| `file_processing.md` | Attendance file — parsing and validation |
-| `dictionary_build.md` | Stage 3 — building the working dictionary from the attendance file |
-| `schedule_detection.md` | Stage 4 — inline detection of employment type and shift start time |
-| `off_day_detection.md` | Stage 5 — automatic off-day detection from attendance density |
-| `period_extractor_shift.md` | Shift period extractor algorithm |
-| `period_extractor_daily.md` | Daily period extractor algorithm |
-| `overtime_calculation_shift.md` | Shift employee validity rules and overtime calculation |
-| `overtime_calculation_daily.md` | Daily employee validity rules and overtime calculation |
-| `screen_report_generate.md` | Report generation screen — file upload and date range |
-| `screen_report.md` | Report screen — two tabs, per-type summary cards, inclusion toggle |
-| `screen_detail.md` | Detail screen — period breakdown, loaded lazily |
-| `screen_history.md` | Reports List screen — list of all generated reports |
-| `screen_configuration.md` | Configuration screen — settings and column headers |
