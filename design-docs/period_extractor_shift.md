@@ -1,13 +1,13 @@
 # period_extractor_shift
 
 **Created**: 27-Apr-2026
-**Modified**: 12-May-2026
+**Modified**: 14-May-2026
 
 ---
 
 ## Purpose
 
-Defines the period extraction algorithm for shift employees. Receives a dictionary entry for one employee and returns a `RawShiftEmployeePeriods` object. Pure function — no database access, no overtime rules, no side effects.
+Defines the period extraction algorithm for shift employees. Receives one entry from the shift hash table and returns a list of RawShiftPeriod objects. Pure function — no database access, no overtime rules, no side effects.
 
 ---
 
@@ -19,20 +19,16 @@ A shift employee works continuous duty periods that span across calendar days. O
 
 ## Input
 
-- Dictionary entry: `{ name, department, employmentType, detectedShiftStartTime, [timestamps] }` — timestamps sorted ascending, filtered to report date range
+- Shift hash table entry: `{ name, department, detectedShiftStartTime, [timestamps] }` — timestamps sorted ascending, filtered to report date range
 - Settings: `shift_duration`, `shift_zone_interval`, `shift_start_end_tolerance`, `shift_inner_tolerance` (from `config.md`)
 
-`detectedShiftStartTime` is read from the employee record — not from the config start times list. It was determined by the schedule detection algorithm. See `schedule_detection.md`.
+`detectedShiftStartTime` is the value determined by the schedule detection algorithm in Stage 4. It is passed in directly — not read from any stored employee record.
 
 ---
 
-## Output Object — RawShiftEmployeePeriods
+## Output
 
-| Field | Content |
-|---|---|
-| name | Employee name, carried from dictionary |
-| department | Employee department, carried from dictionary |
-| periods | List of RawShiftPeriod, ordered by period date ascending |
+List of RawShiftPeriod, ordered by period date ascending.
 
 ### RawShiftPeriod
 
@@ -87,20 +83,19 @@ For each candidate period, assign each timestamp to its zone. Record which zones
 Discard any period where no inner zone (B2 through B(N-1)) has any timestamp. A period with only B1 and/or BN timestamps indicates a closing or stray stamp, not a genuine shift presence. These periods are not passed to the calculator.
 
 **Step 4 — Output**
-Return `RawShiftEmployeePeriods` with remaining periods ordered by period date ascending.
+Return remaining periods ordered by period date ascending.
 
 ---
 
 ## Shared Timestamps
 
-A timestamp near the start time on D+1 morning falls within both D's window (as a late B4 stamp) and D+1's window (as a B1 stamp). It is stored in both periods. This is correct and intentional — it closes one period and opens the next.
+A timestamp near the start time on D+1 morning falls within both D's window (as a late BN stamp) and D+1's window (as a B1 stamp). It is stored in both periods. This is correct and intentional — it closes one period and opens the next.
 
 ---
 
 ## What This Extractor Does NOT Do
 
-- Does not validate periods (valid/invalid) — that is `overtime_calculation_shift.md`
+- Does not validate periods — that is `overtime_calculation_shift.md`
 - Does not calculate overtime
 - Does not access the database
-- Does not know about holidays or calendar dates
-- Does not run schedule detection — `detectedShiftStartTime` is already set on the employee record before extraction begins
+- Does not run schedule detection — detectedShiftStartTime is passed in as input

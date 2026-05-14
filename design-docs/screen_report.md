@@ -1,127 +1,181 @@
 # screen_report
 
 **Created**: 27-Apr-2026
-**Modified**: 12-May-2026
+**Modified**: 14-May-2026
+
+---
+
+## Purpose
+
+Displays the results of one generated report. Loaded from the database on mount — same code path for newly generated reports and historical ones. All summaries computed live from the loaded rows.
 
 ---
 
 ## Layout
 
-RTL. Fixed summary header at top. Search and filter bar below the header. Tab bar below that. Scrollable employee table inside each tab. Back button in top bar.
+RTL. Three tabs — shift employees, daily employees, undetected employees. Each tab is fully self-contained. Back button in top bar returns to Reports List.
 
-The active employee tab (daily/shift) is remembered when navigating to the Detail screen and back.
+The active tab is remembered when navigating to the Detail screen and back.
 
 ---
 
-## Component — Report Header
+## Data Loading
 
-Displayed above both tabs. Shows:
+On mount, the report screen loads all three employee result sets from the database using the `reportId` route parameter:
+- Shift employee results from `shift_employee_results`
+- Daily employee results from `daily_employee_results`
+- Undetected employee results from `undetected_employee_results`
 
+Period details are NOT loaded here — they are fetched lazily by the Detail screen.
+
+All summary values (totals, counts) are computed from the loaded rows. Only employees where `is_included = 1` contribute to summaries.
+
+---
+
+## Report Header
+
+A minimal header above all tabs shows:
+- Report generation date and time
 - Date range the report covers
-- Total employees (matched and unmatched combined)
-- Total shift overtime hours (sum across matched shift employees)
-- Total daily regular overtime hours (sum across matched daily employees, with rounding)
-- Total daily holiday overtime hours (sum across matched daily employees, with rounding)
-- Unmatched employee count
 
 ---
 
-## Component — Search and Filter Bar
+## Tab — Shift Employees (مناوبة)
 
-Sits between the report header and the tab bar. All controls are in a single centered row:
+### Summary Cards
 
-**Search field** — live text search by employee name or department. Filters the active tab's rows on each keystroke. Scoped to whichever tab is currently visible.
+Displayed at the top of the tab. Computed live from loaded rows. Only included employees (is_included = 1) counted.
 
-**Filter chips** — three checkboxes, all checked by default:
+- Total shift employees in report
+- Total included employees
+- Total overtime hours (sum across included employees)
 
-| Chip | Arabic label | Matches |
-|---|---|---|
-| With overtime | مع وقت إضافي | Matched employees whose overtime > 0 |
-| Without overtime | بدون وقت إضافي | Matched employees whose overtime = 0 |
-| Unmatched | غير موجودين | Employees with no attendance records found |
+### Filter Bar
 
-Unchecking a chip hides that category. Search and filter combine with AND logic — a row must satisfy both the text query and the active chip set to appear.
+**Radio buttons** — mutually exclusive, one must always be selected:
+- **محتسبون** — show only included employees (is_included = 1). Default.
+- **مستثنون** — show only excluded employees (is_included = 0).
 
-**تصدير Excel** — at the end of the row. Exports the full unfiltered report to Downloads. Shows loading state during export. Success: snackbar with file path. Failure: error snackbar.
+**Search field** — live text search by employee name or department. Filters within the active radio selection.
 
-### Empty State under Active Filter
+**تصدير Excel** — exports shift employees only. Includes only included employees and their periods. Shows loading state. Success: snackbar with file path. Failure: error snackbar.
 
-When the combined search + filter yields no rows, the tab shows **لا توجد نتائج مطابقة** instead of the normal no-employees message.
-
-### Export Format
-
-Single `.xlsx` file with two sheets:
-
-**Sheet 1 — ملخص التقرير**: mirrors the Report screen. Contains the report header summary (date range, totals, unmatched count) followed by the daily employees table and the shift employees table, each with the same columns shown on screen.
-
-**Sheet 2 — تفاصيل الموظفين**: mirrors the Detail screen layout. One section per employee (daily and shift combined), separated by a blank row. Each section begins with the employee name and header values, followed by their period rows with the same columns shown on the detail screen.
-
-Export always uses the full unfiltered dataset regardless of active search or filter state.
-
----
-
-## Tab — Daily Employees
-
-### Table Columns
-
-| Column | Arabic label |
-|---|---|
-| Employee name | اسم الموظف |
-| Department | القسم |
-| Regular overtime | ساعات عادية |
-| Holiday overtime | ساعات عطلة |
-| Grand total | المجموع |
-
-Grand total = regular + holiday, displayed with configured rounding mode.
-
-### Sorting
-
-Alphabetical ascending by employee name.
-
-### Row Behavior
-
-Tapping any matched employee row pushes the Detail screen. See `screen_detail.md`.
-
-### Unmatched Employees
-
-Shown at bottom with red background. Notes column: لم يتم العثور على سجلات للحضور، يجب التحقق من صحة الاسم. No navigation on tap.
-
-### Empty State
-
-- No employees in report: لا يوجد موظفون بنظام الدوام الصباحي.
-- Active search/filter yields nothing: لا توجد نتائج مطابقة.
-
----
-
-## Tab — Shift Employees
-
-### Table Columns
+### Employee Table
 
 | Column | Arabic label |
 |---|---|
 | Employee name | اسم الموظف |
 | Department | القسم |
 | Overtime hours | ساعات إضافية |
+| Included | محتسب |
+
+The **Included** column shows a toggle per row. Toggling updates `is_included` in the database immediately and recalculates the summary cards live. No confirmation prompt.
+
+### Row Behavior
+
+Tapping an employee row (outside the toggle) pushes the Detail screen, passing `employeeResultId` and `employeeType` as route parameters.
+
+### Sorting
+
+Alphabetical ascending by employee name within the active filter view.
+
+### Empty State
+
+- No shift employees in report: لا يوجد موظفون بنظام المناوبة.
+- Search yields nothing: لا توجد نتائج مطابقة.
+
+---
+
+## Tab — Daily Employees (صباحي)
+
+### Summary Cards
+
+Computed live from loaded rows. Only included employees counted.
+
+- Total daily employees in report
+- Total included employees
+- Total overtime hours (sum of overtime_minutes across included employees, converted with rounding)
+
+### Filter Bar
+
+Same structure as shift tab: radio buttons (محتسبون / مستثنون), search field, and export button.
+
+**تصدير Excel** — exports daily employees only. Includes only included employees and their periods.
+
+### Employee Table
+
+| Column | Arabic label |
+|---|---|
+| Employee name | اسم الموظف |
+| Department | القسم |
+| Total overtime | المجموع |
+| Included | محتسب |
+
+Same toggle behavior as shift tab — immediate DB update, live summary recalculation.
+
+### Row Behavior
+
+Tapping an employee row (outside the toggle) pushes the Detail screen, passing `employeeResultId` and `employeeType` as route parameters.
 
 ### Sorting
 
 Alphabetical ascending by employee name.
 
-### Row Behavior
-
-Tapping any matched employee row pushes the Detail screen. See `screen_detail.md`.
-
-### Unmatched Employees
-
-Same behavior as daily tab.
-
 ### Empty State
 
-- No employees in report: لا يوجد موظفون بنظام المناوبة.
-- Active search/filter yields nothing: لا توجد نتائج مطابقة.
+- No daily employees in report: لا يوجد موظفون بنظام الدوام الصباحي.
+- Search yields nothing: لا توجد نتائج مطابقة.
 
 ---
 
-## Data Source
+## Tab — Undetected Employees (غير محدَّدون)
 
-Loads the full report from the database on mount using the `reportId` route parameter. This applies equally to newly generated reports and historical ones — there is no special path for either. A loading indicator is shown while the fetch completes.
+Employees whose employment type could not be determined during schedule detection. Shown for audit and debugging purposes only.
+
+### Summary Card
+
+- Total undetected employees in report
+
+No overtime totals — undetected employees have no calculated data.
+
+### Filter Bar
+
+**Search field** only — live text search by employee name or department. No radio buttons, no export button.
+
+### Employee Table
+
+| Column | Arabic label |
+|---|---|
+| Employee name | اسم الموظف |
+| Department | القسم |
+| Failure reason | سبب عدم الكشف |
+
+Read-only. No inclusion toggle. No row navigation — tapping a row does nothing.
+
+### Sorting
+
+Alphabetical ascending by employee name.
+
+### Empty State
+
+- No undetected employees: تم كشف جميع الموظفين بنجاح.
+
+---
+
+## Export Format
+
+Each detected tab exports a separate `.xlsx` file. Undetected employees are never exported.
+
+Export fetches period details for all included employees at export time — periods are not held in memory by the report screen.
+
+**Shift export — ورقة واحدة:**
+- Summary section: date range, total included employees, total overtime hours
+- Employee table: name, department, overtime hours — included employees only, sorted alphabetically
+- Period detail section: one section per employee with zone breakdown, ordered by period date ascending
+
+**Daily export — ورقة واحدة:**
+- Summary section: date range, total included employees, total overtime hours
+- Employee table: name, department, total overtime — included employees only, sorted alphabetically
+- Period detail section: one section per employee with per-day breakdown, ordered by date ascending
+
+Export always uses the full included set regardless of active search filter.

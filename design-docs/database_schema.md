@@ -1,63 +1,29 @@
 # database_schema
 
 **Created**: 27-Apr-2026
-**Modified**: 12-May-2026
+**Modified**: 14-May-2026
 
 ---
 
 ## Purpose
 
-Defines all tables, columns, relationships, and versioning strategy. FileProcessing has no database presence. The Reporting feature owns report result tables. The ReferenceData feature owns employees, holidays, and the attendance column headers table.
+Defines all tables, columns, relationships, and versioning strategy. The schema is intentionally minimal — only report results and configuration are persisted. All employee data, detection results, and intermediate calculations are in-memory only and discarded after each generation.
 
 ---
 
 ## Tables Overview
 
 ```
-employees
-holidays
-report_selected_employees
-
 reports
-  ├── daily_employee_results
-  │     └── daily_period_details
-  └── shift_employee_results
-        └── shift_period_details
+  ├── shift_employee_results      (FK → reports.id)
+  │     └── shift_period_details  (FK → shift_employee_results.id)
+  ├── daily_employee_results      (FK → reports.id)
+  │     └── daily_period_details  (FK → daily_employee_results.id)
+  └── undetected_employee_results (FK → reports.id)
 
 column_headers
 app_settings
 ```
-
----
-
-## employees
-
-One row per employee. Permanent reference data — not tied to any report. Hard delete only.
-
-| Column | Type | Notes |
-|---|---|---|
-| id | integer, PK, auto-increment | |
-| employee_number | text, unique | Unique identifier. Enforced at DB level. |
-| name | text | Full name. Used as join key during report generation. Case-sensitive and whitespace-sensitive. |
-| employment_type | text | 'shift' or 'daily' |
-| department | text | Display only — no effect on calculation |
-| detected_shift_start_time | text, nullable | Time string e.g. '08:00'. Set by schedule detection. Null until detected. Only meaningful for shift employees. |
-
-No FK relationship to any report table. Deleting an employee has no effect on previously generated reports — all result rows are denormalized snapshots. Employee number uniqueness is enforced at the DB level — the add/edit dialog shows an Arabic error if a duplicate is entered.
-
----
-
-## holidays
-
-One row per holiday date. Permanent reference data — flat list, no year scoping. Used only during daily overtime calculation to classify day types.
-
-| Column | Type | Notes |
-|---|---|---|
-| id | integer, PK, auto-increment | |
-| date | text | ISO 8601 date |
-| occasion | text | Arabic name or description. Display only — no effect on calculation. |
-
-No FK relationship to any report table. Deleting a holiday has no effect on previously generated reports — day type is stored as a denormalized snapshot in `daily_period_details`.
 
 ---
 
@@ -67,52 +33,12 @@ One row per generated report. Multiple reports on the same calendar day are allo
 
 | Column | Type | Notes |
 |---|---|---|
-| id | integer, PK, auto-increment | |
+| id | integer, PK, auto-increment | Foreign key used by all result tables |
 | generation_datetime | text | ISO 8601 datetime — date and time the report was generated |
 | range_start | text | ISO 8601 date |
 | range_end | text | ISO 8601 date |
-| total_employees | integer | Matched and unmatched combined |
-| total_shift_overtime_hours | integer | Sum of overtime hours across all matched shift employees |
-| total_daily_overtime_minutes | integer | Sum of regular workday overtime minutes across all matched daily employees |
-| total_holiday_overtime_minutes | integer | Sum of holiday/weekend overtime minutes across all matched daily employees |
-| unmatched_employee_count | integer | |
 
----
-
-## daily_employee_results
-
-One row per daily employee per report. Cascade deleted with parent report.
-
-| Column | Type | Notes |
-|---|---|---|
-| id | integer, PK, auto-increment | |
-| report_id | integer, FK → reports.id | Cascade delete |
-| employee_name | text | |
-| department | text | |
-| overtime_minutes | integer | Regular workday overtime total in minutes. 0 if unmatched. |
-| holiday_overtime_minutes | integer | Holiday/weekend overtime total in minutes. 0 if unmatched. |
-| is_unmatched | integer | 1 if no attendance records found, 0 if matched |
-| notes | text, nullable | Arabic message for unmatched employees. Null if matched. |
-
----
-
-## daily_period_details
-
-One row per detected daily period per employee result. Cascade deleted with parent employee result.
-
-| Column | Type | Notes |
-|---|---|---|
-| id | integer, PK, auto-increment | |
-| employee_result_id | integer, FK → daily_employee_results.id | Cascade delete |
-| period_index | integer | Order of this period within the employee's results, 0-based |
-| date | text | ISO 8601 date |
-| weekday | text | Arabic weekday name e.g. الأحد |
-| day_type | text | 'regular', 'holiday', or 'weekend' |
-| all_timestamps | text | JSON array of ISO 8601 datetime strings, sorted ascending |
-| total_attendance_duration | integer | Duration from first to last timestamp in minutes. Audit display only. |
-| overtime_minutes | integer | Calculated overtime in minutes. 0 if invalid. |
-| is_valid | integer | 1 if period contributed to overtime, 0 if invalid |
-| notes | text, nullable | Arabic invalid reason. Null if valid. |
+No aggregate totals are stored here. All summaries are computed live from the employee result tables when the report is loaded.
 
 ---
 
@@ -125,16 +51,17 @@ One row per shift employee per report. Cascade deleted with parent report.
 | id | integer, PK, auto-increment | |
 | report_id | integer, FK → reports.id | Cascade delete |
 | employee_name | text | |
-| department | text | |
-| overtime_hours | integer | Total overtime hours. 0 if unmatched. |
-| is_unmatched | integer | 1 if no attendance records found, 0 if matched |
-| notes | text, nullable | Arabic message for unmatched employees. Null if matched. |
+| department | text | Detected during generation — snapshot, not linked to any employee table |
+| overtime_hours | integer | Total overtime hours for this employee |
+| is_included | integer | 1 = included in report totals and export (default). 0 = excluded by user toggle. |
+
+`is_included` defaults to 1 at generation time. The user may toggle it on the report screen. The value is persisted and survives app close/reopen.
 
 ---
 
 ## shift_period_details
 
-One row per detected shift period per employee result. Cascade deleted with parent employee result.
+One row per detected shift period per employee. Cascade deleted with parent employee result. Loaded only when the user opens the detail screen for a specific employee.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -147,21 +74,75 @@ One row per detected shift period per employee result. Cascade deleted with pare
 | total_attendance_duration | integer | Duration from first to last timestamp in minutes. Audit display only. |
 | zone_data | text | JSON array of zone results: [{ centerTime, timestamps[], isSatisfied }] |
 | hours_counted | integer | 24 if valid, 0 if invalid |
-| is_valid | integer | 1 if period contributed to overtime, 0 if invalid |
+| is_valid | integer | 1 if period satisfied all zone rules, 0 if not. Set at generation time — never changes. |
 | notes | text, nullable | Arabic invalid reason. Null if valid. |
 
 ---
 
-## report_selected_employees
+## daily_employee_results
 
-Persists the employee selection from the most recent report generation attempt. Loaded as the default selection when the user opens the Report Generation screen. Replaced entirely each time the user confirms a new selection and starts generation.
+One row per daily employee per report. Cascade deleted with parent report.
 
 | Column | Type | Notes |
 |---|---|---|
 | id | integer, PK, auto-increment | |
-| employee_id | integer, FK → employees.id | Cascade delete — if employee is deleted, the saved selection row is removed |
+| report_id | integer, FK → reports.id | Cascade delete |
+| employee_name | text | |
+| department | text | Detected during generation — snapshot, not linked to any employee table |
+| overtime_minutes | integer | Total overtime minutes for this employee |
+| is_included | integer | 1 = included in report totals and export (default). 0 = excluded by user toggle. |
 
-This is the only table that holds a FK to `employees`. It is safe to cascade delete because it is a UI convenience cache, not a report result.
+`is_included` defaults to 1 at generation time. The user may toggle it on the report screen. The value is persisted and survives app close/reopen.
+
+---
+
+## daily_period_details
+
+One row per detected daily period per employee. Cascade deleted with parent employee result. Loaded only when the user opens the detail screen for a specific employee.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | integer, PK, auto-increment | |
+| employee_result_id | integer, FK → daily_employee_results.id | Cascade delete |
+| period_index | integer | Order of this period within the employee's results, 0-based |
+| date | text | ISO 8601 date |
+| weekday | text | Arabic weekday name e.g. الأحد. Stored at generation time — not recomputed later. |
+| day_type | text | 'regular' or 'off' |
+| all_timestamps | text | JSON array of ISO 8601 datetime strings, sorted ascending |
+| total_attendance_duration | integer | Duration from first to last timestamp in minutes. Audit display only. |
+| overtime_minutes | integer | Overtime for this period in minutes. 0 if invalid. |
+| is_valid | integer | 1 if period satisfied validation rules, 0 if not. Set at generation time — never changes. |
+| notes | text, nullable | Arabic invalid reason. Null if valid. |
+
+---
+
+## undetected_employee_results
+
+One row per undetected employee per report. Cascade deleted with parent report. No period tables — undetected employees have no calculated data.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | integer, PK, auto-increment | |
+| report_id | integer, FK → reports.id | Cascade delete |
+| employee_name | text | |
+| department | text | |
+| failure_reason | text | Arabic string describing why detection failed. See `schedule_detection.md`. |
+
+Never contributes to any summary calculation. Not exported. Read-only in the report screen — no inclusion toggle.
+
+---
+
+## column_headers
+
+One row per acceptable header value per field key. Attendance file only. Three field keys seeded by default: `employee_name`, `department`, `datetime`. Additional header values per field may be added by the user via the Settings screen.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | integer, PK, auto-increment | |
+| file_type | text | 'attendance' only |
+| field_key | text | Internal field identifier |
+| header_value | text | Arabic column header to match |
+| is_default | integer | 1 = built-in default, cannot be edited or deleted. 0 = user-added. |
 
 ---
 
@@ -175,36 +156,39 @@ One row per setting key. Seeded with defaults on first launch. Never overwrites 
 | key | text, unique | Setting identifier — matches keys in `config.md` |
 | value | text | Current value |
 
-Predefined keys: `daily_start_time`, `daily_work_duration`, `daily_max_overtime`, `shift_start_times`, `shift_duration`, `shift_zone_interval`, `shift_start_end_tolerance`, `shift_inner_tolerance`, `shift_baseline_hours`, `shift_ceiling_hours`, `rounding_mode`, `max_report_date_range`.
-
----
-
-## column_headers
-
-One row per acceptable header value per field key. Only attendance file headers are managed here — employees and holidays are no longer file-based.
-
-| Column | Type | Notes |
-|---|---|---|
-| id | integer, PK, auto-increment | |
-| file_type | text | 'attendance' only |
-| field_key | text | Internal field identifier |
-| header_value | text | Arabic column header to match |
-| is_default | integer | 1 = built-in default, cannot be edited or deleted. 0 = user-added. |
+Predefined keys: `daily_start_time`, `daily_work_duration`, `daily_max_overtime`, `off_day_threshold`, `shift_start_times`, `shift_duration`, `shift_zone_interval`, `shift_start_end_tolerance`, `shift_inner_tolerance`, `shift_baseline_hours`, `shift_ceiling_hours`, `rounding_mode`, `max_report_date_range`.
 
 ---
 
 ## Report Storage
 
-Reports are always appended — generating a new report never replaces or deletes an existing one. The user deletes reports manually from the Report List screen. Each report is identified by its auto-increment `id`. Multiple reports covering the same date range or generated on the same day are permitted.
+Reports are always appended — generating a new report never replaces or deletes an existing one. The user deletes reports manually from the Reports List screen. Deletion cascades through all child tables automatically.
 
 ---
 
 ## Schema Initialization
 
-Schema created on first launch if tables do not exist. A version number tracks schema changes — migrations applied in sequence on version mismatch. Default values seeded into `column_headers` and `app_settings` on first launch, existence-checked before insert. The `employees` and `holidays` tables start empty — no seeded data.
+Schema created on first launch if tables do not exist. A version number tracks schema changes — migrations applied in sequence on version mismatch. Default values seeded into `column_headers` and `app_settings` on first launch, existence-checked before insert.
 
 ---
 
 ## Later Improvements
 
 **Export history.** Track export events in a separate `export_log` table.
+
+---
+
+## Live Calculations at Load Time
+
+When a report is loaded, the following are computed from the stored rows — never from stored aggregate fields:
+
+- Total shift employees (count of shift_employee_results rows)
+- Total daily employees (count of daily_employee_results rows)
+- Total undetected employees (count of undetected_employee_results rows)
+- Total included shift employees (count where is_included = 1)
+- Total included daily employees (count where is_included = 1)
+- Total shift overtime hours (sum of overtime_hours where is_included = 1)
+- Total daily overtime minutes (sum of overtime_minutes where is_included = 1)
+- Valid period counts, attendance duration sums, and all other summary values
+
+This ensures summaries always reflect the current is_included state without requiring any update to the reports table.

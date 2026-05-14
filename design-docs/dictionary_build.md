@@ -1,73 +1,43 @@
 # dictionary_build
 
-**Created**: 27-Apr-2026 **Modified**: 12-May-2026
+**Created**: 27-Apr-2026
+**Modified**: 14-May-2026
 
 ---
 
 ## Purpose
 
-Defines how the working dictionary is built from the attendance file, the selected employees, the holidays list, and the selected date range. This is Stage 3 of the app workflow — see `main_workflow.md`. The dictionary and unmatched list are the output of this stage — if unmatched employees exist, the user is prompted before period extraction begins.
+Defines how the working dictionary is built from the attendance file and the selected date range. This is Stage 3 of the app workflow — see `main_workflow.md`. No external employee list is used — all employees are detected directly from the attendance file.
 
 ---
 
-## Step 1 — Employee Lookup Set
-
-A hash set is built from the selected employees passed in from the report generation screen. Each entry: { id, name, employment_type, department }. These are read from the permanent employees table via the ReferenceData service — not from any uploaded file. Used for O(1) lookup in the next step.
-
----
-
-## Step 2 — Single-Pass Fingerprint Filtering
+## Step 1 — Single-Pass Record Collection
 
 One sequential pass over all attendance records across all files and sheets. Per record:
 
-- Name not in hash set → discard
 - Date outside requested range → discard
-- Otherwise → add timestamp to that employee's list in the working dictionary
+- Otherwise → add timestamp to that employee's entry in the working dictionary, keyed by employee name
 
-If the same employee name appears across multiple attendance files or sheets, their timestamps are all added to the same dictionary entry — merging happens naturally during this pass.
+Department is read from the same row as the timestamp and stored on the dictionary entry. If the same employee appears across multiple rows, the department value from the first encountered row is used — department is expected to be consistent per employee.
+
+If the same employee name appears across multiple attendance files or sheets, their timestamps are merged into the same dictionary entry naturally during this pass.
 
 Date and time values from Excel files may be stored as Excel serial numbers or formatted text strings. Both are handled. All timestamps are normalized to local device time.
 
-Working dictionary: `employeeName → { name, type, department, [timestamps] }`
+Working dictionary: `employeeName → { name, department, [timestamps] }`
 
-**Complexity:** O(n) where n = total fingerprint records. Minimum possible — every record read once.
-
----
-
-## Step 3 — Sort
-
-For each employee in the dictionary, sort timestamp list ascending.
+**Complexity:** O(n) where n = total attendance records. Every record read exactly once.
 
 ---
 
-## Step 4 — Unmatched Detection
+## Step 2 — Sort
 
-Selected employees with no dictionary entry are flagged as unmatched. Their names are collected into an unmatched list. If the list is not empty, the user is prompted before extraction proceeds.
-
-If the unmatched list is empty, extraction proceeds immediately.
-
-If the user chooses to continue despite unmatched employees, those employees are carried forward with zero overtime and an Arabic note. See `screen_report.md` for how unmatched employees are displayed.
-
-If the user chooses to abort, generation stops cleanly and the user returns to the Report Generation screen with all selections intact.
-
-### Unmatched Names Export
-
-From the review dialog, the user may export the unmatched names only to a file. This serves as a correction checklist. The export contains only the unmatched names, nothing else.
-
----
-
-## Name Matching Rules
-
-Matching between attendance records and selected employees is exact string comparison — case-sensitive and whitespace-sensitive. A trailing space or different capitalization causes a mismatch. The app does not infer intent — mismatches surface as unmatched employees in the report.
-
----
-
-## Holidays Input
-
-The holidays list is loaded from the permanent holidays table via the ReferenceData service before extraction begins. It is passed directly to the daily period extractor for day type classification. The shift extractor does not use it.
+For each employee in the dictionary, sort the timestamp list ascending.
 
 ---
 
 ## Result
 
-The working dictionary and unmatched list are the output of Stage 3. After the user confirms at the unmatched review prompt, the dictionary is the sole input to Stage 4 (Period Extraction). After results are stored to the database, the dictionary is discarded — the database is the sole source of truth.
+The working dictionary is the output of Stage 3. It is passed directly to Stage 4 (Schedule Detection). After results are stored to the database, the dictionary is discarded — the database is the sole source of truth.
+
+There is no unmatched employee concept — every name found in the attendance file within the date range becomes a dictionary entry. Filtering by employee happens implicitly through the detection algorithm in Stage 4.

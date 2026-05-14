@@ -1,7 +1,7 @@
 # main_workflow
 
 **Created**: 27-Apr-2026
-**Modified**: 12-May-2026
+**Modified**: 14-May-2026
 
 ---
 
@@ -11,59 +11,90 @@ Highest-level description of how the app works end to end. Read this first. All 
 
 ---
 
-## The 6 Stages
+## The 7 Stages
 
 ### Stage 1 — File Upload and Validation
 
-The user uploads the attendance Excel file on the Report Generation screen. The file is validated immediately on upload — column headers are checked and at least one valid row must exist. A file card shows green on pass, red with Arabic reason on failure.
+The user uploads one or more attendance Excel files on the Report Generation screen. Files are validated immediately on upload — column headers are checked and at least one valid row must exist. A file card shows green on pass, red with Arabic reason on failure.
 
-Employees and holidays are no longer uploaded as files. They are permanent reference data managed in the Employees and Holidays screens. If no employees have been added yet, the Generate button will never become active.
+There is no employee list to manage and no holidays to configure. Everything is derived from the attendance file.
 
 See `screen_report_generate.md` and `file_processing.md`.
 
 ### Stage 2 — Generate Report Triggered
 
-The Generate Report button becomes active only when the attendance file is uploaded and valid, both start and end dates are filled, and at least one employee is selected. When the user presses the button, report generation begins immediately.
+The Generate Report button becomes active only when at least one attendance file is valid and both start and end dates are filled. When the user presses the button, report generation begins immediately with no further prompts.
 
 See `screen_report_generate.md`.
 
 ### Stage 3 — Dictionary Build
 
-A working dictionary is built in memory from the attendance file, the selected employees (from the permanent employees table), the holidays list (from the permanent holidays table), and the selected date range. Records outside the selected employee list or date range are discarded. The result is one entry per matched employee with their sorted timestamp list. If any selected employees have no attendance records, the user is prompted to abort or continue before proceeding.
+A single pass over all attendance records across all files and sheets. Every unique employee name found in the file becomes a dictionary entry. Records outside the selected date range are discarded. The result is one entry per detected employee with their sorted timestamp list.
 
-See `dictionary_build.md` for the exact steps and rules.
+No external employee list is consulted. The attendance file is the sole source of employee identity.
 
-### Stage 4 — Period Extraction
+See `dictionary_build.md`.
 
-Each employee's sorted timestamp list is passed to a type-specific extractor — daily or shift. The daily extractor returns a `RawDailyEmployeePeriods` object; the shift extractor returns a `RawShiftEmployeePeriods` object. Both are ordered earliest to latest.
+### Stage 4 — Schedule Detection
 
-See `period_extractor_daily.md` and `period_extractor_shift.md`.
+Runs inline on the working dictionary. For each employee, the detection algorithm determines employment type (shift or daily) and, for shift employees, the shift start time. Both are derived from the timestamp patterns in the dictionary — no stored employee data is used.
 
-### Stage 5 — Overtime Calculation
+The dictionary is silently split into three buckets:
+- **Shift bucket** — fully detected as shift with a confirmed start time
+- **Daily bucket** — fully detected as daily
+- **Undetected bucket** — failed detection at any stage, with a recorded failure reason
 
-Each employee's period list is passed to a type-specific calculator — daily or shift. Each calculator returns valid/invalid results with overtime values. Results are assembled into a ReportSummary and stored to the database. The working dictionary is discarded — the database becomes the sole source of truth.
+No dialog is shown. Generation continues immediately regardless of how many employees end up in each bucket.
 
-See `overtime_calculation_daily.md` and `overtime_calculation_shift.md`.
+See `schedule_detection.md`.
 
-### Stage 6 — Navigate to Report
+### Stage 5 — Off-Day Detection
 
-After results are stored, the report is loaded from the database into the report provider. The Report Generation screen is popped, and the newly generated Report screen is pushed on top of the Reports List. The user sees their report immediately without any manual navigation.
+Runs on the daily bucket only. Uses attendance density across the date range to classify each day as regular or off. The result is a hash set of off-day dates passed to the daily period extractor in Stage 6.
 
-All report screens — whether reached after generation or by tapping a history row — always load from the database. There is no separate in-memory path for newly generated reports. This ensures one consistent loading code path throughout the app.
+Requires at least 2 daily employees to produce meaningful results. If fewer are present, the hash set is empty and all days are treated as regular.
 
-See `screen_report.md`.
+See `off_day_detection.md`.
+
+### Stage 6 — Period Extraction and Overtime Calculation
+
+Each bucket is processed by its type-specific extractor and calculator in sequence:
+
+**Shift employees:** periods are extracted using the detected shift start time and zone configuration, then validated and overtime is calculated.
+
+**Daily employees:** periods are extracted using calendar day grouping and the off-days hash set, then validated and overtime is calculated.
+
+**Undetected employees:** no extraction or calculation. Their name, department, and failure reason are carried directly to storage.
+
+All extractors and calculators run as pure functions — same input always produces the same output.
+
+See `period_extractor_shift.md`, `overtime_calculation_shift.md`, `period_extractor_daily.md`, `overtime_calculation_daily.md`.
+
+### Stage 7 — Store and Navigate
+
+All three result sets are stored to the database. All in-memory structures are discarded — the database becomes the sole source of truth.
+
+After storage, the report is loaded from the database into the report provider. The Report Generation screen is popped and the newly generated Report screen is pushed on top of the Reports List.
+
+All report screens — whether reached after generation or by tapping a history row — always load from the database. There is no in-memory hand-off path.
+
+See `screen_report.md` and `database_schema.md`.
 
 ---
 
 ## Error Handling
 
-Any failure during Stages 3–5 aborts generation entirely. No partial results are stored. The user sees an Arabic error message and remains on the Report Generation screen with all selections intact. If the user aborts at the unmatched review prompt, this is a clean abort — not an error.
+Any failure during Stages 3–7 aborts generation entirely. No partial results are stored. The user sees an Arabic error message and remains on the Report Generation screen with all inputs intact.
 
 ---
 
 ## Key Design Principles
 
-- Input files are never stored — only calculated results are persisted
-- The working dictionary is built once and discarded after results are stored
+- The attendance file is the sole source of employee identity — no persistent employee table
+- Every generation is completely fresh — no data carried between runs
+- Generation never pauses for user input after the button is pressed
+- All in-memory structures are discarded after results are stored
+- Report screens always load from the database — no in-memory hand-off
 - Extractors and calculators are pure functions — same input always produces same output
 - Rounding is display-only — raw minute values are always stored
+- Aggregate totals and summaries are always computed live from stored rows — never stored themselves

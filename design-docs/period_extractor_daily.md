@@ -1,13 +1,13 @@
 # period_extractor_daily
 
 **Created**: 27-Apr-2026
-**Modified**: 05-May-2026
+**Modified**: 14-May-2026
 
 ---
 
 ## Purpose
 
-Defines the period extraction algorithm for daily employees. Receives a dictionary entry for one employee and returns a `RawDailyEmployeePeriods` object. Pure function — no database access, no overtime rules, no side effects.
+Defines the period extraction algorithm for daily employees. Receives one entry from the daily hash table and returns a list of RawDailyPeriod objects. Pure function — no database access, no overtime rules, no side effects.
 
 ---
 
@@ -19,25 +19,21 @@ A daily employee works standard morning shifts on regular workdays. Their attend
 
 ## Input
 
-- Dictionary entry: `{ name, department, employmentType, [timestamps] }` — timestamps sorted ascending, filtered to report date range
-- Holidays list (for day classification only)
+- Daily hash table entry: `{ name, department, [timestamps] }` — timestamps sorted ascending, filtered to report date range
+- Off-days hash set — produced by Stage 5 (off-day detection). Contains all dates classified as off-days for this report.
 
 ---
 
-## Output Object — RawDailyEmployeePeriods
+## Output
 
-| Field | Content |
-|---|---|
-| name | Employee name, carried from dictionary |
-| department | Employee department, carried from dictionary |
-| periods | List of RawDailyPeriod, ordered by date ascending |
+List of RawDailyPeriod, ordered by date ascending.
 
 ### RawDailyPeriod
 
 | Field | Content |
 |---|---|
 | date | Calendar date (ISO 8601) |
-| dayType | regular / holiday / weekend |
+| dayType | regular / off |
 | timestamps | All timestamps of the day, sorted ascending |
 
 Days with zero timestamps are not included. Days with exactly one timestamp are included — the calculator determines validity, not the extractor.
@@ -51,15 +47,16 @@ Partition the timestamp list by calendar date. Each partition is one candidate p
 
 **Step 2 — Classify day type**
 For each date:
-- Friday or Saturday → weekend
-- Date exists in holidays list → holiday
+- Date exists in off-days hash set → off
 - Otherwise → regular
+
+Weekends (Friday/Saturday) are naturally classified as off because they appear in the off-days hash set — auto-detection captures them without special-casing.
 
 **Step 3 — Build RawDailyPeriod**
 For each date partition, set timestamps = full sorted list, dayType = classified type. Create one RawDailyPeriod.
 
 **Step 4 — Output**
-Return `RawDailyEmployeePeriods` with periods ordered by date ascending.
+Return periods ordered by date ascending.
 
 ---
 
@@ -69,3 +66,4 @@ Return `RawDailyEmployeePeriods` with periods ordered by date ascending.
 - Does not calculate overtime
 - Does not apply the morning cutoff rule
 - Does not deduplicate timestamps
+- Does not run off-day detection — the off-days hash set is passed in as input

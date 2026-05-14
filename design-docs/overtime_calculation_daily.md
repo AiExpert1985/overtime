@@ -1,13 +1,13 @@
 # overtime_calculation_daily
 
 **Created**: 27-Apr-2026
-**Modified**: 05-May-2026
+**Modified**: 14-May-2026
 
 ---
 
 ## Purpose
 
-Defines validity rules and overtime calculation for daily employees. Receives `RawDailyEmployeePeriods` from `period_extractor_daily.md` and returns a `DailyEmployeeResult`. Pure function — no database access, no UI dependency.
+Defines validity rules and overtime calculation for daily employees. Receives the list of RawDailyPeriod objects from `period_extractor_daily.md` and returns a `DailyEmployeeResult`. Pure function — no database access, no UI dependency.
 
 ---
 
@@ -17,7 +17,7 @@ Each period produces two distinct values:
 
 **totalAttendanceDuration** — the real duration from the period's first timestamp to its last timestamp, in minutes. Shown in the detail screen for audit purposes. Not used in the overtime formula.
 
-**overtimeMinutes** — calculated against the end time (regular days) or as full span (holiday days), capped at daily maximum. This is what accumulates toward the monthly total.
+**overtimeMinutes** — calculated against the end time (regular days) or as full span (off days), capped at daily maximum. This is what accumulates toward the monthly total.
 
 ---
 
@@ -29,7 +29,7 @@ Example: start 09:00 + 8 hours = end 17:00. Overtime is anything worked beyond 1
 
 ---
 
-## Normal Day Rules
+## Regular Day Rules
 
 ### Validation
 
@@ -54,7 +54,9 @@ Capped at configured daily maximum.
 
 ---
 
-## Holiday / Weekend Day Rules
+## Off Day Rules
+
+Off days include weekends and any day auto-detected as an off-day. The calculator applies the same rules regardless of which reason caused the off classification.
 
 ### Validation
 
@@ -77,11 +79,9 @@ Capped at configured daily maximum. Calendar day grouping in the extractor enfor
 
 ---
 
-## Monthly Totals
+## Monthly Total
 
-Regular and holiday/weekend overtime accumulated separately in minutes into `totalRegularOvertimeMinutes` and `totalHolidayOvertimeMinutes`. Never combined. Both stored as raw minutes — no rounding applied. Rounding is display-only per configured rounding mode in `screen_configuration.md`.
-
-Separation is intentional — the cost per overtime hour may differ between regular days and holidays.
+All overtime accumulated into a single `overtimeMinutes` value on the DailyEmployeeResult regardless of day type. Stored as raw minutes — no rounding applied. Rounding is display-only per configured rounding mode in `screen_configuration.md`.
 
 ---
 

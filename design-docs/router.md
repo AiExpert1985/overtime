@@ -1,20 +1,18 @@
 # router
 
 **Created**: 27-Apr-2026
-**Modified**: 12-May-2026
+**Modified**: 14-May-2026
 
 ---
 
 ## Shell — Bottom Tab Bar
 
-Four persistent tabs form the app shell. The tab bar is always visible except when a push screen is active on top.
+Two persistent tabs form the app shell. The tab bar is always visible except when a push screen is active on top.
 
 | Tab | Label (Arabic) | Root Screen |
 |---|---|---|
-| 1 | الموظفون | Employees Screen |
-| 2 | العطل | Holidays Screen |
-| 3 | التقارير | Reports List Screen |
-| 4 | الإعدادات | Settings Screen |
+| 1 | التقارير | Reports List Screen |
+| 2 | الإعدادات | Settings Screen |
 
 Switching tabs preserves each tab's navigation stack.
 
@@ -24,12 +22,10 @@ Switching tabs preserves each tab's navigation stack.
 
 | Name | Path | Screen | Parameters |
 |---|---|---|---|
-| `employees` | `/employees` | Employees Screen | — |
-| `holidays` | `/holidays` | Holidays Screen | — |
 | `reports` | `/reports` | Reports List Screen | — |
 | `report_generate` | `/reports/generate` | Report Generation Screen | — |
 | `report` | `/reports/:reportId` | Report Screen | `reportId` — integer, database id |
-| `detail` | `/reports/:reportId/detail/:employeeName` | Detail Screen | `reportId` — integer, `employeeName` — Arabic string, percent-encoded |
+| `detail` | `/reports/:reportId/detail/:employeeType/:employeeResultId` | Detail Screen | `reportId` — integer, `employeeType` — 'shift' or 'daily', `employeeResultId` — integer, database id of the employee result row |
 | `settings` | `/settings` | Settings Screen | — |
 | `column_headers` | `/settings/column-headers` | Column Header Management Screen | — |
 
@@ -37,51 +33,41 @@ Switching tabs preserves each tab's navigation stack.
 
 ## Route Details
 
-### employees — `/employees`
-
-Root of Tab 1. Lists all permanent employees. Add, edit, delete operations inline.
-
-### holidays — `/holidays`
-
-Root of Tab 2. Lists all permanent holidays. Add, edit, delete operations inline.
-
 ### reports — `/reports`
 
-Root of Tab 3. Shows the list of all generated reports ordered by generation datetime descending.
+Root of Tab 1. Shows the list of all generated reports ordered by generation datetime descending.
 
 The floating add button in the bottom-left corner pushes the Report Generation screen.
 
 ### report_generate — `/reports/generate`
 
-Pushed on top of the Reports List within Tab 3. Reached only from the floating add button.
+Pushed on top of the Reports List within Tab 1. Reached only from the floating add button.
 
-Handles attendance file upload, date range selection, and employee selection. On successful generation, this screen is popped and the new Report screen is pushed in its place.
+Handles attendance file upload and date range selection. No employee selection step — employees are detected from the file. On successful generation, this screen is popped and the new Report screen is pushed in its place.
 
 ### report — `/reports/:reportId`
 
-Pushed on top of the Reports List within Tab 3. Reached two ways: automatically after generation, or by tapping a row in the Reports List.
+Pushed on top of the Reports List within Tab 1. Reached two ways: automatically after generation, or by tapping a row in the Reports List.
 
-The screen loads the full report from the database on mount using the `reportId` parameter. No pre-loading by the caller is required.
+Loads shift and daily employee results from the database on mount. Computes all summaries live from the loaded rows. No pre-loading by the caller is required.
 
 Back button returns to the Reports List.
 
-### detail — `/reports/:reportId/detail/:employeeName`
+### detail — `/reports/:reportId/detail/:employeeType/:employeeResultId`
 
-Pushed on top of the Report screen within Tab 3. Reached only by tapping an employee row on the Report screen.
+Pushed on top of the Report screen within Tab 1. Reached only by tapping an employee row.
 
-Reads from the current report provider already loaded by the Report screen — no additional database fetch needed.
-
-Arabic employee names must be percent-encoded in the URL.
+Fetches period details from the database on mount using `employeeResultId` — the database id of the employee result row. `employeeType` determines which period table to query (`shift_period_details` or `daily_period_details`).
 
 Back button returns to the Report screen.
 
 ### settings — `/settings`
 
-Root of Tab 4. Single scrollable screen with all configurable settings inline.
+Root of Tab 2. Single scrollable screen with all configurable settings inline.
 
 ### column_headers — `/settings/column-headers`
 
-Pushed on top of the Settings screen within Tab 4. Reached by tapping the Column Headers management entry.
+Pushed on top of the Settings screen within Tab 2. Reached by tapping the Column Headers management entry.
 
 Back button returns to the Settings screen.
 
@@ -90,13 +76,7 @@ Back button returns to the Settings screen.
 ## Navigation Flow
 
 ```
-Tab 1 — Employees
-  └── (CRUD inline, no push screens)
-
-Tab 2 — Holidays
-  └── (CRUD inline, no push screens)
-
-Tab 3 — Reports List
+Tab 1 — Reports List
   ├── floating add button → Report Generation Screen
   │                               └── success → pops generation, pushes Report Screen
   │                                                   └── taps employee → Detail Screen
@@ -107,7 +87,7 @@ Tab 3 — Reports List
                                                       └── back → Report Screen
                               back → Reports List
 
-Tab 4 — Settings
+Tab 2 — Settings
   └── taps Column Headers → Column Header Management Screen
                                   └── back → Settings Screen
 ```
@@ -118,9 +98,9 @@ Tab 4 — Settings
 
 **Always use named routes.** No screen builds a path string manually.
 
-**Report screen loads its own data.** The Report screen fetches from the database on mount using its `reportId`. The caller navigates directly — no pre-loading required.
+**Report screen loads its own data.** Fetches employee results from the database on mount using `reportId`. Caller navigates directly — no pre-loading required.
 
-**Arabic names in URLs must be percent-encoded.** Use encoding when constructing the detail route path and decoding when reading back.
+**Detail screen fetches its own periods.** Uses `employeeResultId` from the route parameter to query only that employee's period rows from the correct table. The Report screen does not preload periods.
 
 **Back navigation** is handled by the router's built-in stack behavior — no custom handling needed.
 

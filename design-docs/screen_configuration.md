@@ -1,13 +1,13 @@
 # screen_configuration
 
 **Created**: 27-Apr-2026
-**Modified**: 12-May-2026
+**Modified**: 14-May-2026
 
 ---
 
 ## Purpose
 
-The fourth tab of the app. Manages all user-configurable settings: daily employee thresholds, shift employee thresholds, display rounding mode, and attendance column header values.
+Tab 2 of the app. Manages all user-configurable settings: daily employee thresholds, shift employee thresholds, display rounding mode, and attendance column header values.
 
 ---
 
@@ -31,6 +31,7 @@ All changes take effect immediately.
 | وقت البداية | 09:00 | Time picker |
 | مدة الدوام | 8 hours | Number input (hours) |
 | الحد الأقصى للإضافي اليومي | 3 hours | Number input (hours) |
+| نسبة الحضور للتمييز بين أيام العمل والعطل | 50% | Number input (percentage, 1–99) |
 
 End time shown as read-only derived value: "وقت النهاية: HH:MM" — updates automatically when start time or duration changes.
 
@@ -78,9 +79,7 @@ Displayed as a single row with a brief description and a navigation arrow. Tappi
 
 Pushed from the Settings screen. Back button returns to Settings.
 
-Covers the attendance file only — employees and holidays are no longer file-based.
-
-Lists all field keys for the attendance file. Per field:
+Covers the attendance file only. Lists all field keys for the attendance file. Per field:
 - Default values shown with lock icon — cannot be edited or deleted
 - User-added values shown with edit and delete icons
 - Add button opens a single-input Arabic text dialog. Value must be non-empty and unique per field.

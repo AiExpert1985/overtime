@@ -1,7 +1,7 @@
 # config
 
 **Created**: 27-Apr-2026
-**Modified**: 12-May-2026
+**Modified**: 14-May-2026
 
 ---
 
@@ -17,7 +17,8 @@ Single source of truth for all constants and configurable defaults. Every value 
 |---|---|---|---|
 | daily_start_time | 09:00 | وقت البداية | وقت بداية الدوام الصباحي. يُستخدم لأمرين: التحقق من أن البصمة الأولى لا تتجاوزه في أيام العمل الاعتيادية، واحتساب وقت النهاية تلقائياً (وقت البداية + مدة الدوام) |
 | daily_work_duration | 8 hours | مدة الدوام | مدة يوم العمل الاعتيادي بالساعات. يُحسب وقت النهاية تلقائياً من وقت البداية + المدة |
-| daily_max_overtime | 3 hours | الحد الأقصى للإضافي اليومي | أقصى عدد ساعات إضافية يُحتسب في اليوم الواحد، سواء كان يوم عمل أو عطلة |
+| daily_max_overtime | 3 hours | الحد الأقصى للإضافي اليومي | أقصى عدد ساعات إضافية يُحتسب في اليوم الواحد |
+| off_day_threshold | 50% | نسبة الحضور للتمييز بين أيام العمل والعطل | إذا كانت نسبة الموظفين الصباحيين الذين حضروا في يوم ما أقل من هذه النسبة، يُصنَّف اليوم تلقائياً كيوم عطلة |
 
 End time is derived: `daily_start_time + daily_work_duration`. Not a stored setting.
 
@@ -50,11 +51,12 @@ Rounding options: `none` / `quarter` / `hour`. Applied at display time only — 
 
 ## Default Column Headers
 
-Seeded on first launch. Cannot be deleted or edited. Additional values added via `screen_configuration.md`. Only the attendance file has configurable column headers — employees and holidays are no longer file-based.
+Seeded on first launch. Cannot be deleted or edited. Additional values added via `screen_configuration.md`. Only the attendance file has configurable column headers.
 
 ### Attendance File
 
 | Field key | Default | Arabic Name | Arabic Description |
 |---|---|---|---|
 | employee_name | اسم الموظف | عمود اسم الموظف | اسم العمود الذي يحتوي على أسماء الموظفين في ملف الحضور |
+| department | القسم | عمود القسم | اسم العمود الذي يحتوي على قسم الموظف في ملف الحضور |
 | datetime | التاريخ والوقت | عمود التاريخ والوقت | اسم العمود الذي يحتوي على تاريخ ووقت البصمة معاً |

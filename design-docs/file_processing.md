@@ -1,14 +1,14 @@
 # file_processing
 
-**Created**: 27-Apr-2026 **Modified**: 12-May-2026 **Version**: 2.0
+**Created**: 27-Apr-2026
+**Modified**: 14-May-2026
+**Version**: 3.0
 
 ---
 
 ## Purpose
 
-Defines how the attendance Excel file is opened and validated when the user selects it on the Report Generation screen. Validation runs immediately on file selection — not at generation time. Any further processing (filtering, merging, matching) happens during report generation — see `dictionary_build.md` and `main_workflow.md`.
-
-Employees and holidays are no longer file-based. They are permanent reference data managed in their own screens — see `screen_employees.md` and `screen_holidays.md`.
+Defines how the attendance Excel file is opened and validated when the user selects it on the Report Generation screen. Validation runs immediately on file selection — not at generation time. Any further processing (dictionary build, detection, calculation) happens during report generation — see `dictionary_build.md` and `main_workflow.md`.
 
 ---
 
@@ -20,7 +20,7 @@ Employees and holidays are no longer file-based. They are permanent reference da
 
 ## Column Header Validation
 
-Each required field key has a list of acceptable Arabic header values stored in the database. Default values are defined in `config.md`. The user may add additional acceptable values via the Settings tab — see `screen_configuration.md`.
+Each required field key has a list of acceptable Arabic header values stored in the database. Default values are defined in `config.md`. The user may add additional acceptable values via the Settings screen — see `screen_configuration.md`.
 
 When a file is opened, the parser reads the first row of each sheet. Each header value is trimmed of leading and trailing whitespace before comparison. For each required field key, the parser checks whether any column header matches any acceptable value for that field. If a required field key has no match, the file is rejected.
 
@@ -33,11 +33,12 @@ When a file is opened, the parser reads the first row of each sheet. Each header
 | Field key | What it represents |
 |---|---|
 | employee_name | The employee's name |
+| department | The employee's department |
 | datetime | The full date and time of the fingerprint event |
 
 ### Valid Row
 
-A row is valid if both employee name and datetime are present and non-empty.
+A row is valid if employee name, department, and datetime are all present and non-empty.
 
 ---
 

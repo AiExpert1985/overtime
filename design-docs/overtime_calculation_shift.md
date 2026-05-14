@@ -1,13 +1,13 @@
 # overtime_calculation_shift
 
 **Created**: 27-Apr-2026
-**Modified**: 12-May-2026
+**Modified**: 14-May-2026
 
 ---
 
 ## Purpose
 
-Defines validity rules and overtime calculation for shift employees. Receives `RawShiftEmployeePeriods` from `period_extractor_shift.md` and returns a `ShiftEmployeeResult`. Pure function — no database access, no UI dependency.
+Defines validity rules and overtime calculation for shift employees. Receives the list of RawShiftPeriod objects from `period_extractor_shift.md` and returns a `ShiftEmployeeResult`. Pure function — no database access, no UI dependency.
 
 Non-shift days have already been discarded by the extractor before this calculator receives the periods. Every period received here has at least one inner zone timestamp.
 
@@ -29,7 +29,7 @@ A period spanning 26 actual hours still counts as 24. A period spanning 23 actua
 
 Each period is valid only if all zones are satisfied — every zone must contain at least one timestamp within its tolerance window.
 
-Zone results are pre-computed by the extractor and carried in `RawShiftPeriod.zoneResults`. The calculator reads these directly — it does not recompute zone assignments.
+Zone results are pre-computed by the extractor and carried in each RawShiftPeriod's zoneResults list. The calculator reads these directly — it does not recompute zone assignments.
 
 If any zone has no timestamp within its window, the period is invalid.
 
@@ -53,9 +53,9 @@ Binary result: valid = 24 hours, invalid = 0 hours. No rounding needed or applie
 
 Example: 10 valid periods = 240h → capped to 192h → minus 154h baseline = 38h overtime.
 
-Final value stored as integer hours in `totalOvertimeHours`.
+Final value stored as integer hours in `overtimeHours` on the ShiftEmployeeResult.
 
-An employee with all invalid periods is still matched with zero overtime — distinct from an unmatched employee.
+An employee with all invalid periods contributes zero overtime but still appears in the report as a detected shift employee — distinct from an undetected employee.
 
 ---
 
@@ -78,4 +78,4 @@ Returns `ShiftEmployeeResult`. See `data_shared_models.md`.
 
 All defined in `config.md`, managed in `screen_configuration.md`.
 
-`shift_start_times` is used by the schedule detection algorithm only — not by the extractor or calculator at report generation time. The employee's `detected_shift_start_time` is used instead. See `schedule_detection.md`.
+`shift_start_times` is used by the schedule detection algorithm only — not by the extractor or calculator at report generation time. The employee's `detectedShiftStartTime` from the shift hash table entry is used by the extractor instead.

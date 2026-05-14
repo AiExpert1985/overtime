@@ -16,19 +16,19 @@ Depends on: none
 
 ### config.md
 About: All user-configurable app settings with defaults and Arabic labels.
-Covers: Daily employee settings (start time, work duration, max overtime); shift employee settings (start times, duration, zone interval, tolerances, gap, baseline, ceiling hours); display settings (rounding mode, max date range); default column headers for attendance file only — employees and holidays are no longer file-based.
+Covers: Daily employee settings (start time, work duration, max overtime); shift employee settings (start times used only for schedule detection, duration, zone interval, start/end tolerance, inner zone tolerance, baseline, ceiling hours); display settings (rounding mode, max date range); default column headers for attendance file only.
 Relevant for: Settings screen, database seeding, any feature reading config values.
 Depends on: none
 
 ### database_schema.md
 About: SQLite table definitions and relationships.
-Covers: employees, holidays, report_selected_employees (new permanent reference tables); reports, daily_employee_results, daily_period_details, shift_employee_results, shift_period_details (report result tables); app_settings, column_headers (attendance only); cascade delete; ISO 8601 dates; append-only reports.
+Covers: employees (with detected_shift_start_time), holidays, report_selected_employees; reports, daily_employee_results, daily_period_details, shift_employee_results, shift_period_details (with zone_data and end_date); app_settings (includes shift_inner_tolerance), column_headers (attendance only); cascade delete; ISO 8601 dates; append-only reports.
 Relevant for: Database setup, repositories, any feature reading/writing persisted data.
 Depends on: none
 
 ### data_shared_models.md
 About: Shared domain data objects used across both features.
-Covers: Input objects (Employee, AttendanceRecord, Holiday); extractor output (RawDailyEmployeePeriods, RawShiftEmployeePeriods); calculator output (DailyEmployeeResult with DailyPeriodDetail, ShiftEmployeeResult with ShiftPeriodDetail); all plain data containers with no behavior.
+Covers: Input objects (Employee with detectedShiftStartTime, AttendanceRecord, Holiday); extractor output (RawDailyEmployeePeriods, RawShiftEmployeePeriods with RawShiftPeriod carrying periodDate and zoneResults); calculator output (DailyEmployeeResult, ShiftEmployeeResult with ShiftPeriodDetail carrying endDate and zoneResults); all plain data containers with no behavior.
 Relevant for: Domain layer, any feature that produces or consumes employee/attendance data.
 Depends on: none
 
@@ -57,10 +57,10 @@ Relevant for: Daily period extraction step in report generation.
 Depends on: data_shared_models.md, main_workflow.md
 
 ### period_extractor_shift.md
-About: Pure function algorithm for extracting shift employee attendance periods.
-Covers: Detect fixed start time; build period spanning shift_duration hours; define zones with tolerances; detect next period via gap window or next matching start; shared timestamp spans both periods; no validation, no DB access.
+About: Pure function algorithm for extracting shift employee attendance periods using calendar-based period windows.
+Covers: Period window per calendar day [D@(startTime−tolerance), (D+1)@(startTime+tolerance)]; zone bucketing (B1 start zone, B2…BN-1 inner zones, BN end zone) with separate start/end and inner tolerances; discard non-shift days (no inner zone timestamps); shared timestamps across adjacent periods; uses detectedShiftStartTime from employee record (not config list).
 Relevant for: Shift period extraction step in report generation.
-Depends on: data_shared_models.md, main_workflow.md, config.md
+Depends on: data_shared_models.md, main_workflow.md, config.md, schedule_detection.md
 
 ### overtime_calculation_daily.md
 About: Overtime calculation rules for daily employees.
@@ -70,7 +70,7 @@ Depends on: data_shared_models.md, config.md, period_extractor_daily.md
 
 ### overtime_calculation_shift.md
 About: Overtime calculation rules for shift employees.
-Covers: Per-period totalAttendanceDuration (audit) and hoursCounted (24 if valid, 0 if invalid); validity = all zones satisfied; zone count = shift_duration / zone_interval; monthly = sum valid hours → apply ceiling → subtract baseline; all settings from config.
+Covers: Reads pre-computed zoneResults from RawShiftPeriod; validity = all zones satisfied; hoursCounted binary (24 if valid, 0 if invalid); monthly = sum valid hours → ceiling cap → subtract baseline; shift_start_times used only in schedule detection not here.
 Relevant for: Shift overtime calculator step in report generation.
 Depends on: data_shared_models.md, config.md, period_extractor_shift.md
 
@@ -80,11 +80,17 @@ Covers: Bottom tab shell (4 tabs: Employees, Holidays, Reports List, Settings); 
 Relevant for: Router setup, navigation between screens, any new screen added.
 Depends on: architecture_overview.md
 
+### schedule_detection.md
+About: Algorithm for automatically detecting each employee's employment type (shift/daily) and shift start time from an attendance file.
+Covers: Stage 1 (day scanning — count active zones per calendar day, classify as shift/daily/discard); Stage 2 (employment type vote with density ≥ 20% and confidence ≥ 75% thresholds); Stage 3 (shift start time detection via sub-bucket vote, same thresholds); writes employment_type and detected_shift_start_time to employees table; standalone tool, not part of report generation.
+Relevant for: Employees screen (كشف الجداول button), any task touching schedule auto-detection or detected_shift_start_time.
+Depends on: file_processing.md, config.md, database_schema.md
+
 ### screen_employees.md
 About: Employees screen UI and behavior (Tab 1 — الموظفون).
-Covers: Permanent employees list with CRUD; FAB to add; table (employee number, name, employment type, department, actions); Add/Edit dialog with uniqueness check on employee number; delete with confirmation (cascade deletes from report_selected_employees); data from employees table via ReferenceData repository.
-Relevant for: Employees screen implementation, reference data management, employee CRUD.
-Depends on: database_schema.md, router.md
+Covers: Permanent employees list with CRUD; FAB to add; table includes shift start time column and warning for undetected; Add/Edit dialog with optional shift start time field; Detect Schedules (كشف الجداول) AppBar button triggers schedule_detection; report generation guard for shift employees without detected start time; delete with cascade.
+Relevant for: Employees screen implementation, reference data management, employee CRUD, schedule detection trigger.
+Depends on: database_schema.md, router.md, schedule_detection.md
 
 ### screen_holidays.md
 About: Holidays screen UI and behavior (Tab 2 — العطل).
