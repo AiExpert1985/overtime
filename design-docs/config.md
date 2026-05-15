@@ -13,11 +13,11 @@ Single source of truth for all constants and configurable defaults. Every value 
 
 ## Daily Employee Settings
 
-| Key                 | Default | Arabic Name                               | Arabic Description                                                                                         |
-| ------------------- | ------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| daily_start_time    | 08:00   | بداية الدوام                              | وقت بداية الدوام الصباحي                                                                                   |
-| daily_work_duration | 8 hours | ساعات الدوام                              | مدة يوم العمل الاعتيادي بالساعات                                                                           |
-| daily_max_overtime  | 3 hours | اقصى وقت اضافي                            | أقصى عدد ساعات إضافية الممكن احتسابه للموظف في اليوم الواحد                                                |
+| Key | Default | Arabic Name | Arabic Description |
+|---|---|---|---|
+| daily_start_time | 08:00 | بداية الدوام | وقت بداية الدوام الصباحي |
+| daily_work_duration | 8 hours | ساعات الدوام | مدة يوم العمل الاعتيادي بالساعات |
+| daily_max_overtime | 3 hours | اقصى وقت اضافي | أقصى عدد ساعات إضافية الممكن احتسابه للموظف في اليوم الواحد |
 
 End time is derived: `daily_start_time + daily_work_duration`. Not a stored setting.
 
@@ -25,26 +25,36 @@ End time is derived: `daily_start_time + daily_work_duration`. Not a stored sett
 
 ## Shift Employee Settings
 
-| Key                       | Default    | Arabic Name                          | Arabic Description                                                                            |
-| ------------------------- | ---------- | ------------------------------------ | --------------------------------------------------------------------------------------------- |
-| shift_start_times         | [08:00]    | بداية المناوبة                       | قائمة الأوقات المحتملة لبداية المناوبة ممكن ادخال اكثر من وقت                                 |
-| shift_duration            | 24 hours   | مدة المناوبة                         | المدة الكاملة للمناوبة الواحدة بالساعات                                                       |
-| shift_zone_interval       | 6 hours    | عدد ساعات كل بصمة                    | الوقت المسموح به للبصمات خلال المناوبة الواحدة                                                |
-| shift_start_end_tolerance | 60 minutes | دقائق السماح لبصمة البداية و النهاية | الهامش الزمني بالدقائق المسموح به لبصمتي البداية والنهاية                                     |
-| shift_inner_tolerance     | 30 minutes | دقائق سماح البصمة خلال المناوبة      | الهامش الزمني بالدقائق المسموح به للبصمات في البصمات خلال مدة المناوية                        |
-| shift_baseline_hours      | 154 hours  | ساعات العمل الأساسية                 | عدد ساعات العمل الشهرية المطلوبة                                                              |
-| shift_ceiling_hours       | 192 hours  | الحد الأقصى للساعات الشهرية          | أقصى عدد ساعات عمل يُحتسب في الشهر، اي ساعات اكثر منه تهمل و لا تدخل في حساب الساعات الاضافية |
+| Key | Default | Arabic Name | Arabic Description |
+|---|---|---|---|
+| shift_start_times | [08:00] | بداية المناوبة | قائمة الأوقات المحتملة لبداية المناوبة ممكن ادخال اكثر من وقت |
+| shift_duration | 24 hours | مدة المناوبة | المدة الكاملة للمناوبة الواحدة بالساعات |
+| shift_zone_interval | 6 hours | عدد ساعات كل بصمة | الوقت المسموح به للبصمات خلال المناوبة الواحدة |
+| shift_start_end_tolerance | 60 minutes | دقائق السماح لبصمة البداية و النهاية | الهامش الزمني بالدقائق المسموح به لبصمتي البداية والنهاية |
+| shift_inner_tolerance | 30 minutes | دقائق سماح البصمة خلال المناوبة | الهامش الزمني بالدقائق المسموح به للبصمات في البصمات خلال مدة المناوية |
+| shift_baseline_hours | 154 hours | ساعات العمل الأساسية | عدد ساعات العمل الشهرية المطلوبة |
+| shift_ceiling_hours | 192 hours | الحد الأقصى للساعات الشهرية | أقصى عدد ساعات عمل يُحتسب في الشهر، اي ساعات اكثر منه تهمل و لا تدخل في حساب الساعات الاضافية |
 
 ---
 
 ## Display Settings
 
-| Key                   | Default | Arabic Name              | Arabic Description                                                                      |
-| --------------------- | ------- | ------------------------ | --------------------------------------------------------------------------------------- |
-| rounding_mode         | quarter | وضع التقريب              | طريقة عرض الساعات الإضافية: بدون تقريب، تقريب لربع ساعة، نصف ساعة, أو تقريب لساعة كاملة |
-| max_report_date_range | 31 days | الحد الأقصى لمدة التقرير | الحد الأقصى لعدد الأيام المسموح بها في نطاق التاريخ عند توليد تقرير                     |
+| Key | Default | Arabic Name | Arabic Description |
+|---|---|---|---|
+| rounding_mode | quarter | وضع التقريب | طريقة عرض الساعات الإضافية: بدون تقريب، تقريب لربع ساعة، نصف ساعة, أو تقريب لساعة كاملة |
+| max_report_date_range | 31 days | الحد الأقصى لمدة التقرير | الحد الأقصى لعدد الأيام المسموح بها في نطاق التاريخ عند توليد تقرير |
 
-Rounding options: `none` / `quarter` /`half` / `hour`. Applied at display time only — stored values are always raw minutes.
+Rounding options: `none` / `quarter` / `half` / `hour`. Applied at display time only — stored values are always raw minutes.
+
+---
+
+## Hardcoded Constants
+
+These values are fixed in code and not user-configurable.
+
+| Key | Value | Used in |
+|---|---|---|
+| off_day_threshold | 25% | `off_day_detection.md` — minimum attendance rate below which a day is classified as off |
 
 ---
 

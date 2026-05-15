@@ -1,7 +1,6 @@
 # schedule_detection
 
-**Created**: 12-May-2026
-**Modified**: 14-May-2026
+**Created**: 12-May-2026 **Modified**: 14-May-2026
 
 ---
 
@@ -14,97 +13,135 @@ Defines the algorithm for detecting each employee's employment type (shift or da
 ## Inputs
 
 - Working dictionary: `employeeName → { name, department, [timestamps] }` — timestamps sorted ascending, filtered to report date range
-- Config: `shift_start_times`, `shift_zone_interval`, `shift_start_end_tolerance`, `daily_start_time`
+- Report period duration — total calendar days between report start and end date (inclusive). Used as the denominator for the 20% threshold.
+- Config: `shift_start_times`, `shift_zone_interval`, `shift_start_end_tolerance`
 
 ---
 
-## Thresholds
+## Employee Type Enumeration
 
-| Threshold | Value | Meaning |
-|---|---|---|
-| Minimum detection density | 20% | Bucketed days / total scanned days must be ≥ 20% |
-| Minimum confidence | 75% | Winning bucket / total bucketed days must be ≥ 75% |
+Every employee is assigned exactly one of three types as the output of this stage:
 
-Both thresholds must pass at each stage. Failing either produces an undetected result for that employee.
+|Type|Meaning|
+|---|---|
+|`shift`|Confirmed shift employee with a detected start time|
+|`daily`|Confirmed daily employee|
+|`undetected`|Could not be classified — stored with a failure reason|
 
 ---
 
-## Per-Employee Detection
+## Algorithm 1 — Employment Type Detection
 
-Runs independently for each employee in the dictionary.
+Runs iteratively — independently for each employee in the dictionary.
 
-### Stage A — Day Scanning
+### Pre-Check — Attendance Density
 
-Collect all days where the employee has at least one timestamp. These are the **scanned days**.
+Count all calendar days where the employee has at least 1 timestamp. This answers: did this employee show up enough days to be worth analyzing at all?
 
-For each scanned day, divide the 24-hour period into zones using `shift_zone_interval`. Count how many zones contain at least one timestamp — these are **active zones**.
+**Note:** This check is intentionally separate from Stage 1. The pre-check measures raw presence — how many days this employee appeared in the attendance file regardless of timestamp quality. Stage 1 then filters to days with ≥ 2 timestamps, which are the only days usable for zone analysis. An employee could pass the pre-check but still fail Stage 1 if most of their days had only a single timestamp.
+
+`attendance_days / report_period_days ≥ 20%`
+
+If fails → mark employee as `undetected`, reason: **أيام الحضور أقل من 20% من مدة الفترة**, skip to next employee.
+
+### Stage 1 — Day Filtering
+
+From the employee's days, discard any day with fewer than 2 timestamps — these days cannot produce meaningful zone signal. Check the remaining days (days with ≥ 2 timestamps):
+
+`remaining_days / report_period_days ≥ 20%`
+
+If fails → mark employee as `undetected`, reason: **أيام الحضور الصالحة أقل من 20% من مدة الفترة**, skip to next employee.
+
+If passes → proceed to Stage 2 with these days.
+
+### Stage 2 — Zone Bucketing
+
+For each remaining day, divide the 24-hour period into zones using `shift_zone_interval`. Count active zones (zones containing at least one timestamp).
 
 Zone count per day = `24 / shift_zone_interval` (default 24 / 6 = 4 zones).
 
 Classify each day:
-- Active zones > half of total zones → **shift day candidate**
-- Active zones = half of total zones (exactly 2 out of 4) → **daily day candidate**
-- Active zones < half (1 zone or fewer) → **discard**
 
-### Stage B — Employment Type Vote
+- 1 active zone → **discard** (insufficient signal)
+- 2 active zones → **daily bucket**
+- 3 or more active zones → **shift bucket**
 
-- `shift_bucket` = count of shift day candidates
-- `daily_bucket` = count of daily day candidates
-- `total_bucketed` = shift_bucket + daily_bucket
-- `total_scanned` = all days with at least one timestamp
+**Note:** A day with 0 active zones cannot occur at this stage — Stage 1 guarantees every day has ≥ 2 timestamps, so at least 1 zone will always be active.
 
-**Density check:** `total_bucketed / total_scanned ≥ 0.20`
-If fails → result: **undetected (insufficient data)**
+### Stage 3 — Employment Type Vote
 
-**Confidence check:** `winning_bucket / total_bucketed ≥ 0.75`
-If fails → result: **undetected (ambiguous type)**
+- `winning_bucket` = whichever of shift or daily bucket has more days
+- `losing_bucket` = the other bucket
 
-If both pass → employment type confirmed as winning bucket's type.
+**Confidence check:** `winning_bucket / (winning_bucket + losing_bucket) ≥ 0.75`
 
-### Stage C — Shift Start Time Detection (shift employees only)
+If the two buckets are equal, confidence is exactly 50% — fails the threshold.
 
-For each day in `shift_bucket`, scan for timestamps within `shift_start_end_tolerance` of each configured start time in `shift_start_times`. Assign the day to the sub-bucket of the closest matching start time. If equidistant between two start times, assign to the earlier one. If no configured start time matches within tolerance, discard the day from this stage.
+If fails → mark employee as `undetected`, reason: **نوع التوظيف غير واضح**, skip to next employee.
 
-- `total_start_bucketed` = days assigned to any start time sub-bucket
-- `winning_start_bucket` = sub-bucket with the most days
+If passes → employment type confirmed as the winning bucket's type. Shift employees proceed to Algorithm 2. Daily employees are placed in the daily hash table.
 
-**Density check:** `total_start_bucketed / shift_bucket ≥ 0.20`
-If fails → result: **undetected (insufficient shift start data)**
+---
 
-**Confidence check:** `winning_start_bucket / total_start_bucketed ≥ 0.75`
-If fails → result: **undetected (ambiguous shift start)**
+## Algorithm 2 — Shift Start Time Detection
 
-If both pass → shift start time confirmed as the winning sub-bucket's start time.
+Runs only for employees confirmed as `shift` in Algorithm 1. Runs iteratively — independently for each shift employee.
+
+### Stage 1 — Start Time Bucketing
+
+**Note:** Only the shift bucket days from Algorithm 1 Stage 2 are used here — not all calendar days of the employee.
+
+For each shift bucket day, check every configured start time in `shift_start_times`. For each start time, check if any timestamp in that day falls within `shift_start_end_tolerance` of that start time. If yes → assign the day to that start time's bucket.
+
+One day may be assigned to multiple start time buckets if its timestamps match more than one start time window.
+
+Days whose timestamps match no start time window at all are placed in the **unmatched bucket**. A day that matched at least one start time bucket is never placed in the unmatched bucket — these are mutually exclusive.
+
+Three bucket types always exist:
+
+- **Start time buckets** — one per configured start time (may have 0 days)
+- **Unmatched bucket** — days that matched no start time window at all
+
+### Stage 2 — Start Time Vote
+
+- `winning_bucket` = start time bucket with the most days
+- `losing_buckets` = all other start time buckets combined
+- `unmatched_bucket` = days that matched no start time window
+
+**Confidence check:** `winning_bucket / (winning_bucket + losing_buckets + unmatched_bucket) ≥ 0.60`
+
+The unmatched bucket is always included in the denominator — this ensures the formula works consistently whether one or many start times are configured, and naturally penalizes employees whose timestamps don't align well with any configured start time.
+
+If two start time buckets are tied for most days, pick either as winner — the confidence will be ≤ 50% and will fail the threshold regardless.
+
+If fails → mark employee as `undetected`, reason: **وقت بداية المناوبة غير واضح**.
+
+If passes → shift start time confirmed as the winning bucket's configured start time. Employee placed in the shift hash table with their detected start time.
 
 ---
 
 ## Detection Failure Reasons
 
-Stored on the undetected employee result. Shown in the report's undetected tab.
-
-| Reason | Arabic |
-|---|---|
-| Stage B density failed | بيانات غير كافية للكشف |
-| Stage B confidence failed | نوع التوظيف غير واضح |
-| Stage C density failed | بيانات بداية المناوبة غير كافية |
-| Stage C confidence failed | وقت بداية المناوبة غير واضح |
+| Reason                                           | Arabic                                       |
+| ------------------------------------------------ | -------------------------------------------- |
+| Raw attendance days below 20% of period          | أيام الحضور أقل من 20% من مدة الفترة         |
+| Usable days (≥ 2 timestamps) below 20% of period | أيام الحضور الصالحة أقل من 20% من مدة الفترة |
+| Employment type vote failed                      | نوع التوظيف غير واضح                         |
+| Shift start time vote failed                     | وقت بداية المناوبة غير واضح                  |
 
 ---
 
 ## Output — Three Buckets
 
-After detection completes for all employees, the working dictionary is split into three buckets passed to the next stages:
+After both algorithms complete for all employees:
 
-**Shift hash table:** `employeeName → { name, department, detectedShiftStartTime, [timestamps] }`
-Employees confirmed as shift with a confirmed start time.
+**Shift hash table:** `employeeName → { name, department, detectedShiftStartTime, [timestamps] }` Employees confirmed as shift with a confirmed start time.
 
-**Daily hash table:** `employeeName → { name, department, [timestamps] }`
-Employees confirmed as daily.
+**Daily hash table:** `employeeName → { name, department, [timestamps] }` Employees confirmed as daily.
 
-**Undetected list:** `[ { name, department, failureReason } ]`
-Employees who failed detection at any stage. Carried directly to storage in Stage 7 — no extraction or calculation runs for them.
+**Undetected list:** `[ { name, department, failureReason } ]` Employees who failed at any stage of either algorithm. Carried directly to storage in Stage 10 — no extraction or calculation runs for them.
 
-All three are in-memory only. None is persisted until Stage 7.
+All three are in-memory only. None is persisted until Stage 10.
 
 ---
 
@@ -114,7 +151,6 @@ All three are in-memory only. None is persisted until Stage 7.
 - Does not use any previously stored employee data
 - Does not show any dialog or pause generation
 - Does not detect daily employee start time — all daily employees use the global `daily_start_time` from config
-
 
 ---
 
