@@ -7,7 +7,7 @@
 
 ## Purpose
 
-Defines validity rules and overtime calculation for shift employees. Receives the list of RawShiftPeriod objects from `period_extractor_shift.md` and returns a `ShiftEmployeeResult`. Pure function — no database access, no UI dependency.
+Defines validity rules and overtime calculation for shift employees. Receives the shift hash table enriched with `RawShiftPeriod` lists from `period_extractor_shift.md` and returns a list of `ShiftEmployeeResult` objects. Pure function — no database access, no UI dependency.
 
 Non-shift days have already been discarded by the extractor before this calculator receives the periods. Every period received here has at least one inner zone timestamp.
 
@@ -71,8 +71,7 @@ Returns `ShiftEmployeeResult`. See `data_shared_models.md`.
 |---|---|
 | Shift duration | 24 hours |
 | Zone interval | 6 hours |
-| Start/end tolerance | 60 minutes |
-| Inner zone tolerance | 30 minutes |
+| Tolerance | 60 minutes |
 | Baseline hours | 154 hours |
 | Ceiling hours | 192 hours |
 

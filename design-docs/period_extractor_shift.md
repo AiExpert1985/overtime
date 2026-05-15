@@ -7,7 +7,7 @@
 
 ## Purpose
 
-Defines the period extraction algorithm for shift employees. Receives one entry from the shift hash table and returns a list of RawShiftPeriod objects. Pure function — no database access, no overtime rules, no side effects.
+Defines the period extraction algorithm for shift employees. Receives the shift hash table, enriches each employee entry with their period and zone results, and returns the updated hash table. Pure function — no database access, no overtime rules, no side effects.
 
 ---
 
@@ -19,16 +19,18 @@ A shift employee works continuous duty periods that span across calendar days. O
 
 ## Input
 
-- Shift hash table entry: `{ name, department, detectedShiftStartTime, [timestamps] }` — timestamps sorted ascending, filtered to report date range
-- Settings: `shift_duration`, `shift_zone_interval`, `shift_start_end_tolerance`, `shift_inner_tolerance` (from `config.md`)
+- Shift hash table: `employeeName → { name, department, detectedShiftStartTime, [timestamps] }` — timestamps sorted ascending, filtered to report date range
+- Settings: `shift_duration`, `shift_zone_interval`, `shift_tolerance` (from `config.md`)
 
-`detectedShiftStartTime` is the value determined by the schedule detection algorithm in Stage 4. It is passed in directly — not read from any stored employee record.
+`detectedShiftStartTime` is determined by the schedule detection algorithm in Stage 4. It is passed in directly — not read from any stored employee record.
 
 ---
 
 ## Output
 
-List of RawShiftPeriod, ordered by period date ascending.
+The same shift hash table enriched with a list of `RawShiftPeriod` objects per employee:
+
+`employeeName → { name, department, detectedShiftStartTime, [timestamps], [RawShiftPeriod] }`
 
 ### RawShiftPeriod
 
@@ -36,60 +38,76 @@ List of RawShiftPeriod, ordered by period date ascending.
 |---|---|
 | periodDate | Calendar date (ISO 8601) this period is anchored to |
 | timestamps | All timestamps within the period window, sorted ascending |
-| zoneResults | List of zone results: { centerTime, timestamps[], isSatisfied } |
+| zoneResults | List of zone results: `{ zoneIndex, startTime, endTime, timestamps[], isSatisfied }` |
+
+The function builds the `RawShiftPeriod` list for each employee, then stores it back into the employee's hash table entry. The calculator reads these period lists directly from the hash table in the next stage.
 
 ---
 
-## Period Window Definition
+## Zone Layout
 
-For each calendar day D, the period window is:
+Zone count = `(shift_duration / shift_zone_interval) + 1`
+Default: `(24 / 6) + 1 = 5 zones` (B1 through B5).
 
-`[ D @ (startTime − start_end_tolerance), (D+1) @ (startTime + start_end_tolerance) ]`
+Zones are contiguous — each zone starts exactly where the previous one ends. No gaps exist between zones, so every timestamp within the total window falls into exactly one zone.
 
-Example with start time 08:00 and tolerance 60 minutes:
-`[ D @ 07:00, (D+1) @ 09:00 ]`
+| Zone | Start | End | Width |
+|---|---|---|---|
+| B1 | `startTime − tolerance` | `B1_start + zone_interval` | `zone_interval` |
+| B2 | `B1_end` | `B2_start + zone_interval` | `zone_interval` |
+| ... | ... | ... | `zone_interval` |
+| B(N-1) | `B(N-2)_end` | `B(N-1)_start + zone_interval` | `zone_interval` |
+| BN (last) | `B(N-1)_end` | `startTime + shift_duration + tolerance` | `2 × tolerance` |
 
-The window always extends into the next calendar day. Timestamps near the start time on D+1 naturally fall into both D's window (as a closing stamp) and D+1's window (as an opening stamp) — this shared timestamp behavior is automatic and correct.
+**Example** — start time 08:00, tolerance 60 min, zone_interval 6h, shift_duration 24h (5 zones):
 
-For the last day of the report range, the window still extends into D+1. Timestamps on D+1 morning that fall within the window are collected — they belong to the last period.
-
----
-
-## Zone Definitions
-
-Zone count = `shift_duration / shift_zone_interval` (default 24 / 6 = 4 zones).
-
-Zones are indexed from B1 (start) to BN (end):
-
-| Zone | Center time | Tolerance used |
+| Zone | Start | End |
 |---|---|---|
-| B1 (start) | startTime | start_end_tolerance |
-| B2 … B(N-1) (inner) | startTime + (i × zone_interval) | inner_tolerance |
-| BN (end) | startTime + shift_duration | start_end_tolerance |
+| B1 | 07:00 day 1 | 13:00 day 1 |
+| B2 | 13:00 day 1 | 19:00 day 1 |
+| B3 | 19:00 day 1 | 01:00 day 2 |
+| B4 | 01:00 day 2 | 07:00 day 2 |
+| B5 | 07:00 day 2 | 09:00 day 2 |
 
-Each timestamp in the window is assigned to the zone whose window it falls within. A timestamp that falls between two zone windows is stored in the period's timestamp list but satisfies no zone.
+The last zone (BN) is always `2 × tolerance` wide — it is intentionally narrow, designed only to catch the closing stamp.
 
 ---
 
 ## Algorithm
 
-**Step 1 — Build candidate periods**
-For each calendar day D in the report range, define the period window. Collect all employee timestamps within that window. If a day has no timestamps in its window, skip it — no period is created for that day.
+Runs for each employee in the shift hash table independently.
 
-**Step 2 — Zone bucketing**
-For each candidate period, assign each timestamp to its zone. Record which zones are satisfied (have at least one timestamp).
+### Step 1 — Compute Zone Boundaries
 
-**Step 3 — Discard non-shift days**
-Discard any period where no inner zone (B2 through B(N-1)) has any timestamp. A period with only B1 and/or BN timestamps indicates a closing or stray stamp, not a genuine shift presence. These periods are not passed to the calculator.
+Using the employee's `detectedShiftStartTime` and settings, compute the start and end time of each zone as defined in the Zone Layout section above. These boundaries are fixed for all periods of this employee.
 
-**Step 4 — Output**
-Return remaining periods ordered by period date ascending.
+### Step 2 — Period Separation
+
+For each calendar day D in the report range, define the period window:
+
+`[ D @ (startTime − tolerance), (D+1) @ (startTime + tolerance) ]`
+
+Iterate through the employee's timestamps and assign each timestamp to the period window it falls within. A timestamp near the start time on D+1 naturally falls within both D's closing window and D+1's opening window — it is stored in both periods. This is correct and intentional.
+
+If a day has no timestamps in its window, no period is created for that day.
+
+### Step 3 — Zone Bucketing
+
+For each candidate period, assign each timestamp to the zone whose window it falls within. Record which zones are satisfied (have at least one timestamp). Every timestamp within the period window falls into exactly one zone — no timestamp is left unassigned.
+
+### Step 4 — Discard Weak Periods
+
+Discard any period where fewer than 2 zones are satisfied. A period with only 1 satisfied zone indicates a stray or closing stamp, not a genuine shift presence.
+
+### Step 5 — Update Hash Table
+
+For each employee, store the list of `RawShiftPeriod` objects into the employee's hash table entry under a `periods` field. Return the enriched hash table.
 
 ---
 
 ## Shared Timestamps
 
-A timestamp near the start time on D+1 morning falls within both D's window (as a late BN stamp) and D+1's window (as a B1 stamp). It is stored in both periods. This is correct and intentional — it closes one period and opens the next.
+A timestamp near the start time on D+1 morning falls within both D's window (as a closing stamp for BN) and D+1's window (as an opening stamp for B1). It is stored in both periods. This is correct and intentional — it closes one period and opens the next.
 
 ---
 
@@ -99,7 +117,6 @@ A timestamp near the start time on D+1 morning falls within both D's window (as 
 - Does not calculate overtime
 - Does not access the database
 - Does not run schedule detection — detectedShiftStartTime is passed in as input
-
 
 ---
 

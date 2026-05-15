@@ -43,12 +43,11 @@ End time shown as read-only derived value: "وقت النهاية: HH:MM" — up
 | بداية المناوبة | [08:00] | List — multiple values allowed. Add button adds a new time entry. Each entry has a delete icon. At least one value must remain. Used by schedule detection only — not applied directly during report generation. |
 | مدة المناوبة | 24 hours | Number input (hours) |
 | عدد ساعات كل بصمة | 6 hours | Number input (hours) |
-| دقائق السماح لبصمة البداية و النهاية | 60 minutes | Number input (minutes) |
-| دقائق سماح البصمة خلال المناوبة | 30 minutes | Number input (minutes) |
+| دقائق السماح للبصمة | 60 minutes | Number input (minutes) |
 | ساعات العمل الأساسية | 154 hours | Number input (hours) |
 | الحد الأقصى للساعات الشهرية | 192 hours | Number input (hours) |
 
-Zone count shown as read-only derived value: "عدد نقاط التحقق: N" — derived from shift_duration / zone_interval.
+Zone count shown as read-only derived value: "عدد نقاط التحقق: N" — derived from `(shift_duration / zone_interval) + 1`.
 
 ---
 
