@@ -9,7 +9,7 @@
 
 Defines validity rules and overtime calculation for shift employees. Receives the shift hash table enriched with `RawShiftPeriod` lists from `period_extractor_shift.md` and returns a list of `ShiftEmployeeResult` objects. Pure function — no database access, no UI dependency.
 
-Non-shift days have already been discarded by the extractor before this calculator receives the periods. Every period received here has at least one inner zone timestamp.
+Periods with fewer than 2 satisfied zones have already been discarded by the extractor before this calculator receives them. Every period received here has at least 2 zones satisfied.
 
 ---
 

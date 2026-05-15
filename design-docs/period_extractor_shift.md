@@ -103,11 +103,8 @@ Discard any period where fewer than 2 zones are satisfied. A period with only 1 
 
 For each employee, store the list of `RawShiftPeriod` objects into the employee's hash table entry under a `periods` field. Return the enriched hash table.
 
----
+**Note:** `RawShiftPeriod` carries `periodDate` only. The `endDate` field on the stored `ShiftPeriod` (see `data_shared_models.md`) is derived at storage time from the last timestamp in the period — it is not part of the raw object.
 
-## Shared Timestamps
-
-A timestamp near the start time on D+1 morning falls within both D's window (as a closing stamp for BN) and D+1's window (as an opening stamp for B1). It is stored in both periods. This is correct and intentional — it closes one period and opens the next.
 
 ---
 

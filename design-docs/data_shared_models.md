@@ -42,7 +42,7 @@ One shift period for a shift employee.
 | endDate | string | ISO 8601 date of last timestamp |
 | allTimestamps | List\<DateTime\> | All timestamps within the period, sorted ascending |
 | totalAttendanceDuration | integer | Minutes from first to last timestamp. Audit only. |
-| zoneResults | List\<ZoneResult\> | One entry per zone: { centerTime, timestamps, isSatisfied } |
+| zoneResults | List\<ZoneResult\> | One entry per zone: { zoneIndex, startTime, endTime, timestamps, isSatisfied } |
 | hoursCounted | integer | 24 if valid, 0 if invalid |
 | isValid | boolean | Set at generation time — never changes |
 | notes | string? | Arabic invalid reason. Null if valid. |
