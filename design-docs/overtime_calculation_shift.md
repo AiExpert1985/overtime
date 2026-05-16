@@ -35,23 +35,47 @@ A period spanning 26 actual hours still counts as 24. A period spanning 23 actua
 
 ---
 
+## Zone Center Definitions
+
+Each zone has a center time used for validity checking:
+
+| Zone | Center time |
+|---|---|
+| B1 (start) | `startTime` |
+| B2 … B(N-1) (inner) | `startTime + (i × zone_interval)` where i = zone index |
+| BN (end) | `startTime + shift_duration` |
+
+**Example** — start 08:00, zone_interval 6h, shift_duration 24h, tolerance 60min:
+
+| Zone | Center | Valid window |
+|---|---|---|
+| B1 | 08:00 day 1 | 07:00 – 09:00 day 1 |
+| B2 | 14:00 day 1 | 13:00 – 15:00 day 1 |
+| B3 | 20:00 day 1 | 19:00 – 21:00 day 1 |
+| B4 | 02:00 day 2 | 01:00 – 03:00 day 2 |
+| B5 | 08:00 day 2 | 07:00 – 09:00 day 2 |
+
+---
+
 ## Validity Rules
 
-Each period is valid only if all zones are satisfied — every zone must contain at least one timestamp within its tolerance window.
+**Note:** All timestamps within a zone window are collected and stored for display purposes — the user sees every timestamp per zone in the detail screen. However, for overtime calculation, a zone is valid only if at least one timestamp falls within `[zone_center − tolerance, zone_center + tolerance]`. A zone may contain timestamps but still be invalid if none are close enough to the center.
 
-Zone results are pre-computed by the extractor and carried in each RawShiftPeriod's zoneResults list. The calculator reads these directly — it does not recompute zone assignments.
+A period is valid only if **all zones** are satisfied by this center-based check.
 
-If any zone has no timestamp within its window, the period is invalid.
+Zone results carry both the full timestamp list (for display) and the `isSatisfied` flag (for overtime). The calculator reads `isSatisfied` from each zone result directly — it does not recompute zone assignments.
+
+If any zone has `isSatisfied = false` → `isValid = false`, `hoursCounted = 0`, `notes` set to Arabic reason.
 
 **Invalid reason stored:** يوجد فترة زمنية بدون بصمة تحقق
 
-The specific zones that failed are visible in the detail screen from the zone timestamp display — a generic reason is sufficient.
+Invalid zones are highlighted in the detail screen with a red background and ✗ indicator.
 
 ---
 
 ## Hours Per Valid Period
 
-Binary result: valid = 24 hours, invalid = 0 hours. No rounding needed or applied.
+Binary result: valid = 24 hours (`hoursCounted = 24`), invalid = 0 hours (`hoursCounted = 0`). No rounding needed or applied.
 
 ---
 

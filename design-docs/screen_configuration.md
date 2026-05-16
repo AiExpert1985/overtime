@@ -31,6 +31,7 @@ All changes take effect immediately.
 | بداية الدوام | 08:00 | Time picker |
 | ساعات الدوام | 8 hours | Number input (hours) |
 | اقصى وقت اضافي | 3 hours | Number input (hours) |
+| وقت السماح بالتأخير | 60 minutes | Number input (minutes) |
 
 End time shown as read-only derived value: "وقت النهاية: HH:MM" — updates automatically when start time or duration changes.
 

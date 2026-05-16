@@ -38,7 +38,7 @@ Order by `period_index` ascending.
 
 ### Per-Employee Overtime
 
-Computed from the employee's `shift_period_details` rows:
+Computed from the employee's `shift_period_details` rows. A period is valid (`is_valid = 1`) only if all zones were satisfied — meaning each zone had at least one timestamp within `[zone_center − tolerance, zone_center + tolerance]` at generation time. This is already stored in `is_valid` and `hours_counted` — no recomputation needed at display time.
 
 ```
 total_worked_hours = sum of hours_counted across all periods

@@ -48,17 +48,17 @@ All timestamps are displayed as **time only** — no date component. Format: `H:
 
 One row per calendar day with at least one timestamp, ordered by date ascending.
 
-| Column         | Arabic Label  | Content                                                                      |
-| -------------- | ------------- | ---------------------------------------------------------------------------- |
-| Date           | التاريخ       | Short date e.g. 01/12                                                        |
-| Weekday        | اليوم         | Arabic weekday name — read from stored weekday field                         |
-| Day type       | نوع اليوم     | عادي / عطلة                                                                  |
-| Entry          | الدخول        | Time of first timestamp                                                      |
-| All timestamps | البصمات       | All intermediate timestamps listed vertically                                |
-| Exit           | الخروج        | Time of last timestamp                                                       |
-| Working hours  | ساعات الحضور  | Duration from first to last timestamp. Shown for all days including invalid. |
-| Overtime       | الوقت الإضافي | Overtime minutes for this period. 0 if invalid.                              |
-| Notes          | ملاحظات       | Arabic invalid reason. Empty if valid.                                       |
+| Column | Arabic Label | Content |
+|---|---|---|
+| Date | التاريخ | Short date e.g. 01/12 |
+| Weekday | اليوم | Arabic weekday name — read from stored weekday field |
+| Day type | نوع اليوم | عادي / عطلة |
+| Entry | الدخول | Time of first timestamp |
+| All timestamps | البصمات | All intermediate timestamps listed vertically |
+| Exit | الخروج | Time of last timestamp |
+| Working hours | ساعات الحضور | Duration from first to last timestamp. Shown for all days including invalid. |
+| Overtime | الوقت الإضافي | Overtime minutes for this period. 0 if invalid. |
+| Notes | ملاحظات | Arabic invalid reason. Empty if valid. |
 
 ### Row Color Coding
 
@@ -82,12 +82,14 @@ One row per detected shift period, ordered by period date ascending.
 |---|---|---|
 | Start date | تاريخ البداية | Calendar date this period is anchored to |
 | End date | تاريخ النهاية | Date of last timestamp |
-| Zones | نقاط التحقق | All zones stacked vertically. Each zone: label (e.g. نقطة 1: 08:00), timestamps within zone, or dash if empty |
+| Zones | نقاط التحقق | All zones stacked vertically. Each zone shows: label (e.g. نقطة 1: 08:00) and all timestamps within the zone window. Valid zones (at least one timestamp within center ± tolerance) show normally. Invalid zones show red background with ✗ indicator — a zone can have timestamps and still be invalid if none fall within center ± tolerance. |
 | Working hours | ساعات الحضور | Duration from first to last timestamp. Shown for all periods. |
 | Hours counted | الساعات المحتسبة | 24 if valid, 0 if invalid |
 | Notes | ملاحظات | Arabic invalid reason. Empty if valid. |
 
-Zones column is fixed width — zones stack vertically within the cell. Empty zones are visually distinct (dash or red indicator).
+Zones column is fixed width — zones stack vertically within the cell.
+
+**Note:** All timestamps within a zone window are always displayed regardless of center validity. The ✗ and red background reflect overtime validity only — not absence of timestamps.
 
 ### Row Color Coding
 

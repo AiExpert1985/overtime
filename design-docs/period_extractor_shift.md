@@ -96,7 +96,15 @@ If a day has no timestamps in its window, no period is created for that day.
 
 ### Step 3 — Zone Bucketing
 
-For each candidate period, assign each timestamp to the zone whose window it falls within. Record which zones are satisfied (have at least one timestamp). Every timestamp within the period window falls into exactly one zone — no timestamp is left unassigned.
+For each candidate period, assign each timestamp to the zone whose window it falls within. Every timestamp within the period window falls into at least one zone — no timestamp is left unassigned.
+
+For each zone, compute `isSatisfied`:
+
+`isSatisfied = true` if at least one timestamp in this zone falls within `[zone_center − tolerance, zone_center + tolerance]`
+
+Otherwise `isSatisfied = false`.
+
+**Note:** All timestamps within a zone window are stored in `zoneResults` regardless of whether they satisfy the center check. This is intentional — all timestamps are shown to the user in the detail screen for audit purposes. The `isSatisfied` flag is used exclusively for overtime validity by the calculator in Stage 8.
 
 ### Step 4 — Discard Weak Periods
 

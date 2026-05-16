@@ -44,9 +44,13 @@ Example: start 08:00 + 8 hours = end 16:00. Overtime is anything worked beyond 1
 
 Both conditions must be met:
 1. Period has at least 2 timestamps.
-2. First timestamp is not later than the configured start time.
+2. First timestamp is not later than `daily_start_time + daily_delay_allowance`.
 
-If either fails → `isValid = false`, `overtimeMinutes = 0`, `notes` set to Arabic reason.
+The delay allowance gives employees a configurable grace period after the official start time. Overtime is still calculated from `end_time` regardless of when the employee arrived — the delay allowance only affects validity, not the overtime formula.
+
+Example: start 08:00, delay allowance 60 min → employee valid if first timestamp ≤ 09:00. End time remains 16:00.
+
+If either condition fails → `isValid = false`, `overtimeMinutes = 0`, `notes` set to Arabic reason.
 
 ### Calculation
 
@@ -59,7 +63,7 @@ Capped at configured daily maximum.
 | Condition | Arabic |
 |---|---|
 | Fewer than 2 timestamps | بصمة واحدة فقط |
-| First timestamp after start time | البصمة الأولى تتجاوز وقت البداية المحدد |
+| First timestamp after start time + delay allowance | البصمة الأولى تتجاوز وقت البداية مع وقت السماح |
 
 ---
 
