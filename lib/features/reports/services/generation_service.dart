@@ -7,7 +7,9 @@ import '../../settings/domain/column_header.dart';
 import '../domain/employee_entry.dart';
 import '../domain/schedule_detection_result.dart';
 import '../domain/shift_employee_entry.dart';
+import '../domain/shift_period.dart';
 import '../domain/undetected_entry.dart';
+import '../domain/zone_result.dart';
 
 class GenerationException implements Exception {
   GenerationException(this.arabicMessage);
@@ -69,6 +71,127 @@ class GenerationService {
     }
 
     return offDays;
+  }
+
+  // Stage 6 — Shift Period Extractor
+  Map<String, ShiftEmployeeEntry> extractShiftPeriods(
+    Map<String, ShiftEmployeeEntry> shiftTable,
+    DateTime startDate,
+    DateTime endDate,
+    AppSettings settings,
+  ) {
+    for (final entry in shiftTable.values) {
+      entry.periods = _extractPeriodsForEmployee(entry, startDate, endDate, settings);
+    }
+    return shiftTable;
+  }
+
+  List<ShiftPeriod> _extractPeriodsForEmployee(
+    ShiftEmployeeEntry entry,
+    DateTime startDate,
+    DateTime endDate,
+    AppSettings settings,
+  ) {
+    final parts = entry.detectedShiftStartTime.split(':');
+    final startHour = int.parse(parts[0]);
+    final startMinute = int.parse(parts[1]);
+
+    final zoneCount = settings.zoneCount;
+    final toleranceMinutes = settings.shiftTolerance;
+    final zoneIntervalHours = settings.shiftZoneInterval;
+    final shiftDurationHours = settings.shiftDuration;
+
+    final periods = <ShiftPeriod>[];
+    var periodIndex = 0;
+
+    var day = DateTime(startDate.year, startDate.month, startDate.day);
+    final lastDay = DateTime(endDate.year, endDate.month, endDate.day);
+
+    while (!day.isAfter(lastDay)) {
+      final startTimeOnDay = day.add(Duration(hours: startHour, minutes: startMinute));
+      final windowStart = startTimeOnDay.subtract(Duration(minutes: toleranceMinutes));
+      final windowEnd = startTimeOnDay.add(Duration(hours: shiftDurationHours, minutes: toleranceMinutes));
+
+      final windowTimestamps = entry.timestamps
+          .where((ts) => !ts.isBefore(windowStart) && !ts.isAfter(windowEnd))
+          .toList();
+
+      if (windowTimestamps.isNotEmpty) {
+        final zoneResults = _buildZoneResults(
+          windowTimestamps,
+          windowStart,
+          windowEnd,
+          startTimeOnDay,
+          zoneCount,
+          zoneIntervalHours,
+          toleranceMinutes,
+        );
+
+        final satisfiedCount = zoneResults.where((z) => z.isSatisfied).length;
+        if (satisfiedCount >= 2) {
+          final dateStr =
+              '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+          periods.add(ShiftPeriod(
+            periodIndex: periodIndex,
+            periodDate: dateStr,
+            allTimestamps: windowTimestamps,
+            zoneResults: zoneResults,
+          ));
+          periodIndex++;
+        }
+      }
+
+      day = day.add(const Duration(days: 1));
+    }
+
+    return periods;
+  }
+
+  List<ZoneResult> _buildZoneResults(
+    List<DateTime> timestamps,
+    DateTime windowStart,
+    DateTime windowEnd,
+    DateTime startTimeOnDay,
+    int zoneCount,
+    int zoneIntervalHours,
+    int toleranceMinutes,
+  ) {
+    final zones = <ZoneResult>[];
+
+    for (var i = 0; i < zoneCount; i++) {
+      final zoneStart = windowStart.add(Duration(hours: i * zoneIntervalHours));
+      final zoneEnd = (i < zoneCount - 1)
+          ? windowStart.add(Duration(hours: (i + 1) * zoneIntervalHours))
+          : windowEnd;
+
+      // Center for zone i: startTime + i * zoneInterval (works for all zones including last)
+      final zoneCenter = startTimeOnDay.add(Duration(hours: i * zoneIntervalHours));
+      final centerLow = zoneCenter.subtract(Duration(minutes: toleranceMinutes));
+      final centerHigh = zoneCenter.add(Duration(minutes: toleranceMinutes));
+
+      // Non-last zones: [zoneStart, zoneEnd) — exclusive end avoids double-counting
+      // Last zone: [zoneStart, windowEnd] — inclusive to capture closing stamp
+      final zoneTimestamps = timestamps.where((ts) {
+        if (i < zoneCount - 1) {
+          return !ts.isBefore(zoneStart) && ts.isBefore(zoneEnd);
+        } else {
+          return !ts.isBefore(zoneStart) && !ts.isAfter(zoneEnd);
+        }
+      }).toList();
+
+      final isSatisfied = zoneTimestamps
+          .any((ts) => !ts.isBefore(centerLow) && !ts.isAfter(centerHigh));
+
+      zones.add(ZoneResult(
+        zoneIndex: i,
+        startTime: zoneStart,
+        endTime: zoneEnd,
+        timestamps: zoneTimestamps,
+        isSatisfied: isSatisfied,
+      ));
+    }
+
+    return zones;
   }
 
   // Stage 4 — Schedule Detection

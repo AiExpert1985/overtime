@@ -93,13 +93,19 @@
 
 ---
 
+## 20260517-0000 | Generation Pipeline — Stage 6: Shift Period Extractor | TASK
+
+**Task:** Implemented Stage 6 of the report generation pipeline — shift period extractor. For each shift employee, the report date range is walked day by day; each calendar day defines a period window anchored to the employee's detected start time. Timestamps falling in a window are grouped into that period and bucketed across N contiguous zones. Each zone is marked satisfied only if it contains a timestamp within tolerance of the zone's center time. Periods with fewer than 2 satisfied zones are discarded. Timestamps near the boundary of two adjacent period windows are intentionally stored in both. Two new domain models were introduced: one for zone-level data (set entirely by this stage) and one for period-level data (base fields set here; calculated fields left null for Stage 8 to fill). The shift employee entry model was extended with a mutable period list populated by this stage.
+
+---
+
 ## Agreed Task Sequence (Deferred)
 
 The following tasks were agreed during discovery and must be implemented in order:
 
 1. ~~**Report Generation Screen**~~ ✓ Done
 2. ~~**File Upload & Validation**~~ ✓ Done
-3. **Generation Pipeline — Stage by Stage** — Implement the 10-stage pipeline function by function per `main_workflow.md`: dictionary build → schedule detection → off-day detection → shift period extractor → daily period extractor → shift overtime calculator → daily overtime calculator → storage → wire Generate button.
+3. **Generation Pipeline — Stage by Stage** — Implement the 10-stage pipeline function by function per `main_workflow.md`: dictionary build → schedule detection → off-day detection → ~~shift period extractor~~ ✓ Done → daily period extractor → shift overtime calculator → daily overtime calculator → storage → wire Generate button.
 
 **Confirmed 2026-05-16:** Staged implementation order confirmed by user. One stage per task, validated before the next begins. Stages map 1:1 to `main_workflow.md` pipeline stages.
 

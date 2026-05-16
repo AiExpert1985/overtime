@@ -1,3 +1,5 @@
+import 'shift_period.dart';
+
 class ShiftEmployeeEntry {
   ShiftEmployeeEntry({
     required this.name,
@@ -10,4 +12,5 @@ class ShiftEmployeeEntry {
   final String department;
   final String detectedShiftStartTime; // e.g. "08:00"
   final List<DateTime> timestamps;
+  List<ShiftPeriod> periods = [];
 }
