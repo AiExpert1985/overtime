@@ -38,8 +38,6 @@ One row per generated report. Multiple reports on the same calendar day are allo
 | range_start | text | ISO 8601 date |
 | range_end | text | ISO 8601 date |
 
-No aggregate totals are stored here. All summaries are computed live from the employee result tables when the report is loaded.
-
 ---
 
 ## shift_employee_results
@@ -56,6 +54,10 @@ One row per shift employee per report. Cascade deleted with parent report.
 | is_included | integer | 1 = included in report totals and export (default). 0 = excluded by user toggle. |
 
 `is_included` defaults to 1 at generation time. The user may toggle it on the report screen. The value is persisted and survives app close/reopen. `overtime_hours` is fixed at generation time — it never changes regardless of any settings changes after generation.
+
+---
+
+### shift_period_details
 
 One row per detected shift period per employee. Cascade deleted with parent employee result. Loaded only when the user opens the detail screen for a specific employee.
 
@@ -89,6 +91,10 @@ One row per daily employee per report. Cascade deleted with parent report.
 | is_included | integer | 1 = included in report totals and export (default). 0 = excluded by user toggle. |
 
 `is_included` defaults to 1 at generation time. The user may toggle it on the report screen. The value is persisted and survives app close/reopen. `total_overtime_minutes` is fixed at generation time — it never changes regardless of any settings changes after generation.
+
+---
+
+### daily_period_details
 
 One row per detected daily period per employee. Cascade deleted with parent employee result. Loaded only when the user opens the detail screen for a specific employee.
 

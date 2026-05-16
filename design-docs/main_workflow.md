@@ -11,7 +11,7 @@ Highest-level description of how the app works end to end. Read this first. All 
 
 ---
 
-## The 7 Stages
+## The 10 Stages
 
 ### Stage 1 — File Upload and Validation
 
