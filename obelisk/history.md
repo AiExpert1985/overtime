@@ -101,4 +101,12 @@ The following tasks were agreed during discovery and must be implemented in orde
 2. ~~**File Upload & Validation**~~ ✓ Done
 3. **Generation Pipeline — Stage by Stage** — Implement the 10-stage pipeline function by function per `main_workflow.md`: dictionary build → schedule detection → off-day detection → shift period extractor → daily period extractor → shift overtime calculator → daily overtime calculator → storage → wire Generate button.
 
+**Confirmed 2026-05-16:** Staged implementation order confirmed by user. One stage per task, validated before the next begins. Stages map 1:1 to `main_workflow.md` pipeline stages.
+
+---
+
+## 20260516-0500 | Generation Pipeline — Stage 3: Dictionary Build | TASK
+
+**Task:** Implemented Stage 3 of the report generation pipeline — dictionary build. A single pass over all valid attendance Excel files and their sheets collects all records within the selected date range, building one entry per unique employee name with their department and sorted timestamp list. File-level read errors abort generation with an Arabic exception; row-level issues (missing fields, unparseable datetime) are silently skipped. `GenerationService` is introduced as the single service class that will host all pipeline stages in sequence — only Stage 3 is implemented now. Generate button wiring is deferred to the final pipeline task.
+
 ---
