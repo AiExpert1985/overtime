@@ -116,3 +116,9 @@ The following tasks were agreed during discovery and must be implemented in orde
 **Task:** Implemented Stage 4 of the report generation pipeline — schedule detection. A new synchronous `detectSchedules` method on `GenerationService` classifies every dictionary employee into one of three buckets: shift, daily, or undetected. Algorithm 1 applies a 20% attendance density pre-check, a 20% usable-day check, zone bucketing (24/interval zones), and a 75%-confidence employment-type vote. Algorithm 2 runs only for confirmed shift employees and uses a 60%-confidence start-time vote against all configured start times plus an unmatched bucket. Three new domain models carry the output: a shift entry (with detected start time as a string matching the configured value), an undetected entry (with one of four Arabic failure reasons), and a result container holding all three buckets. All logic is pure in-memory with no I/O.
 
 ---
+
+## 20260516-0700 | Generation Pipeline — Stage 5: Off-Day Detection | TASK
+
+**Task:** Implemented Stage 5 of the report generation pipeline — off-day detection. A synchronous `detectOffDays` method on `GenerationService` takes the daily hash table and the report date range, enumerates every calendar date in the range, counts attending employees per date, and returns a set of dates where attendance fell strictly below the 25% hardcoded threshold. Empty daily table returns an empty set immediately. No new files or domain models — threshold defined as a private constant on the service. Output is consumed by Stage 7 (daily period extractor).
+
+---

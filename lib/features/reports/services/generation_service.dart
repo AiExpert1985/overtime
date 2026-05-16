@@ -16,6 +16,7 @@ class GenerationException implements Exception {
 
 class GenerationService {
   static const _requiredKeys = ['employee_name', 'department', 'datetime'];
+  static const _offDayThreshold = 0.25;
 
   // Stage 3 — Dictionary Build
   Future<Map<String, EmployeeEntry>> buildDictionary(
@@ -36,6 +37,38 @@ class GenerationService {
     }
 
     return dictionary;
+  }
+
+  // Stage 5 — Off-Day Detection
+  Set<DateTime> detectOffDays(
+    Map<String, EmployeeEntry> dailyTable,
+    DateTime startDate,
+    DateTime endDate,
+  ) {
+    if (dailyTable.isEmpty) return {};
+
+    final totalEmployees = dailyTable.length;
+    final employeeDayMaps =
+        dailyTable.values.map((e) => _groupByDay(e.timestamps)).toList();
+    final offDays = <DateTime>{};
+
+    var current = DateTime(startDate.year, startDate.month, startDate.day);
+    final end = DateTime(endDate.year, endDate.month, endDate.day);
+
+    while (!current.isAfter(end)) {
+      final key =
+          '${current.year}-${current.month.toString().padLeft(2, '0')}-${current.day.toString().padLeft(2, '0')}';
+      var attendedCount = 0;
+      for (final dayMap in employeeDayMaps) {
+        if (dayMap.containsKey(key)) attendedCount++;
+      }
+      if (attendedCount / totalEmployees < _offDayThreshold) {
+        offDays.add(current);
+      }
+      current = current.add(const Duration(days: 1));
+    }
+
+    return offDays;
   }
 
   // Stage 4 — Schedule Detection
