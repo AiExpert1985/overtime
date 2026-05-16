@@ -28,19 +28,22 @@ A shift employee works continuous duty periods that span across calendar days. O
 
 ## Output
 
-The same shift hash table enriched with a list of `RawShiftPeriod` objects per employee:
+The same shift hash table enriched with a list of `ShiftPeriod` objects per employee:
 
-`employeeName → { name, department, detectedShiftStartTime, [timestamps], [RawShiftPeriod] }`
+`employeeName → { name, department, detectedShiftStartTime, [timestamps], [ShiftPeriod] }`
 
-### RawShiftPeriod
+### ShiftPeriod — base fields set by extractor
 
 | Field | Content |
 |---|---|
+| periodIndex | 0-based order within the employee's period list |
 | periodDate | Calendar date (ISO 8601) this period is anchored to |
-| timestamps | All timestamps within the period window, sorted ascending |
+| allTimestamps | All timestamps within the period window, sorted ascending |
 | zoneResults | List of zone results: `{ zoneIndex, startTime, endTime, timestamps[], isSatisfied }` |
 
-The function builds the `RawShiftPeriod` list for each employee, then stores it back into the employee's hash table entry. The calculator reads these period lists directly from the hash table in the next stage.
+Calculated fields (`endDate`, `totalAttendanceDuration`, `hoursCounted`, `isValid`, `notes`) are added to the same object by the calculator in Stage 8. See `overtime_calculation_shift.md`.
+
+The function builds the `ShiftPeriod` list for each employee, then stores it back into the employee's hash table entry. The calculator reads these period lists directly from the hash table in the next stage.
 
 ---
 
@@ -101,10 +104,15 @@ Discard any period where fewer than 2 zones are satisfied. A period with only 1 
 
 ### Step 5 — Update Hash Table
 
-For each employee, store the list of `RawShiftPeriod` objects into the employee's hash table entry under a `periods` field. Return the enriched hash table.
+For each employee, store the list of `ShiftPeriod` objects into the employee's hash table entry under a `periods` field. Return the enriched hash table.
 
-**Note:** `RawShiftPeriod` carries `periodDate` only. The `endDate` field on the stored `ShiftPeriod` (see `data_shared_models.md`) is derived at storage time from the last timestamp in the period — it is not part of the raw object.
+**Note:** `ShiftPeriod` carries `periodDate` only at this stage. `endDate` is derived at calculation time from the last timestamp by the calculator — not part of the extractor output.
 
+---
+
+## Shared Timestamps
+
+A timestamp near the start time on D+1 morning falls within both D's window (as a closing stamp for BN) and D+1's window (as an opening stamp for B1). It is stored in both periods. This is correct and intentional — it closes one period and opens the next.
 
 ---
 

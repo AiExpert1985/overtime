@@ -7,19 +7,29 @@
 
 ## Purpose
 
-Defines validity rules and overtime calculation for shift employees. Receives the shift hash table enriched with `RawShiftPeriod` lists from `period_extractor_shift.md` and returns a list of `ShiftEmployeeResult` objects. Pure function — no database access, no UI dependency.
+Defines validity rules and overtime calculation for shift employees. Receives the shift hash table enriched with `ShiftPeriod` lists from `period_extractor_shift.md`. Enriches each `ShiftPeriod` in place with calculated fields and returns the updated hash table. Pure function — no database access, no UI dependency.
 
 Periods with fewer than 2 satisfied zones have already been discarded by the extractor before this calculator receives them. Every period received here has at least 2 zones satisfied.
 
 ---
 
-## Per-Period Result
+## Input
 
-Each period produces two distinct values:
+Shift hash table: `employeeName → { name, department, detectedShiftStartTime, [timestamps], [ShiftPeriod] }`
 
-**totalAttendanceDuration** — the real duration from the period's first timestamp to its last timestamp, in minutes. Shown in the detail screen for audit purposes. Has no effect on the overtime formula.
+Each `ShiftPeriod` at this stage has base fields only (`periodDate`, `allTimestamps`, `zoneResults`, `periodIndex`). This calculator adds the remaining fields.
 
-**hoursCounted** — binary: 24 hours if the period is valid, 0 if invalid. This is the value used in the monthly formula — not the actual working hours.
+---
+
+## Per-Period Enrichment
+
+For each `ShiftPeriod`, the calculator sets:
+
+- **endDate** — ISO 8601 date of the last timestamp. Derived at calculation time.
+- **totalAttendanceDuration** — minutes from first to last timestamp. Set for all periods including invalid ones. Audit display only.
+- **hoursCounted** — 24 if valid, 0 if invalid.
+- **isValid** — whether all zones are satisfied. Set at calculation time — never changes after.
+- **notes** — Arabic invalid reason. Null if valid.
 
 A period spanning 26 actual hours still counts as 24. A period spanning 23 actual hours that meets all zone conditions also counts as 24.
 
@@ -45,23 +55,13 @@ Binary result: valid = 24 hours, invalid = 0 hours. No rounding needed or applie
 
 ---
 
-## Monthly Calculation
-
-1. Sum 24 hours for each valid period. Invalid periods contribute zero. This is the total worked hours.
-2. Apply ceiling to total worked hours: if total exceeds configured ceiling (default 192h), cap at ceiling. The ceiling applies to worked hours — not to the final overtime value.
-3. Subtract baseline from capped total. If result is negative or zero, overtime = 0.
-
-Example: 10 valid periods = 240h → capped to 192h → minus 154h baseline = 38h overtime.
-
-Final value stored as integer hours in `overtimeHours` on the ShiftEmployeeResult.
-
-An employee with all invalid periods contributes zero overtime but still appears in the report as a detected shift employee — distinct from an undetected employee.
-
----
-
 ## Output
 
-Returns `ShiftEmployeeResult`. See `data_shared_models.md`.
+The same shift hash table with all `ShiftPeriod` objects fully enriched:
+
+`employeeName → { name, department, detectedShiftStartTime, [timestamps], [ShiftPeriod] }`
+
+Where every `ShiftPeriod` now has all fields set. Total overtime per employee is always computed live at display time: sum of `hoursCounted` across periods → apply ceiling → subtract baseline → floor at 0. Never stored as a separate field.
 
 ---
 

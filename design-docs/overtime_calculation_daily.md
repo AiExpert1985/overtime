@@ -7,25 +7,34 @@
 
 ## Purpose
 
-Defines validity rules and overtime calculation for daily employees. Receives the list of RawDailyPeriod objects from `period_extractor_daily.md` and returns a `DailyEmployeeResult`. Pure function — no database access, no UI dependency.
+Defines validity rules and overtime calculation for daily employees. Receives the daily hash table enriched with `DailyPeriod` lists from `period_extractor_daily.md`. Enriches each `DailyPeriod` in place with calculated fields and returns the updated hash table. Pure function — no database access, no UI dependency.
 
 ---
 
-## Per-Period Result
+## Input
 
-Each period produces two distinct values:
+Daily hash table: `employeeName → { name, department, [timestamps], [DailyPeriod] }`
 
-**totalAttendanceDuration** — the real duration from the period's first timestamp to its last timestamp, in minutes. Shown in the detail screen for audit purposes. Not used in the overtime formula.
+Each `DailyPeriod` at this stage has base fields only (`date`, `dayType`, `allTimestamps`, `weekday`, `periodIndex`). This calculator adds the remaining fields.
 
-**overtimeMinutes** — calculated against the end time (regular days) or as full span (off days), capped at daily maximum. This is what accumulates toward the monthly total.
+---
+
+## Per-Period Enrichment
+
+For each `DailyPeriod`, the calculator sets:
+
+- **totalAttendanceDuration** — minutes from first to last timestamp. Set for all periods including invalid ones. Audit display only.
+- **overtimeMinutes** — calculated overtime in minutes. 0 if invalid.
+- **isValid** — whether this period passed validation. Set at calculation time — never changes after.
+- **notes** — Arabic invalid reason. Null if valid.
 
 ---
 
 ## End Time Derivation
 
-End time is not a stored setting. Derived as: `end_time = start_time + work_duration`.
+End time is not a stored setting. Derived as: `end_time = daily_start_time + daily_work_duration`.
 
-Example: start 09:00 + 8 hours = end 17:00. Overtime is anything worked beyond 17:00.
+Example: start 08:00 + 8 hours = end 16:00. Overtime is anything worked beyond 16:00.
 
 ---
 
@@ -35,9 +44,9 @@ Example: start 09:00 + 8 hours = end 17:00. Overtime is anything worked beyond 1
 
 Both conditions must be met:
 1. Period has at least 2 timestamps.
-2. First timestamp is not later than the configured start time plus the tolerance (for example 8:00 AM + 1 hour)
+2. First timestamp is not later than the configured start time.
 
-If either fails, period is invalid.
+If either fails → `isValid = false`, `overtimeMinutes = 0`, `notes` set to Arabic reason.
 
 ### Calculation
 
@@ -56,8 +65,6 @@ Capped at configured daily maximum.
 
 ## Off Day Rules
 
-Off days include weekends and any day auto-detected as an off-day. The calculator applies the same rules regardless of which reason caused the off classification.
-
 ### Validation
 
 One condition must be met:
@@ -69,7 +76,7 @@ No start time requirement.
 
 `overtimeMinutes = lastTimestamp − firstTimestamp`
 
-Capped at configured daily maximum. Calendar day grouping in the extractor enforces the natural 24-hour ceiling — no explicit cap needed here.
+Capped at configured daily maximum.
 
 ### Invalid Reason
 
@@ -79,15 +86,13 @@ Capped at configured daily maximum. Calendar day grouping in the extractor enfor
 
 ---
 
-## Monthly Total
-
-for each All overtime accumulated into a single `overtimeMinutes` value on the DailyEmployeeResult regardless of day type. Stored as raw minutes — no rounding applied. Rounding is display-only per configured rounding mode in `screen_configuration.md`.
-
----
-
 ## Output
 
-Returns `DailyEmployeeResult`. See `data_shared_models.md`.
+The same daily hash table with all `DailyPeriod` objects fully enriched:
+
+`employeeName → { name, department, [timestamps], [DailyPeriod] }`
+
+Where every `DailyPeriod` now has all fields set. Total overtime per employee is always computed live at display time by summing `overtimeMinutes` across periods — never stored as a separate field.
 
 ---
 
@@ -95,12 +100,11 @@ Returns `DailyEmployeeResult`. See `data_shared_models.md`.
 
 | Setting | Default |
 |---|---|
-| Start time | 09:00 |
+| Start time | 08:00 |
 | Work duration | 8 hours |
 | Max overtime per day | 3 hours |
 
 All defined in `config.md`, managed in `screen_configuration.md`.
-
 
 ---
 

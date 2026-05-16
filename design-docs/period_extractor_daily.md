@@ -1,6 +1,7 @@
 # period_extractor_daily
 
-**Created**: 27-Apr-2026 **Modified**: 14-May-2026
+**Created**: 27-Apr-2026
+**Modified**: 14-May-2026
 
 ---
 
@@ -25,18 +26,21 @@ A daily employee works standard morning shifts on regular workdays. Their attend
 
 ## Output
 
-The same daily hash table enriched with a list of `RawDailyPeriod` objects per employee:
+The same daily hash table enriched with a list of `DailyPeriod` objects per employee:
 
-`employeeName → { name, department, [timestamps], [RawDailyPeriod] }`
+`employeeName → { name, department, [timestamps], [DailyPeriod] }`
 
-### RawDailyPeriod
+### DailyPeriod — base fields set by extractor
 
-|Field|Content|
+| Field | Content |
 |---|---|
-|date|Calendar date (ISO 8601)|
-|dayType|regular / off|
-|timestamps|All timestamps of the day, sorted ascending|
-|weekday|Arabic weekday name stored at extraction time e.g. الأحد، الاثنين|
+| periodIndex | 0-based order within the employee's period list |
+| date | Calendar date (ISO 8601) |
+| dayType | regular / off |
+| allTimestamps | All timestamps of the day, sorted ascending |
+| weekday | Arabic weekday name derived from date e.g. الأحد، الاثنين |
+
+Calculated fields (`totalAttendanceDuration`, `overtimeMinutes`, `isValid`, `notes`) are added to the same object by the calculator in Stage 9. See `overtime_calculation_daily.md`.
 
 ---
 
@@ -44,20 +48,24 @@ The same daily hash table enriched with a list of `RawDailyPeriod` objects per e
 
 Runs for each employee in the daily hash table independently.
 
-**Step 1 — Group by calendar date** Partition the timestamp list by calendar date. Each partition is one candidate period. A timestamp on day 2 is never placed in day 1's partition regardless of time.
+**Step 1 — Group by calendar date**
+Partition the timestamp list by calendar date. Each partition is one candidate period. A timestamp on day 2 is never placed in day 1's partition regardless of time.
 
-**Step 2 — Drop empty partitions** Discard any partition with 0 timestamps. These days have no attendance signal.
+**Step 2 — Drop empty partitions**
+Discard any partition with 0 timestamps. These days have no attendance signal.
 
-**Step 3 — Classify day type** For each remaining partition:
-
+**Step 3 — Classify day type**
+For each remaining partition:
 - Date exists in off-days hash set → off
 - Otherwise → regular
 
-**Step 4 — Build RawDailyPeriod** For each remaining partition, create one `RawDailyPeriod` with: date, dayType, full sorted timestamp list, and Arabic weekday name derived from the date.
+**Step 4 — Build DailyPeriod**
+For each remaining partition, create one `DailyPeriod` with: `periodIndex`, `date`, `dayType`, `allTimestamps`, and `weekday` derived from the date. Calculated fields are left unset — the calculator fills them in Stage 9.
 
 Days with exactly 1 timestamp are included — the calculator determines validity, not the extractor.
 
-**Step 5 — Update Hash Table** Store the list of `RawDailyPeriod` objects into the employee's hash table entry under a `periods` field. Return the enriched hash table.
+**Step 5 — Update Hash Table**
+Store the list of `RawDailyPeriod` objects into the employee's hash table entry under a `periods` field. Return the enriched hash table.
 
 ---
 

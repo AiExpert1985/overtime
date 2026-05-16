@@ -23,13 +23,12 @@ RTL. Single scrollable screen. Content horizontally centered. Scrollable table f
 
 All saved reports displayed as a table, ordered by generation datetime descending.
 
-| Column | Arabic Label | Content |
-|---|---|---|
+| Column              | Arabic Label  | Content                                                        |
+| ------------------- | ------------- | -------------------------------------------------------------- |
 | Generation datetime | تاريخ الإنشاء | Date and time the report was generated (e.g. 05/05/2026 14:32) |
-| Period from | من | Report start date |
-| Period to | إلى | Report end date |
-| Undetected | غير محدَّدون | Count of undetected employees. Shown as a warning indicator if > 0. |
-| Actions | — | Delete button per row |
+| Period from         | من            | Report start date                                              |
+| Period to           | إلى           | Report end date                                                |
+| Actions             | —             | Delete button per row                                          |
 
 Tapping a row (outside the delete button) navigates to the Report screen, passing the `reportId`. The Report screen loads its own data from the database on mount.
 

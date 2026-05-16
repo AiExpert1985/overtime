@@ -52,14 +52,9 @@ One row per shift employee per report. Cascade deleted with parent report.
 | report_id | integer, FK → reports.id | Cascade delete |
 | employee_name | text | |
 | department | text | Detected during generation — snapshot, not linked to any employee table |
-| overtime_hours | integer | Total overtime hours for this employee |
 | is_included | integer | 1 = included in report totals and export (default). 0 = excluded by user toggle. |
 
-`is_included` defaults to 1 at generation time. The user may toggle it on the report screen. The value is persisted and survives app close/reopen.
-
----
-
-## shift_period_details
+`is_included` defaults to 1 at generation time. The user may toggle it on the report screen. The value is persisted and survives app close/reopen. Total overtime is computed live from `shift_period_details` rows — not stored here.
 
 One row per detected shift period per employee. Cascade deleted with parent employee result. Loaded only when the user opens the detail screen for a specific employee.
 
@@ -72,7 +67,7 @@ One row per detected shift period per employee. Cascade deleted with parent empl
 | end_date | text | ISO 8601 date of last timestamp |
 | all_timestamps | text | JSON array of ISO 8601 datetime strings, sorted ascending |
 | total_attendance_duration | integer | Duration from first to last timestamp in minutes. Audit display only. |
-| zone_data | text | JSON array of zone results: [{ centerTime, timestamps[], isSatisfied }] |
+| zone_data | text | JSON array of zone results: [{ zoneIndex, startTime, endTime, timestamps[], isSatisfied }] |
 | hours_counted | integer | 24 if valid, 0 if invalid |
 | is_valid | integer | 1 if period satisfied all zone rules, 0 if not. Set at generation time — never changes. |
 | notes | text, nullable | Arabic invalid reason. Null if valid. |
@@ -89,14 +84,9 @@ One row per daily employee per report. Cascade deleted with parent report.
 | report_id | integer, FK → reports.id | Cascade delete |
 | employee_name | text | |
 | department | text | Detected during generation — snapshot, not linked to any employee table |
-| overtime_minutes | integer | Total overtime minutes for this employee |
 | is_included | integer | 1 = included in report totals and export (default). 0 = excluded by user toggle. |
 
-`is_included` defaults to 1 at generation time. The user may toggle it on the report screen. The value is persisted and survives app close/reopen.
-
----
-
-## daily_period_details
+`is_included` defaults to 1 at generation time. The user may toggle it on the report screen. The value is persisted and survives app close/reopen. Total overtime is computed live from `daily_period_details` rows — not stored here.
 
 One row per detected daily period per employee. Cascade deleted with parent employee result. Loaded only when the user opens the detail screen for a specific employee.
 
@@ -187,8 +177,8 @@ When a report is loaded, the following are computed from the stored rows — nev
 - Total undetected employees (count of undetected_employee_results rows)
 - Total included shift employees (count where is_included = 1)
 - Total included daily employees (count where is_included = 1)
-- Total shift overtime hours (sum of overtime_hours where is_included = 1)
-- Total daily overtime minutes (sum of overtime_minutes where is_included = 1)
+- Total shift overtime hours (sum of hours_counted from shift_period_details for included employees → apply ceiling → subtract baseline)
+- Total daily overtime minutes (sum of overtime_minutes from daily_period_details for included employees)
 - Valid period counts, attendance duration sums, and all other summary values
 
 This ensures summaries always reflect the current is_included state without requiring any update to the reports table.
