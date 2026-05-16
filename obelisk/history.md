@@ -29,8 +29,46 @@
 
 ---
 
+## Task 2 — Settings Screen & Configuration Repository
+**Completed:** 2026-05-16
+
+### What was built
+- `lib/features/settings/domain/app_settings.dart` — `AppSettings` model with all 11 configurable fields, `dailyEndTime` and `zoneCount` derived getters, `copyWith`, `fromMap` (parses `shift_start_times` from JSON)
+- `lib/features/settings/domain/column_header.dart` — `ColumnHeader` model with `fromMap`
+- `lib/features/settings/data/settings_repository.dart` — `SettingsRepository` (concrete, no interface): `loadSettings`, `updateSetting`, `loadColumnHeaders` (ordered: defaults first), `addColumnHeader`, `updateColumnHeader`, `deleteColumnHeader` (all non-default guards)
+- `lib/features/settings/providers/settings_provider.dart` — `settingsRepositoryProvider`, `SettingsNotifier` (AsyncNotifier, optimistic update via `AsyncData(apply(current))`), `settingsProvider`, `ColumnHeadersNotifier` (AsyncNotifier, reloads from DB after each mutation), `columnHeadersProvider`
+- `lib/features/settings/screens/settings_screen.dart` — Full Settings screen: Daily section (time picker + 3 number fields + derived end time), Shift section (start times list + 5 number fields + derived zone count), Display section (`RadioGroup` + 4 `RadioListTile`), Column Headers section (3 cards with add/edit/delete dialogs); immediate persistence with revert+snackbar on invalid input
+
+### Outcome
+`flutter analyze` — No issues found.
+
+### Decisions
+- No service layer — settings are pure CRUD, repository → provider directly
+- `max_report_date_range` stored in DB but not shown in UI (monthly reports only)
+- `SettingsNotifier._save` uses Dart 3 pattern matching (`AsyncData(:final value)`) instead of deprecated `valueOrNull`
+- `ColumnHeadersNotifier` method renamed from `update` to `updateHeader` to avoid conflict with inherited `AsyncNotifier.update`
+- `RadioGroup` used instead of deprecated `groupValue`/`onChanged` on `RadioListTile` (Flutter 3.32+)
+- `alwaysUse24HourFormat: true` injected via `MediaQuery` wrapper in `showTimePicker`
+- Controllers initialized once on first data load via `_initialized` flag in `ConsumerStatefulWidget`
+- Number fields persist on focus-loss (`Focus.onFocusChange`) and on Enter (`onSubmitted`)
+
+### Deferred
+- Theme and visual styling beyond Material 3 defaults
+- Export logic
+- Report screens feature logic
+
+---
+
 ## 20260516-0000 | App Foundation & Navigation Shell | TASK
 
 **Task:** Replaced the default Flutter counter app with the full app foundation for a Windows-only overtime calculation tool. Set up Windows SQLite initialization, Riverpod ProviderScope with a database provider override, Arabic RTL locale, go_router two-tab shell (Reports / Settings), all five named routes, full SQLite schema with FK cascade for all result and config tables, and seeded default column headers and app settings. All screens are stubs pending feature implementation.
+
+---
+
+## 20260516-0100 | Settings Screen & Configuration Repository | TASK
+
+**Task:** Implemented the full Settings screen (Tab 2) backed by a configuration repository reading and writing the app_settings and column_headers SQLite tables. Covers four sections: daily employee settings, shift employee settings, display rounding mode, and column header management. All changes persist immediately on input. Invalid values revert to the last valid value with an Arabic snackbar. The max_report_date_range setting is stored but not exposed in the UI — reports are always monthly. No service layer was introduced; the repository talks to the provider directly.
+
+**Rejected:** Service layer between repository and provider — no business rules exist in settings, adding one would be speculative abstraction.
 
 ---
