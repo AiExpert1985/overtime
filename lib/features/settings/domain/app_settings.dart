@@ -13,6 +13,7 @@ class AppSettings {
     required this.shiftBaselineHours,
     required this.shiftCeilingHours,
     required this.roundingMode,
+    required this.maxReportDateRange,
   });
 
   final String dailyStartTime;
@@ -26,6 +27,7 @@ class AppSettings {
   final int shiftBaselineHours;
   final int shiftCeilingHours;
   final String roundingMode;
+  final int maxReportDateRange;
 
   String get dailyEndTime {
     final parts = dailyStartTime.split(':');
@@ -50,6 +52,7 @@ class AppSettings {
     int? shiftBaselineHours,
     int? shiftCeilingHours,
     String? roundingMode,
+    int? maxReportDateRange,
   }) {
     return AppSettings(
       dailyStartTime: dailyStartTime ?? this.dailyStartTime,
@@ -63,6 +66,7 @@ class AppSettings {
       shiftBaselineHours: shiftBaselineHours ?? this.shiftBaselineHours,
       shiftCeilingHours: shiftCeilingHours ?? this.shiftCeilingHours,
       roundingMode: roundingMode ?? this.roundingMode,
+      maxReportDateRange: maxReportDateRange ?? this.maxReportDateRange,
     );
   }
 
@@ -81,6 +85,7 @@ class AppSettings {
       shiftBaselineHours: int.parse(map['shift_baseline_hours']!),
       shiftCeilingHours: int.parse(map['shift_ceiling_hours']!),
       roundingMode: map['rounding_mode']!,
+      maxReportDateRange: int.tryParse(map['max_report_date_range'] ?? '') ?? 32,
     );
   }
 }

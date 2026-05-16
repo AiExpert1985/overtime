@@ -81,11 +81,17 @@
 
 ---
 
+## 20260516-0300 | Report Generation Screen | TASK
+
+**Task:** Implemented the Report Generation screen (pushed from the Reports List FAB). Full UI: attendance file list card with empty/with-files states, file picker integration (xlsx/xls, multi-select, max 10 files, duplicate dedup), info hint dialog, date range pickers with inline Arabic validation (end before start, range exceeds max), and a Generate button whose enabled/disabled condition is wired to state. Generate button tap is a no-op — generation wired in a later task. All screen state lives in a Notifier provider. Added `maxReportDateRange` to AppSettings (was stored in DB but not exposed in the model). File validation (Excel parsing, column header lookup) is deferred to the next task — all added files are stubbed as valid.
+
+---
+
 ## Agreed Task Sequence (Deferred)
 
 The following tasks were agreed during discovery and must be implemented in order:
 
-1. **Report Generation Screen** — Full UI (file list card, date range pickers, Generate button) with all elements present but Generate non-functional. Stub screen only.
+1. ~~**Report Generation Screen**~~ ✓ Done
 2. **File Upload & Validation** — Stage 1: file picker (up to 10 Excel files), column header validation against `column_headers` table, Arabic error messages.
 3. **Generation Pipeline — Stage by Stage** — Implement the 10-stage pipeline function by function per `main_workflow.md`: dictionary build → schedule detection → off-day detection → shift period extractor → daily period extractor → shift overtime calculator → daily overtime calculator → storage → wire Generate button.
 
