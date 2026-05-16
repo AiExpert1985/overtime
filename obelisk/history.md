@@ -72,3 +72,21 @@
 **Rejected:** Service layer between repository and provider — no business rules exist in settings, adding one would be speculative abstraction.
 
 ---
+
+## 20260516-0200 | Reports List Screen | TASK
+
+**Task:** Implemented Tab 1 (Reports List Screen) — shows all generated reports in a table ordered by generation datetime descending. Tapping a row navigates to the Report screen. A FAB at the bottom-left (RTL start position) pushes the Report Generation screen. Delete shows an Arabic confirmation dialog and cascades through all child data. The tab refreshes its list from the database whenever the user switches back to the Reports tab (via `_AppShell` invalidation) or after a delete. No service layer — pure CRUD, repository → provider directly.
+
+**Rejected:** DataTable widget — custom ListView with explicit GestureDetector/InkWell split gives cleaner control over row-tap vs delete-button hit areas in RTL layout.
+
+---
+
+## Agreed Task Sequence (Deferred)
+
+The following tasks were agreed during discovery and must be implemented in order:
+
+1. **Report Generation Screen** — Full UI (file list card, date range pickers, Generate button) with all elements present but Generate non-functional. Stub screen only.
+2. **File Upload & Validation** — Stage 1: file picker (up to 10 Excel files), column header validation against `column_headers` table, Arabic error messages.
+3. **Generation Pipeline — Stage by Stage** — Implement the 10-stage pipeline function by function per `main_workflow.md`: dictionary build → schedule detection → off-day detection → shift period extractor → daily period extractor → shift overtime calculator → daily overtime calculator → storage → wire Generate button.
+
+---

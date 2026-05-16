@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/reports/providers/reports_provider.dart';
 import '../../features/reports/screens/report_detail_screen.dart';
 import '../../features/reports/screens/report_generate_screen.dart';
 import '../../features/reports/screens/report_screen.dart';
@@ -69,21 +71,24 @@ final appRouter = GoRouter(
   ),
 );
 
-class _AppShell extends StatelessWidget {
+class _AppShell extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
 
   const _AppShell({required this.navigationShell});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: NavigationBar(
         selectedIndex: navigationShell.currentIndex,
-        onDestinationSelected: (index) => navigationShell.goBranch(
-          index,
-          initialLocation: index == navigationShell.currentIndex,
-        ),
+        onDestinationSelected: (index) {
+          if (index == 0) ref.invalidate(reportsProvider);
+          navigationShell.goBranch(
+            index,
+            initialLocation: index == navigationShell.currentIndex,
+          );
+        },
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.description_outlined),
