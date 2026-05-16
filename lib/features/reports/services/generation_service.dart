@@ -2,8 +2,12 @@ import 'dart:io';
 
 import 'package:excel/excel.dart';
 
+import '../../settings/domain/app_settings.dart';
 import '../../settings/domain/column_header.dart';
 import '../domain/employee_entry.dart';
+import '../domain/schedule_detection_result.dart';
+import '../domain/shift_employee_entry.dart';
+import '../domain/undetected_entry.dart';
 
 class GenerationException implements Exception {
   GenerationException(this.arabicMessage);
@@ -32,6 +36,173 @@ class GenerationService {
     }
 
     return dictionary;
+  }
+
+  // Stage 4 — Schedule Detection
+  ScheduleDetectionResult detectSchedules(
+    Map<String, EmployeeEntry> dictionary,
+    DateTime startDate,
+    DateTime endDate,
+    AppSettings settings,
+  ) {
+    final periodDays = endDate.difference(startDate).inDays + 1;
+    final shiftTable = <String, ShiftEmployeeEntry>{};
+    final dailyTable = <String, EmployeeEntry>{};
+    final undetectedList = <UndetectedEntry>[];
+
+    for (final entry in dictionary.values) {
+      final result = _classifyEmployee(entry, periodDays, settings);
+      switch (result) {
+        case _ShiftResult(:final startTime):
+          shiftTable[entry.name] = ShiftEmployeeEntry(
+            name: entry.name,
+            department: entry.department,
+            detectedShiftStartTime: startTime,
+            timestamps: entry.timestamps,
+          );
+        case _DailyResult():
+          dailyTable[entry.name] = entry;
+        case _UndetectedResult(:final reason):
+          undetectedList.add(UndetectedEntry(
+            name: entry.name,
+            department: entry.department,
+            failureReason: reason,
+          ));
+      }
+    }
+
+    return ScheduleDetectionResult(
+      shiftTable: shiftTable,
+      dailyTable: dailyTable,
+      undetectedList: undetectedList,
+    );
+  }
+
+  _DetectResult _classifyEmployee(
+    EmployeeEntry entry,
+    int periodDays,
+    AppSettings settings,
+  ) {
+    final dayMap = _groupByDay(entry.timestamps);
+
+    // Pre-check: raw attendance days >= 20% of period
+    if (dayMap.length / periodDays < 0.20) {
+      return _UndetectedResult('أيام الحضور أقل من 20% من مدة الفترة');
+    }
+
+    // Stage 1: usable days (>= 2 timestamps) >= 20% of period
+    final usableDays =
+        dayMap.values.where((ts) => ts.length >= 2).toList();
+    if (usableDays.length / periodDays < 0.20) {
+      return _UndetectedResult('أيام الحضور الصالحة أقل من 20% من مدة الفترة');
+    }
+
+    // Stage 2: zone bucketing
+    final shiftDays = <List<DateTime>>[];
+    var dailyCount = 0;
+
+    for (final dayTimestamps in usableDays) {
+      final activeZones = <int>{};
+      for (final ts in dayTimestamps) {
+        activeZones.add(ts.hour ~/ settings.shiftZoneInterval);
+      }
+      if (activeZones.length == 2) {
+        dailyCount++;
+      } else if (activeZones.length >= 3) {
+        shiftDays.add(dayTimestamps);
+      }
+      // 1 active zone: discard
+    }
+
+    final shiftCount = shiftDays.length;
+
+    // Stage 3: employment type vote (>= 75% confidence)
+    final total = shiftCount + dailyCount;
+    if (total == 0) {
+      return _UndetectedResult('نوع التوظيف غير واضح');
+    }
+
+    final winning = shiftCount > dailyCount ? shiftCount : dailyCount;
+    if (winning / total < 0.75) {
+      return _UndetectedResult('نوع التوظيف غير واضح');
+    }
+
+    if (dailyCount > shiftCount) {
+      return _DailyResult();
+    }
+
+    // Confirmed shift — detect start time (Algorithm 2)
+    return _detectShiftStartTime(shiftDays, settings);
+  }
+
+  _DetectResult _detectShiftStartTime(
+    List<List<DateTime>> shiftDays,
+    AppSettings settings,
+  ) {
+    final buckets = <String, int>{
+      for (final st in settings.shiftStartTimes) st: 0,
+    };
+    var unmatchedCount = 0;
+
+    for (final dayTimestamps in shiftDays) {
+      var matched = false;
+      for (final startTime in settings.shiftStartTimes) {
+        if (_anyTimestampWithinTolerance(
+          dayTimestamps,
+          startTime,
+          settings.shiftTolerance,
+        )) {
+          buckets[startTime] = buckets[startTime]! + 1;
+          matched = true;
+          // intentionally no break — one day may match multiple start times
+        }
+      }
+      if (!matched) unmatchedCount++;
+    }
+
+    // Find start time bucket with the most days
+    String? winner;
+    var winnerCount = 0;
+    for (final entry in buckets.entries) {
+      if (entry.value > winnerCount) {
+        winnerCount = entry.value;
+        winner = entry.key;
+      }
+    }
+
+    // Denominator: all start time bucket days + unmatched
+    final totalBucketDays = buckets.values.fold(0, (a, b) => a + b);
+    final denominator = totalBucketDays + unmatchedCount;
+
+    if (winner == null || denominator == 0 || winnerCount / denominator < 0.60) {
+      return _UndetectedResult('وقت بداية المناوبة غير واضح');
+    }
+
+    return _ShiftResult(winner);
+  }
+
+  Map<String, List<DateTime>> _groupByDay(List<DateTime> timestamps) {
+    final map = <String, List<DateTime>>{};
+    for (final ts in timestamps) {
+      final key =
+          '${ts.year}-${ts.month.toString().padLeft(2, '0')}-${ts.day.toString().padLeft(2, '0')}';
+      map.putIfAbsent(key, () => []).add(ts);
+    }
+    return map;
+  }
+
+  bool _anyTimestampWithinTolerance(
+    List<DateTime> dayTimestamps,
+    String startTimeStr,
+    int toleranceMinutes,
+  ) {
+    final parts = startTimeStr.split(':');
+    final startMinutes = int.parse(parts[0]) * 60 + int.parse(parts[1]);
+    for (final ts in dayTimestamps) {
+      final tsMinutes = ts.hour * 60 + ts.minute;
+      if ((tsMinutes - startMinutes).abs() <= toleranceMinutes) return true;
+    }
+    return false;
   }
 
   Future<void> _processFile(
@@ -164,4 +335,19 @@ class GenerationService {
     }
     return indices;
   }
+}
+
+// Internal result types for schedule detection
+sealed class _DetectResult {}
+
+final class _ShiftResult extends _DetectResult {
+  _ShiftResult(this.startTime);
+  final String startTime;
+}
+
+final class _DailyResult extends _DetectResult {}
+
+final class _UndetectedResult extends _DetectResult {
+  _UndetectedResult(this.reason);
+  final String reason;
 }
