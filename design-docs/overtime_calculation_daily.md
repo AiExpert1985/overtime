@@ -35,7 +35,7 @@ Example: start 09:00 + 8 hours = end 17:00. Overtime is anything worked beyond 1
 
 Both conditions must be met:
 1. Period has at least 2 timestamps.
-2. First timestamp is not later than the configured start time.
+2. First timestamp is not later than the configured start time plus the tolerance (for example 8:00 AM + 1 hour)
 
 If either fails, period is invalid.
 
@@ -81,7 +81,7 @@ Capped at configured daily maximum. Calendar day grouping in the extractor enfor
 
 ## Monthly Total
 
-All overtime accumulated into a single `overtimeMinutes` value on the DailyEmployeeResult regardless of day type. Stored as raw minutes — no rounding applied. Rounding is display-only per configured rounding mode in `screen_configuration.md`.
+for each All overtime accumulated into a single `overtimeMinutes` value on the DailyEmployeeResult regardless of day type. Stored as raw minutes — no rounding applied. Rounding is display-only per configured rounding mode in `screen_configuration.md`.
 
 ---
 

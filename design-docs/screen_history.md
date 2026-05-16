@@ -15,7 +15,7 @@ A floating add button (FAB) in the bottom-left corner pushes the Report Generati
 
 ## Layout
 
-RTL. Scrollable table filling the screen. Empty state message if no reports exist: لا توجد تقارير سابقة.
+RTL. Single scrollable screen. Content horizontally centered. Scrollable table filling the screen. Empty state message if no reports exist: لا توجد تقارير سابقة.
 
 ---
 

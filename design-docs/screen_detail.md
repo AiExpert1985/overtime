@@ -13,7 +13,7 @@ Shows the period-by-period breakdown for one employee. Used for audit — displa
 
 ## Layout
 
-RTL. Fixed header at top. Scrollable period table below. Only periods with at least one timestamp are shown.
+RTL. Single scrollable screen. Content horizontally centered. Fixed header at top. Scrollable period table below. Only periods with at least one timestamp are shown.
 
 ---
 

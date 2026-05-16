@@ -27,7 +27,6 @@ Switching tabs preserves each tab's navigation stack.
 | `report` | `/reports/:reportId` | Report Screen | `reportId` — integer, database id |
 | `detail` | `/reports/:reportId/detail/:employeeType/:employeeResultId` | Detail Screen | `reportId` — integer, `employeeType` — 'shift' or 'daily', `employeeResultId` — integer, database id of the employee result row |
 | `settings` | `/settings` | Settings Screen | — |
-| `column_headers` | `/settings/column-headers` | Column Header Management Screen | — |
 
 ---
 
@@ -63,13 +62,7 @@ Back button returns to the Report screen.
 
 ### settings — `/settings`
 
-Root of Tab 2. Single scrollable screen with all configurable settings inline.
-
-### column_headers — `/settings/column-headers`
-
-Pushed on top of the Settings screen within Tab 2. Reached by tapping the Column Headers management entry.
-
-Back button returns to the Settings screen.
+Root of Tab 2. Single scrollable screen with all configurable settings and column headers inline. Content horizontally centered.
 
 ---
 
@@ -88,8 +81,7 @@ Tab 1 — Reports List
                               back → Reports List
 
 Tab 2 — Settings
-  └── taps Column Headers → Column Header Management Screen
-                                  └── back → Settings Screen
+  └── (all inline, no push screens)
 ```
 
 ---
@@ -109,7 +101,6 @@ Tab 2 — Settings
 | Report Generation Screen | Reports List |
 | Report Screen | Reports List |
 | Detail Screen | Report Screen |
-| Column Header Management | Settings Screen |
 
 ---
 

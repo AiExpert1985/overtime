@@ -13,7 +13,7 @@ The report generation screen. Pushed from the Reports List screen via the floati
 
 ## Layout
 
-RTL. Scrollable content arranged vertically:
+RTL. Single scrollable screen. Content horizontally centered. Scrollable content arranged vertically:
 
 1. Screen title
 2. Attendance file picker card

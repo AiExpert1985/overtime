@@ -13,7 +13,7 @@ Displays the results of one generated report. Loaded from the database on mount 
 
 ## Layout
 
-RTL. Three tabs — shift employees, daily employees, undetected employees. Each tab is fully self-contained. Back button in top bar returns to Reports List.
+RTL. Single scrollable screen. Content horizontally centered. Three tabs — shift employees, daily employees, undetected employees. Each tab is fully self-contained. Back button in top bar returns to Reports List.
 
 The active tab is remembered when navigating to the Detail screen and back.
 

@@ -7,13 +7,13 @@
 
 ## Purpose
 
-Tab 2 of the app. Manages all user-configurable settings: daily employee thresholds, shift employee thresholds, display rounding mode, and attendance column header values.
+Tab 2 of the app. Manages all user-configurable settings: daily employee thresholds, shift employee thresholds, display rounding mode, and attendance column headers.
 
 ---
 
 ## Layout
 
-RTL. Single scrollable screen. Settings are displayed inline — no sub-screens except for Column Header Management, which is pushed as a separate screen.
+RTL. Single scrollable screen. Content horizontally centered. Settings displayed inline — no sub-screens.
 
 Each setting row shows:
 - Arabic name (right-aligned)
@@ -68,19 +68,19 @@ Standard rounding rule: if remainder is at or above the midpoint of the interval
 
 ---
 
-## Section — Column Header Management
+## Section — Column Headers
 
-Displayed as a single row with a brief description and a navigation arrow. Tapping pushes the Column Header Management screen.
+Displayed inline at the bottom of the screen. Three fields shown as a horizontal row, one card per field. Each card shows the field name and its current list of accepted header values.
 
----
+| Field | Default value | Arabic label |
+|---|---|---|
+| employee_name | اسم الموظف | اسم الموظف |
+| department | القسم | القسم |
+| datetime | التاريخ والوقت | التاريخ والوقت |
 
-## Screen — Column Header Management
-
-Pushed from the Settings screen. Back button returns to Settings.
-
-Covers the attendance file only. Lists all field keys for the attendance file. Per field:
-- Default values shown with lock icon — cannot be edited or deleted
-- User-added values shown with edit and delete icons
+Per field card:
+- Default value shown with lock icon — cannot be edited or deleted
+- User-added values listed below the default with edit and delete icons
 - Add button opens a single-input Arabic text dialog. Value must be non-empty and unique per field.
 - Edit opens the same dialog pre-populated.
 - Delete shows Arabic confirmation prompt before removing.
