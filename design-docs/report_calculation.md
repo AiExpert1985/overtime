@@ -1,13 +1,13 @@
 # report_calculation
 
 **Created**: 14-May-2026
-**Modified**: 14-May-2026
+**Modified**: 16-May-2026
 
 ---
 
 ## Purpose
 
-Defines how report data is loaded from the database and how all aggregations, summaries, and per-employee overtime values are computed. Nothing in this document is stored — everything is calculated at load time from the raw stored rows. Applies equally to newly generated reports and historical ones loaded from the reports list.
+Defines how report data is loaded from the database and how summary values are assembled for display. All business calculations are performed at generation time and stored — display is purely passive. No overtime formulas, no ceiling/baseline logic, no period aggregation runs at load time. Applies equally to newly generated reports and historical ones loaded from the reports list.
 
 ---
 
@@ -21,7 +21,9 @@ When the report screen mounts, three queries run in parallel using `reportId`:
 2. Load all rows from `daily_employee_results` where `report_id = reportId`
 3. Load all rows from `undetected_employee_results` where `report_id = reportId`
 
-Period details are **not** loaded at this stage. They are fetched lazily when the user opens the detail screen for a specific employee.
+Each `shift_employee_results` row carries the pre-computed `overtime_hours` (stored in minutes). Each `daily_employee_results` row carries the pre-computed `total_overtime_minutes`. No period detail rows are loaded at this stage.
+
+Period details are loaded lazily when the user opens the detail screen for a specific employee.
 
 ### Detail Screen Load
 
@@ -34,60 +36,44 @@ Order by `period_index` ascending.
 
 ---
 
-## Shift Employee Calculations
+## Shift Employee Display
 
 ### Per-Employee Overtime
 
-Computed from the employee's `shift_period_details` rows. A period is valid (`is_valid = 1`) only if all zones were satisfied — meaning each zone had at least one timestamp within `[zone_center − tolerance, zone_center + tolerance]` at generation time. This is already stored in `is_valid` and `hours_counted` — no recomputation needed at display time.
-
-```
-total_worked_hours = sum of hours_counted across all periods
-capped_hours = min(total_worked_hours, shift_ceiling_hours)
-overtime_hours = max(0, capped_hours - shift_baseline_hours)
-```
-
-An employee with all invalid periods has `total_worked_hours = 0` → `overtime_hours = 0`. Still appears in the report — distinct from an undetected employee.
+Read directly from the stored `overtime_hours` field in `shift_employee_results`. No formula applied at display time.
 
 ### Per-Employee Totals (detail screen header)
 
-- **Total valid periods** — count of periods where `is_valid = 1`
+All values read from stored period rows — no business logic:
+
+- **Total valid periods** — count of period rows where `is_valid = 1`
 - **Total worked hours** — sum of `total_attendance_duration` across all periods, converted to hours. Audit display only.
 - **Total counted hours** — sum of `hours_counted` across all periods
-- **Overtime hours** — computed as above
+- **Overtime hours** — read from the stored `overtime_hours` on the employee result row
 
 ### Report Tab Summary Cards
 
-Computed from loaded `shift_employee_results` rows and their period data:
-
-- **Total shift employees** — count of all shift employee result rows
+- **Total shift employees** — count of all shift_employee_results rows
 - **Total included** — count where `is_included = 1`
-- **Total overtime hours** — sum of per-employee `overtime_hours` for included employees only
+- **Total overtime hours** — sum of stored `overtime_hours` for rows where `is_included = 1`. Simple addition only.
 
 ---
 
-## Daily Employee Calculations
+## Daily Employee Display
 
 ### Per-Employee Overtime
 
-Computed from the employee's `daily_period_details` rows:
-
-```
-total_overtime_minutes = sum of overtime_minutes across all periods
-```
-
-No ceiling or baseline — each period's overtime is already capped at `daily_max_overtime` during generation.
+Read directly from the stored `total_overtime_minutes` field in `daily_employee_results`. No formula applied at display time.
 
 ### Per-Employee Totals (detail screen header)
 
-- **Total overtime** — `total_overtime_minutes` converted to hours/minutes with configured rounding
+- **Total overtime** — stored `total_overtime_minutes` converted to hours/minutes with configured rounding
 
 ### Report Tab Summary Cards
 
-Computed from loaded `daily_employee_results` rows and their period data:
-
-- **Total daily employees** — count of all daily employee result rows
+- **Total daily employees** — count of all daily_employee_results rows
 - **Total included** — count where `is_included = 1`
-- **Total overtime** — sum of `total_overtime_minutes` for included employees only, displayed with configured rounding
+- **Total overtime** — sum of stored `total_overtime_minutes` for rows where `is_included = 1`. Simple addition only. Displayed with configured rounding.
 
 ---
 
@@ -102,6 +88,8 @@ Applied at display time only. Raw minutes are never rounded in storage or calcul
 | half | Round to nearest 30 minutes. Midpoint (≥ 15 min) rounds up. |
 | hour | Round to nearest 60 minutes. Midpoint (≥ 30 min) rounds up. |
 
+Rounding applies to display and export output only. The stored `total_overtime_minutes` and `overtime_hours` values are always raw.
+
 ---
 
 ## is_included Toggle Behavior
@@ -109,7 +97,7 @@ Applied at display time only. Raw minutes are never rounded in storage or calcul
 When the user toggles `is_included` for an employee:
 
 1. Update `is_included` in the database immediately
-2. Recompute all summary cards live from the already-loaded in-memory data — no DB re-fetch needed
+2. Add or subtract that employee's stored overtime value from the in-memory running total — no DB re-fetch, no business logic
 3. UI updates instantly
 
 ---
@@ -120,14 +108,16 @@ Loaded from `undetected_employee_results` and displayed in the undetected tab. N
 
 ---
 
-## Export Calculations
+## Export
 
-Export uses the same calculations defined above. Periods are fetched for all included employees at export time if not already loaded. Excluded employees (`is_included = 0`) are never exported.
+Export reads the stored per-employee values directly. Periods are fetched for all included employees at export time if not already loaded. Excluded employees (`is_included = 0`) are never exported.
 
-**Shift export totals:**
-- Per employee: overtime hours as computed above
+**Shift export:**
+- Per employee: stored `overtime_hours` converted for display
 - Summary: total included employees, total overtime hours
 
-**Daily export totals:**
-- Per employee: total overtime minutes displayed with configured rounding
-- Summary: total included employees, total overtime hours (with rounding)
+**Daily export:**
+- Per employee: stored `total_overtime_minutes` displayed with configured rounding
+- Summary: total included employees, total overtime (with rounding)
+
+Export always uses the full included set regardless of the active search filter on screen.

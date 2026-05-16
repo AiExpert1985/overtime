@@ -52,9 +52,10 @@ One row per shift employee per report. Cascade deleted with parent report.
 | report_id | integer, FK → reports.id | Cascade delete |
 | employee_name | text | |
 | department | text | Detected during generation — snapshot, not linked to any employee table |
+| overtime_hours | integer | Computed at generation time in minutes: max(0, min(total_hours_counted, ceiling) − baseline). Stored as minutes for consistency — display converts to hours. Never recomputed after storage. |
 | is_included | integer | 1 = included in report totals and export (default). 0 = excluded by user toggle. |
 
-`is_included` defaults to 1 at generation time. The user may toggle it on the report screen. The value is persisted and survives app close/reopen. Total overtime is computed live from `shift_period_details` rows — not stored here.
+`is_included` defaults to 1 at generation time. The user may toggle it on the report screen. The value is persisted and survives app close/reopen. `overtime_hours` is fixed at generation time — it never changes regardless of any settings changes after generation.
 
 One row per detected shift period per employee. Cascade deleted with parent employee result. Loaded only when the user opens the detail screen for a specific employee.
 
@@ -84,9 +85,10 @@ One row per daily employee per report. Cascade deleted with parent report.
 | report_id | integer, FK → reports.id | Cascade delete |
 | employee_name | text | |
 | department | text | Detected during generation — snapshot, not linked to any employee table |
+| total_overtime_minutes | integer | Sum of overtime_minutes across all daily_period_details rows for this employee. Computed at generation time. Never recomputed after storage. |
 | is_included | integer | 1 = included in report totals and export (default). 0 = excluded by user toggle. |
 
-`is_included` defaults to 1 at generation time. The user may toggle it on the report screen. The value is persisted and survives app close/reopen. Total overtime is computed live from `daily_period_details` rows — not stored here.
+`is_included` defaults to 1 at generation time. The user may toggle it on the report screen. The value is persisted and survives app close/reopen. `total_overtime_minutes` is fixed at generation time — it never changes regardless of any settings changes after generation.
 
 One row per detected daily period per employee. Cascade deleted with parent employee result. Loaded only when the user opens the detail screen for a specific employee.
 
@@ -154,6 +156,8 @@ Predefined keys: `daily_start_time`, `daily_work_duration`, `daily_max_overtime`
 
 Reports are always appended — generating a new report never replaces or deletes an existing one. The user deletes reports manually from the Reports List screen. Deletion cascades through all child tables automatically.
 
+All inserts for a single generation (report row, all employee result rows, all period detail rows) are wrapped in a single SQLite transaction. Either all writes succeed or none do — no partial reports are ever left in the database.
+
 ---
 
 ## Schema Initialization
@@ -168,17 +172,18 @@ Schema created on first launch if tables do not exist. A version number tracks s
 
 ---
 
-## Live Calculations at Load Time
+## Data Loading at Report Display Time
 
-When a report is loaded, the following are computed from the stored rows — never from stored aggregate fields:
+All business calculations are performed at generation time and stored. Display is purely passive — no calculations run at load time.
+
+When a report is loaded, the following are read directly from stored values:
 
 - Total shift employees (count of shift_employee_results rows)
 - Total daily employees (count of daily_employee_results rows)
 - Total undetected employees (count of undetected_employee_results rows)
 - Total included shift employees (count where is_included = 1)
 - Total included daily employees (count where is_included = 1)
-- Total shift overtime hours (sum of hours_counted from shift_period_details for included employees → apply ceiling → subtract baseline)
-- Total daily overtime minutes (sum of overtime_minutes from daily_period_details for included employees)
-- Valid period counts, attendance duration sums, and all other summary values
+- Total shift overtime (sum of stored overtime_hours for included employees — simple addition, no business logic)
+- Total daily overtime (sum of stored total_overtime_minutes for included employees — simple addition, no business logic)
 
-This ensures summaries always reflect the current is_included state without requiring any update to the reports table.
+When the user toggles is_included, summary totals are updated by adding or removing that employee's stored value from the running sum — no recalculation of any business rule.

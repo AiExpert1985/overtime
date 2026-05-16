@@ -42,7 +42,7 @@ End time is derived: `daily_start_time + daily_work_duration`. Not a stored sett
 | Key | Default | Arabic Name | Arabic Description |
 |---|---|---|---|
 | rounding_mode | quarter | وضع التقريب | طريقة عرض الساعات الإضافية: بدون تقريب، تقريب لربع ساعة، نصف ساعة, أو تقريب لساعة كاملة |
-| max_report_date_range | 31 days | الحد الأقصى لمدة التقرير | الحد الأقصى لعدد الأيام المسموح بها في نطاق التاريخ عند توليد تقرير |
+| max_report_date_range | 32 days | الحد الأقصى لمدة التقرير | الحد الأقصى لعدد الأيام المسموح بها في نطاق التاريخ عند توليد تقرير |
 
 Rounding options: `none` / `quarter` / `half` / `hour`. Applied at display time only — stored values are always raw minutes.
 

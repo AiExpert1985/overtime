@@ -72,11 +72,11 @@ See `overtime_calculation_daily.md`.
 
 ### Stage 10 — Store and Navigate
 
-All three result sets are stored to the database. All in-memory structures are discarded — the database becomes the sole source of truth.
+All three result sets are stored to the database inside a single SQLite transaction — either all writes succeed or none do. All in-memory structures are discarded after the transaction commits — the database becomes the sole source of truth.
 
 After storage, the report is automatically loaded from the database into the report provider. The Report Generation screen is popped and the newly generated Report screen is pushed on top of the Reports List.
 
-All report screens — whether reached after generation or by tapping a history row — always load from the database. There is no in-memory hand-off path.
+All report screens — whether reached after generation or by tapping a history row — always load from the database. There is no in-memory hand-off path. Display is purely passive: no calculations run at load time.
 
 See `screen_report.md` and `database_schema.md`.
 
@@ -98,4 +98,6 @@ Any failure during Stages 3–10 aborts generation entirely. No partial results 
 - Report screens always load from the database — no in-memory hand-off
 - Extractors and calculators are pure functions — same input always produces same output
 - Rounding is display-only — raw minute values are always stored
-- Aggregate totals and summaries are always computed live from stored rows — never stored themselves
+- **All business calculations happen at generation time and are stored. Display is purely passive — no overtime formulas, no aggregation logic runs at load time.**
+- **Per-employee overtime totals are stored at generation time and never change.** Report-level summaries (totals across employees) are the only values assembled at display time, as simple addition of stored per-employee values filtered by `is_included`.
+- **Stage 10 writes are atomic — a single SQLite transaction wraps all inserts. Either the full report is stored or nothing is.**

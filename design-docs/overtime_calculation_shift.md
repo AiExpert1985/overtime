@@ -81,11 +81,21 @@ Binary result: valid = 24 hours (`hoursCounted = 24`), invalid = 0 hours (`hours
 
 ## Output
 
-The same shift hash table with all `ShiftPeriod` objects fully enriched:
+The same shift hash table with all `ShiftPeriod` objects fully enriched, and each employee entry updated with a computed `overtimeHours` field:
 
-`employeeName → { name, department, detectedShiftStartTime, [timestamps], [ShiftPeriod] }`
+`employeeName → { name, department, detectedShiftStartTime, overtimeHours, [timestamps], [ShiftPeriod] }`
 
-Where every `ShiftPeriod` now has all fields set. Total overtime per employee is always computed live at display time: sum of `hoursCounted` across periods → apply ceiling → subtract baseline → floor at 0. Never stored as a separate field.
+### Per-Employee Overtime Formula
+
+After enriching all periods for an employee:
+
+```
+totalHoursCounted = sum of hoursCounted across all periods
+cappedHours = min(totalHoursCounted, shift_ceiling_hours)
+overtimeHours = max(0, cappedHours − shift_baseline_hours)
+```
+
+Stored in minutes on the employee result row for consistency with daily employees. Never recomputed after storage — this value is the permanent result of this generation run.
 
 ---
 

@@ -79,5 +79,6 @@ Four layers. Communication flows downward only — never upward, never sideways.
 - No event system — flow is linear: parse → detect → calculate → store → display.
 - Report screens always load from the database — including newly generated reports. There is no in-memory hand-off path. Store first, then load, then navigate.
 - Aggregate totals are never stored — always computed live from stored rows.
+- **Exception:** Per-employee overtime totals are computed at generation time and stored as part of the employee result row. These values never change after storage. Report-level summary totals (sum across employees) are assembled at display time as simple addition of stored per-employee values filtered by `is_included` — no business logic applied.
 
 ---

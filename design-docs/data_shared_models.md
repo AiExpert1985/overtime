@@ -27,10 +27,9 @@ Represents one shift employee's result within a report.
 |---|---|---|
 | employeeName | string | |
 | department | string | Read from attendance file — snapshot at generation time |
+| overtimeHours | integer | Computed at generation time in minutes. Stored as minutes for consistency. Never recomputed after storage. |
 | isIncluded | boolean | User-controlled toggle. True by default. Persisted. |
 | periods | List\<ShiftPeriod\> | Loaded lazily — only when detail screen is opened |
-
-Total overtime is always computed live by summing `hoursCounted` across periods, applying ceiling, then subtracting baseline. Never stored as a separate field.
 
 ---
 
@@ -42,10 +41,9 @@ Represents one daily employee's result within a report.
 |---|---|---|
 | employeeName | string | |
 | department | string | Read from attendance file — snapshot at generation time |
+| totalOvertimeMinutes | integer | Sum of overtimeMinutes across all periods. Computed at generation time. Never recomputed after storage. |
 | isIncluded | boolean | User-controlled toggle. True by default. Persisted. |
 | periods | List\<DailyPeriod\> | Loaded lazily — only when detail screen is opened |
-
-Total overtime is always computed live by summing `overtimeMinutes` across periods. Never stored as a separate field.
 
 ---
 
