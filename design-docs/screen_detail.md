@@ -48,17 +48,17 @@ All timestamps are displayed as **time only** — no date component. Format: `H:
 
 One row per calendar day with at least one timestamp, ordered by date ascending.
 
-| Column | Arabic Label | Content |
-|---|---|---|
-| Date | التاريخ | Short date e.g. 01/12 |
-| Weekday | اليوم | Arabic weekday name — read from stored weekday field |
-| Day type | نوع اليوم | عادي / عطلة |
-| Entry | الدخول | Time of first timestamp |
-| All timestamps | البصمات | All intermediate timestamps listed vertically |
-| Exit | الخروج | Time of last timestamp |
-| Working hours | ساعات الحضور | Duration from first to last timestamp. Shown for all days including invalid. |
-| Overtime | الوقت الإضافي | Overtime minutes for this period. 0 if invalid. |
-| Notes | ملاحظات | Arabic invalid reason. Empty if valid. |
+| Column         | Arabic Label  | Content                                                                      |
+| -------------- | ------------- | ---------------------------------------------------------------------------- |
+| Date           | التاريخ       | Short date e.g. 01/12                                                        |
+| Weekday        | اليوم         | Arabic weekday name — read from stored weekday field                         |
+| Day type       | نوع اليوم     | عادي / عطلة                                                                  |
+| Entry          | الدخول        | Time of first timestamp                                                      |
+| All timestamps | البصمات       | All intermediate timestamps listed vertically                                |
+| Exit           | الخروج        | Time of last timestamp                                                       |
+| Working hours  | ساعات الحضور  | Duration from first to last timestamp. Shown for all days including invalid. |
+| Overtime       | الوقت الإضافي | Overtime minutes for this period. 0 if invalid.                              |
+| Notes          | ملاحظات       | Arabic invalid reason. Empty if valid.                                       |
 
 ### Row Color Coding
 

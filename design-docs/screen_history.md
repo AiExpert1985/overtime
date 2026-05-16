@@ -23,12 +23,12 @@ RTL. Single scrollable screen. Content horizontally centered. Scrollable table f
 
 All saved reports displayed as a table, ordered by generation datetime descending.
 
-| Column              | Arabic Label  | Content                                                        |
-| ------------------- | ------------- | -------------------------------------------------------------- |
+| Column | Arabic Label | Content |
+|---|---|---|
 | Generation datetime | تاريخ الإنشاء | Date and time the report was generated (e.g. 05/05/2026 14:32) |
-| Period from         | من            | Report start date                                              |
-| Period to           | إلى           | Report end date                                                |
-| Actions             | —             | Delete button per row                                          |
+| Period from | من | Report start date |
+| Period to | إلى | Report end date |
+| Actions | — | Delete button per row |
 
 Tapping a row (outside the delete button) navigates to the Report screen, passing the `reportId`. The Report screen loads its own data from the database on mount.
 
@@ -38,4 +38,4 @@ Tapping the delete button shows an Arabic confirmation prompt before deletion. D
 
 ## Data Source
 
-List loaded from database when the tab is opened or returned to. Per report row: id, generation datetime, date range, and undetected employee count (queried as count of `undetected_employee_results` rows for that report id). The Report screen handles its own full data load.
+List loaded from database when the tab is opened or returned to. Per report row: id, generation datetime, date range. The Report screen handles its own full data load.
