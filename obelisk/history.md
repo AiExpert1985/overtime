@@ -87,12 +87,18 @@
 
 ---
 
+## 20260516-0400 | File Upload & Validation | TASK
+
+**Task:** Replaced stub file validation with real Excel parsing. Files appear in the list immediately with a loading spinner while validation runs async. A new service (application layer) reads all sheets per file, matches header values against the column_headers table, and verifies at least one valid data row exists. Files that fail header matching or are unreadable get a template-mismatch error; files with valid headers but no valid rows get a no-valid-rows error. The excel package only supports .xlsx internally — .xls files are caught and treated as invalid. The Generate button does not count files still being validated.
+
+---
+
 ## Agreed Task Sequence (Deferred)
 
 The following tasks were agreed during discovery and must be implemented in order:
 
 1. ~~**Report Generation Screen**~~ ✓ Done
-2. **File Upload & Validation** — Stage 1: file picker (up to 10 Excel files), column header validation against `column_headers` table, Arabic error messages.
+2. ~~**File Upload & Validation**~~ ✓ Done
 3. **Generation Pipeline — Stage by Stage** — Implement the 10-stage pipeline function by function per `main_workflow.md`: dictionary build → schedule detection → off-day detection → shift period extractor → daily period extractor → shift overtime calculator → daily overtime calculator → storage → wire Generate button.
 
 ---

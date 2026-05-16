@@ -236,12 +236,18 @@ class _FileRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Icon(
-            file.isValid ? Icons.check_circle : Icons.cancel,
-            color: file.isValid
-                ? Colors.green
-                : Theme.of(context).colorScheme.error,
-            size: 20,
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: file.isValidating
+                ? const CircularProgressIndicator(strokeWidth: 2)
+                : Icon(
+                    file.isValid ? Icons.check_circle : Icons.cancel,
+                    color: file.isValid
+                        ? Colors.green
+                        : Theme.of(context).colorScheme.error,
+                    size: 20,
+                  ),
           ),
           const SizedBox(width: 8),
           Expanded(

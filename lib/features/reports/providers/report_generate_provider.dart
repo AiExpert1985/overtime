@@ -1,6 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../settings/providers/settings_provider.dart';
 import '../domain/picked_file.dart';
+import '../services/file_validation_service.dart';
+
+final fileValidationServiceProvider = Provider<FileValidationService>((ref) {
+  return FileValidationService();
+});
 
 class ReportGenerateState {
   const ReportGenerateState({
@@ -28,7 +34,7 @@ class ReportGenerateNotifier extends Notifier<ReportGenerateState> {
   @override
   ReportGenerateState build() => const ReportGenerateState();
 
-  void addFiles(List<String> paths) {
+  Future<void> addFiles(List<String> paths) async {
     final existing = {for (final f in state.files) f.path};
     final newPaths = paths.where((p) => !existing.contains(p)).toList();
 
@@ -43,17 +49,37 @@ class ReportGenerateNotifier extends Notifier<ReportGenerateState> {
       return;
     }
 
-    final added = newPaths.map((p) {
+    final pending = newPaths.map((p) {
       final name = p.replaceAll('\\', '/').split('/').last;
-      return PickedFile(name: name, path: p);
+      return PickedFile(name: name, path: p, isValidating: true);
     }).toList();
 
     state = ReportGenerateState(
-      files: [...state.files, ...added],
+      files: [...state.files, ...pending],
       startDate: state.startDate,
       endDate: state.endDate,
       dateError: state.dateError,
     );
+
+    final service = ref.read(fileValidationServiceProvider);
+    final headersMap = await ref.read(columnHeadersProvider.future);
+    final headers = headersMap.values.expand((list) => list).toList();
+
+    for (final pendingFile in pending) {
+      final validated = await service.validate(
+        pendingFile.path,
+        pendingFile.name,
+        headers,
+      );
+      state = ReportGenerateState(
+        files: state.files
+            .map((f) => f.path == pendingFile.path ? validated : f)
+            .toList(),
+        startDate: state.startDate,
+        endDate: state.endDate,
+        dateError: state.dateError,
+      );
+    }
   }
 
   void removeFile(String path) {
