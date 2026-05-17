@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../settings/providers/settings_provider.dart';
 import '../domain/daily_period_row.dart';
 import '../domain/shift_period_row.dart';
+import '../domain/undetected_period_row.dart';
 import '../domain/zone_row.dart';
 import '../providers/detail_provider.dart';
 
@@ -76,9 +77,11 @@ class ReportDetailScreen extends ConsumerWidget {
       body: state.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('حدث خطأ أثناء التحميل: $e')),
-        data: (data) => data.employeeType == 'shift'
-            ? _ShiftDetailBody(state: data)
-            : _DailyDetailBody(state: data),
+        data: (data) {
+          if (data.employeeType == 'shift') return _ShiftDetailBody(state: data);
+          if (data.employeeType == 'undetected') return _UndetectedDetailBody(state: data);
+          return _DailyDetailBody(state: data);
+        },
       ),
     );
   }
@@ -397,7 +400,7 @@ class _ZoneWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final label =
-        'نقطة ${zone.zoneIndex + 1}: ${DateFormat('H:mm').format(zone.startTime)}';
+        'نقطة ${zone.zoneIndex + 1}: ${_fmtTime(zone.startTime)} - ${_fmtTime(zone.endTime)}';
 
     return Container(
       color: zone.isSatisfied ? null : Colors.red.shade50,
@@ -425,6 +428,104 @@ class _ZoneWidget extends StatelessWidget {
               padding: const EdgeInsets.only(right: 8),
               child: Text(_fmtTime(ts), style: theme.textTheme.bodySmall),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Undetected body
+// ---------------------------------------------------------------------------
+
+class _UndetectedDetailBody extends StatelessWidget {
+  const _UndetectedDetailBody({required this.state});
+
+  final DetailState state;
+
+  static const _columns = ['التاريخ', 'اليوم', 'البصمات'];
+  static const _flexes = [2, 2, 5];
+
+  @override
+  Widget build(BuildContext context) {
+    final periods = state.undetectedPeriods;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _UndetectedEmployeeHeader(state: state),
+        _DetailTableHeader(columns: _columns, flexes: _flexes),
+        Expanded(
+          child: periods.isEmpty
+              ? const _EmptyState(message: 'لا تتوفر بيانات للتصفح لهذا التقرير')
+              : ListView.builder(
+                  itemCount: periods.length,
+                  itemBuilder: (_, i) => _UndetectedPeriodRowWidget(
+                    period: periods[i],
+                    flexes: _flexes,
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _UndetectedEmployeeHeader extends StatelessWidget {
+  const _UndetectedEmployeeHeader({required this.state});
+
+  final DetailState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return _HeaderCard(
+      children: [
+        _HeaderRow(label: 'الموظف', value: state.employeeName),
+        _HeaderRow(label: 'القسم', value: state.department),
+        _HeaderRow(
+          label: 'النطاق',
+          value:
+              '${_fmtDate(state.reportRangeStart)} — ${_fmtDate(state.reportRangeEnd)}',
+        ),
+        _HeaderRow(label: 'سبب عدم الكشف', value: state.failureReason),
+      ],
+    );
+  }
+}
+
+class _UndetectedPeriodRowWidget extends StatelessWidget {
+  const _UndetectedPeriodRowWidget({
+    required this.period,
+    required this.flexes,
+  });
+
+  final UndetectedPeriodRow period;
+  final List<int> flexes;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).dividerColor,
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _Cell(flex: flexes[0], child: Text(_shortDate(period.date))),
+          _Cell(flex: flexes[1], child: Text(period.weekday)),
+          _Cell(
+            flex: flexes[2],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: period.timestamps
+                  .map((ts) => Text(_fmtTime(ts)))
+                  .toList(),
+            ),
+          ),
         ],
       ),
     );

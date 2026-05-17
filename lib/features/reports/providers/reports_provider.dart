@@ -40,6 +40,8 @@ class ReportState {
     this.undetectedSearch = '',
     this.shiftShowIncluded = true,
     this.dailyShowIncluded = true,
+    this.shiftOvertimeOnly = false,
+    this.dailyOvertimeOnly = false,
   });
 
   final Report report;
@@ -51,6 +53,8 @@ class ReportState {
   final String undetectedSearch;
   final bool shiftShowIncluded;
   final bool dailyShowIncluded;
+  final bool shiftOvertimeOnly;
+  final bool dailyOvertimeOnly;
 
   // --- summaries (included employees only) ---
 
@@ -70,6 +74,9 @@ class ReportState {
 
   List<ShiftEmployeeRow> get visibleShiftRows {
     var list = shiftRows.where((r) => r.isIncluded == shiftShowIncluded).toList();
+    if (shiftOvertimeOnly) {
+      list = list.where((r) => r.overtimeMinutes > 0).toList();
+    }
     if (shiftSearch.isNotEmpty) {
       final q = shiftSearch.toLowerCase();
       list = list
@@ -84,6 +91,9 @@ class ReportState {
 
   List<DailyEmployeeRow> get visibleDailyRows {
     var list = dailyRows.where((r) => r.isIncluded == dailyShowIncluded).toList();
+    if (dailyOvertimeOnly) {
+      list = list.where((r) => r.totalOvertimeMinutes > 0).toList();
+    }
     if (dailySearch.isNotEmpty) {
       final q = dailySearch.toLowerCase();
       list = list
@@ -118,6 +128,8 @@ class ReportState {
     String? undetectedSearch,
     bool? shiftShowIncluded,
     bool? dailyShowIncluded,
+    bool? shiftOvertimeOnly,
+    bool? dailyOvertimeOnly,
   }) =>
       ReportState(
         report: report,
@@ -129,6 +141,8 @@ class ReportState {
         undetectedSearch: undetectedSearch ?? this.undetectedSearch,
         shiftShowIncluded: shiftShowIncluded ?? this.shiftShowIncluded,
         dailyShowIncluded: dailyShowIncluded ?? this.dailyShowIncluded,
+        shiftOvertimeOnly: shiftOvertimeOnly ?? this.shiftOvertimeOnly,
+        dailyOvertimeOnly: dailyOvertimeOnly ?? this.dailyOvertimeOnly,
       );
 }
 
@@ -209,6 +223,18 @@ class ReportNotifier extends AsyncNotifier<ReportState> {
     final current = _current;
     if (current == null) return;
     state = AsyncData(current.copyWith(dailyShowIncluded: showIncluded));
+  }
+
+  void setShiftOvertimeFilter(bool overtimeOnly) {
+    final current = _current;
+    if (current == null) return;
+    state = AsyncData(current.copyWith(shiftOvertimeOnly: overtimeOnly));
+  }
+
+  void setDailyOvertimeFilter(bool overtimeOnly) {
+    final current = _current;
+    if (current == null) return;
+    state = AsyncData(current.copyWith(dailyOvertimeOnly: overtimeOnly));
   }
 }
 

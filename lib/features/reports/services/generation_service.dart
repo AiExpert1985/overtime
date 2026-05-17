@@ -401,6 +401,7 @@ class GenerationService {
             name: entry.name,
             department: entry.department,
             failureReason: reason,
+            timestamps: entry.timestamps,
           ));
       }
     }

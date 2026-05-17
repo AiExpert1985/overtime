@@ -109,12 +109,28 @@ class ReportsRepository {
       }
 
       for (final entry in undetectedList) {
-        await txn.insert('undetected_employee_results', {
+        final employeeId = await txn.insert('undetected_employee_results', {
           'report_id': reportId,
           'employee_name': entry.name,
           'department': entry.department,
           'failure_reason': entry.failureReason,
         });
+
+        final dayMap = _groupByDay(entry.timestamps);
+        final sortedKeys = dayMap.keys.toList()..sort();
+        for (var i = 0; i < sortedKeys.length; i++) {
+          final dateStr = sortedKeys[i];
+          final dayTimestamps = dayMap[dateStr]!;
+          await txn.insert('undetected_period_details', {
+            'employee_result_id': employeeId,
+            'period_index': i,
+            'date': dateStr,
+            'weekday': _arabicWeekdays[DateTime.parse(dateStr).weekday],
+            'all_timestamps': jsonEncode(
+              dayTimestamps.map((ts) => ts.toIso8601String()).toList(),
+            ),
+          });
+        }
       }
 
       return reportId;
@@ -210,4 +226,45 @@ class ReportsRepository {
 
   String _isoDate(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  Map<String, List<DateTime>> _groupByDay(List<DateTime> timestamps) {
+    final map = <String, List<DateTime>>{};
+    for (final ts in timestamps) {
+      final key =
+          '${ts.year}-${ts.month.toString().padLeft(2, '0')}-${ts.day.toString().padLeft(2, '0')}';
+      map.putIfAbsent(key, () => []).add(ts);
+    }
+    return map;
+  }
+
+  static const _arabicWeekdays = [
+    '',
+    'الاثنين',
+    'الثلاثاء',
+    'الأربعاء',
+    'الخميس',
+    'الجمعة',
+    'السبت',
+    'الأحد',
+  ];
+
+  Future<Map<String, dynamic>> loadUndetectedEmployeeResult(int id) async {
+    final rows = await _db.query(
+      'undetected_employee_results',
+      columns: ['employee_name', 'department', 'failure_reason'],
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    return rows.first;
+  }
+
+  Future<List<Map<String, dynamic>>> loadUndetectedPeriods(
+      int employeeResultId) async {
+    return _db.query(
+      'undetected_period_details',
+      where: 'employee_result_id = ?',
+      whereArgs: [employeeResultId],
+      orderBy: 'period_index ASC',
+    );
+  }
 }

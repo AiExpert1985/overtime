@@ -116,6 +116,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
                     searchController: _shiftSearch,
                     onSearch: (q) => _notifier.setShiftSearch(q),
                     onFilter: (v) => _notifier.setShiftFilter(v),
+                    onOvertimeFilter: (v) => _notifier.setShiftOvertimeFilter(v),
                     onToggle: (id, v) => _notifier.toggleShiftIncluded(id, v),
                     onRowTap: (id) => context.push(
                         '/reports/${widget.reportId}/detail/shift/$id'),
@@ -128,6 +129,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
                     searchController: _dailySearch,
                     onSearch: (q) => _notifier.setDailySearch(q),
                     onFilter: (v) => _notifier.setDailyFilter(v),
+                    onOvertimeFilter: (v) => _notifier.setDailyOvertimeFilter(v),
                     onToggle: (id, v) => _notifier.toggleDailyIncluded(id, v),
                     onRowTap: (id) => context.push(
                         '/reports/${widget.reportId}/detail/daily/$id'),
@@ -137,6 +139,8 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
                     state: rs,
                     searchController: _undetectedSearch,
                     onSearch: (q) => _notifier.setUndetectedSearch(q),
+                    onRowTap: (id) => context.push(
+                        '/reports/${widget.reportId}/detail/undetected/$id'),
                   ),
                 ],
               ),
@@ -247,6 +251,7 @@ class _ShiftTab extends StatelessWidget {
     required this.searchController,
     required this.onSearch,
     required this.onFilter,
+    required this.onOvertimeFilter,
     required this.onToggle,
     required this.onRowTap,
     required this.onExport,
@@ -258,6 +263,7 @@ class _ShiftTab extends StatelessWidget {
   final TextEditingController searchController;
   final void Function(String) onSearch;
   final void Function(bool) onFilter;
+  final void Function(bool) onOvertimeFilter;
   final void Function(int, bool) onToggle;
   final void Function(int) onRowTap;
   final VoidCallback onExport;
@@ -278,9 +284,11 @@ class _ShiftTab extends StatelessWidget {
         ]),
         _FilterBar(
           showIncluded: state.shiftShowIncluded,
+          overtimeOnly: state.shiftOvertimeOnly,
           searchController: searchController,
           onSearch: onSearch,
           onFilter: onFilter,
+          onOvertimeFilter: onOvertimeFilter,
           isExporting: isExporting,
           onExport: onExport,
         ),
@@ -322,6 +330,7 @@ class _DailyTab extends StatelessWidget {
     required this.searchController,
     required this.onSearch,
     required this.onFilter,
+    required this.onOvertimeFilter,
     required this.onToggle,
     required this.onRowTap,
     required this.onExport,
@@ -333,6 +342,7 @@ class _DailyTab extends StatelessWidget {
   final TextEditingController searchController;
   final void Function(String) onSearch;
   final void Function(bool) onFilter;
+  final void Function(bool) onOvertimeFilter;
   final void Function(int, bool) onToggle;
   final void Function(int) onRowTap;
   final VoidCallback onExport;
@@ -353,9 +363,11 @@ class _DailyTab extends StatelessWidget {
         ]),
         _FilterBar(
           showIncluded: state.dailyShowIncluded,
+          overtimeOnly: state.dailyOvertimeOnly,
           searchController: searchController,
           onSearch: onSearch,
           onFilter: onFilter,
+          onOvertimeFilter: onOvertimeFilter,
           isExporting: isExporting,
           onExport: onExport,
         ),
@@ -394,11 +406,13 @@ class _UndetectedTab extends StatelessWidget {
     required this.state,
     required this.searchController,
     required this.onSearch,
+    required this.onRowTap,
   });
 
   final ReportState state;
   final TextEditingController searchController;
   final void Function(String) onSearch;
+  final void Function(int) onRowTap;
 
   @override
   Widget build(BuildContext context) {
@@ -435,7 +449,10 @@ class _UndetectedTab extends StatelessWidget {
                 )
               : ListView.builder(
                   itemCount: rows.length,
-                  itemBuilder: (_, i) => _UndetectedRow(row: rows[i]),
+                  itemBuilder: (_, i) => _UndetectedRow(
+                    row: rows[i],
+                    onTap: () => onRowTap(rows[i].id),
+                  ),
                 ),
         ),
       ],
@@ -498,17 +515,21 @@ class _SummaryCard extends StatelessWidget {
 class _FilterBar extends StatelessWidget {
   const _FilterBar({
     required this.showIncluded,
+    required this.overtimeOnly,
     required this.searchController,
     required this.onSearch,
     required this.onFilter,
+    required this.onOvertimeFilter,
     required this.isExporting,
     required this.onExport,
   });
 
   final bool showIncluded;
+  final bool overtimeOnly;
   final TextEditingController searchController;
   final void Function(String) onSearch;
   final void Function(bool) onFilter;
+  final void Function(bool) onOvertimeFilter;
   final bool isExporting;
   final VoidCallback onExport;
 
@@ -536,6 +557,32 @@ class _FilterBar extends StatelessWidget {
                   child: RadioListTile<bool>(
                     value: false,
                     title: const Text('مستثنون'),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          RadioGroup<bool>(
+            groupValue: overtimeOnly,
+            onChanged: (v) { if (v != null) onOvertimeFilter(v); },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IntrinsicWidth(
+                  child: RadioListTile<bool>(
+                    value: false,
+                    title: const Text('الكل'),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                IntrinsicWidth(
+                  child: RadioListTile<bool>(
+                    value: true,
+                    title: const Text('بوقت إضافي'),
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                   ),
@@ -724,28 +771,32 @@ class _DailyRow extends StatelessWidget {
 }
 
 class _UndetectedRow extends StatelessWidget {
-  const _UndetectedRow({required this.row});
+  const _UndetectedRow({required this.row, required this.onTap});
 
   final UndetectedEmployeeRow row;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).dividerColor,
-            width: 0.5,
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: Theme.of(context).dividerColor,
+              width: 0.5,
+            ),
           ),
         ),
-      ),
-      child: Row(
-        children: [
-          Expanded(flex: 3, child: Text(row.employeeName)),
-          Expanded(flex: 2, child: Text(row.department)),
-          Expanded(flex: 3, child: Text(row.failureReason)),
-        ],
+        child: Row(
+          children: [
+            Expanded(flex: 3, child: Text(row.employeeName)),
+            Expanded(flex: 2, child: Text(row.department)),
+            Expanded(flex: 3, child: Text(row.failureReason)),
+          ],
+        ),
       ),
     );
   }

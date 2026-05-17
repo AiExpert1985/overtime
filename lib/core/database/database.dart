@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
-const _schemaVersion = 1;
+const _schemaVersion = 2;
 
 final dbProvider = Provider<Database>((ref) {
   throw UnimplementedError('dbProvider must be overridden in main');
@@ -26,7 +26,19 @@ class AppDatabase {
         await _seedDefaults(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        // migrations applied in sequence as schema version increases
+        if (oldVersion < 2) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS undetected_period_details (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              employee_result_id INTEGER NOT NULL
+                REFERENCES undetected_employee_results(id) ON DELETE CASCADE,
+              period_index INTEGER NOT NULL,
+              date TEXT NOT NULL,
+              weekday TEXT NOT NULL,
+              all_timestamps TEXT NOT NULL
+            )
+          ''');
+        }
       },
     );
   }
@@ -106,6 +118,18 @@ class AppDatabase {
         employee_name TEXT NOT NULL,
         department TEXT NOT NULL,
         failure_reason TEXT NOT NULL
+      )
+    ''');
+
+    batch.execute('''
+      CREATE TABLE IF NOT EXISTS undetected_period_details (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        employee_result_id INTEGER NOT NULL
+          REFERENCES undetected_employee_results(id) ON DELETE CASCADE,
+        period_index INTEGER NOT NULL,
+        date TEXT NOT NULL,
+        weekday TEXT NOT NULL,
+        all_timestamps TEXT NOT NULL
       )
     ''');
 

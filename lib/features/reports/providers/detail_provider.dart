@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/daily_period_row.dart';
 import '../domain/shift_period_row.dart';
+import '../domain/undetected_period_row.dart';
 import 'reports_provider.dart';
 
 typedef DetailArgs = ({int reportId, int employeeResultId, String employeeType});
@@ -15,7 +16,9 @@ class DetailState {
     required this.reportRangeEnd,
     this.shiftPeriods = const [],
     this.dailyPeriods = const [],
+    this.undetectedPeriods = const [],
     this.totalOvertimeMinutes = 0,
+    this.failureReason = '',
   });
 
   final String employeeName;
@@ -25,8 +28,10 @@ class DetailState {
   final DateTime reportRangeEnd;
   final List<ShiftPeriodRow> shiftPeriods;
   final List<DailyPeriodRow> dailyPeriods;
+  final List<UndetectedPeriodRow> undetectedPeriods;
   // Stored total for daily header; shift header recomputes live from periods.
   final int totalOvertimeMinutes;
+  final String failureReason;
 }
 
 class DetailNotifier extends AsyncNotifier<DetailState> {
@@ -52,6 +57,24 @@ class DetailNotifier extends AsyncNotifier<DetailState> {
         reportRangeStart: report.rangeStart,
         reportRangeEnd: report.rangeEnd,
         shiftPeriods: rawPeriods.map(ShiftPeriodRow.fromMap).toList(),
+      );
+    } else if (_args.employeeType == 'undetected') {
+      final employeeFuture =
+          repo.loadUndetectedEmployeeResult(_args.employeeResultId);
+      final periodsFuture =
+          repo.loadUndetectedPeriods(_args.employeeResultId);
+      final report = await reportFuture;
+      final employee = await employeeFuture;
+      final rawPeriods = await periodsFuture;
+      return DetailState(
+        employeeName: employee['employee_name'] as String,
+        department: employee['department'] as String,
+        employeeType: 'undetected',
+        reportRangeStart: report.rangeStart,
+        reportRangeEnd: report.rangeEnd,
+        undetectedPeriods:
+            rawPeriods.map(UndetectedPeriodRow.fromMap).toList(),
+        failureReason: employee['failure_reason'] as String,
       );
     } else {
       final employeeFuture = repo.loadDailyEmployeeResult(_args.employeeResultId);
