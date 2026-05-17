@@ -201,6 +201,41 @@ class GenerationService {
     return periods;
   }
 
+  // Stage 8 — Shift Overtime Calculator
+  Map<String, ShiftEmployeeEntry> calculateShiftOvertime(
+    Map<String, ShiftEmployeeEntry> shiftTable,
+    AppSettings settings,
+  ) {
+    for (final entry in shiftTable.values) {
+      var totalHoursCounted = 0;
+
+      for (final period in entry.periods) {
+        _enrichShiftPeriod(period);
+        totalHoursCounted += period.hoursCounted!;
+      }
+
+      final cappedHours =
+          totalHoursCounted.clamp(0, settings.shiftCeilingHours);
+      final overtime = cappedHours - settings.shiftBaselineHours;
+      entry.overtimeMinutes = overtime > 0 ? overtime * 60 : 0;
+    }
+
+    return shiftTable;
+  }
+
+  void _enrichShiftPeriod(ShiftPeriod period) {
+    final isValid = period.zoneResults.every((z) => z.isSatisfied);
+    final first = period.allTimestamps.first;
+    final last = period.allTimestamps.last;
+
+    period.endDate =
+        '${last.year}-${last.month.toString().padLeft(2, '0')}-${last.day.toString().padLeft(2, '0')}';
+    period.totalAttendanceDuration = last.difference(first).inMinutes;
+    period.isValid = isValid;
+    period.hoursCounted = isValid ? 24 : 0;
+    period.notes = isValid ? null : 'يوجد فترة زمنية بدون بصمة تحقق';
+  }
+
   List<ZoneResult> _buildZoneResults(
     List<DateTime> timestamps,
     DateTime windowStart,

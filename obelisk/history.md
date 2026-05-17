@@ -105,13 +105,19 @@
 
 ---
 
+## 20260517-0200 | Generation Pipeline — Stage 8: Shift Overtime Calculator | TASK
+
+**Task:** Implemented Stage 8 of the report generation pipeline — shift overtime calculator. Each `ShiftPeriod` is enriched in place with its end date, total attendance duration, validity flag (all zones must be satisfied), hours counted (24 if valid, 0 if not), and Arabic notes if invalid. Per-employee overtime is then computed by summing hours counted, capping at the ceiling, subtracting the baseline, and storing the result in minutes for consistency with daily employees. The `ShiftEmployeeEntry` model was extended with an `overtimeMinutes` field set by this stage. The calculator is a standalone method on `GenerationService` with clear input and output — no UI changes, no DB changes.
+
+---
+
 ## Agreed Task Sequence (Deferred)
 
 The following tasks were agreed during discovery and must be implemented in order:
 
 1. ~~**Report Generation Screen**~~ ✓ Done
 2. ~~**File Upload & Validation**~~ ✓ Done
-3. **Generation Pipeline — Stage by Stage** — Implement the 10-stage pipeline function by function per `main_workflow.md`: dictionary build → schedule detection → off-day detection → ~~shift period extractor~~ ✓ Done → ~~daily period extractor~~ ✓ Done → shift overtime calculator → daily overtime calculator → storage → wire Generate button.
+3. **Generation Pipeline — Stage by Stage** — Implement the 10-stage pipeline function by function per `main_workflow.md`: dictionary build → schedule detection → off-day detection → ~~shift period extractor~~ ✓ Done → ~~daily period extractor~~ ✓ Done → ~~shift overtime calculator~~ ✓ Done → daily overtime calculator → storage → wire Generate button.
 
 **Confirmed 2026-05-16:** Staged implementation order confirmed by user. One stage per task, validated before the next begins. Stages map 1:1 to `main_workflow.md` pipeline stages.
 

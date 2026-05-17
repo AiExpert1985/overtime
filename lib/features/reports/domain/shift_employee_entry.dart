@@ -13,4 +13,5 @@ class ShiftEmployeeEntry {
   final String detectedShiftStartTime; // e.g. "08:00"
   final List<DateTime> timestamps;
   List<ShiftPeriod> periods = [];
+  int? overtimeMinutes; // Set by Stage 8
 }
