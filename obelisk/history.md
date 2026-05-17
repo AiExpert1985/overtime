@@ -99,6 +99,12 @@
 
 ---
 
+## 20260517-0100 | Generation Pipeline — Stage 7: Daily Period Extractor | TASK
+
+**Task:** Implemented Stage 7 of the report generation pipeline — daily period extractor. A new `DailyPeriod` model carries extractor-set fields (periodIndex, date, weekday, dayType, allTimestamps) with calculator fields left null for Stage 9. A new `DailyEmployeeEntry` model mirrors `ShiftEmployeeEntry` and carries the periods list. The `extractDailyPeriods` method on `GenerationService` takes the daily hash table and the off-days set from Stage 5, groups each employee's timestamps by calendar date using the existing `_groupByDay` helper, classifies each day as regular or off via off-days set membership, and builds `DailyPeriod` objects in ascending date order. Returns a new `Map<String, DailyEmployeeEntry>`. Arabic weekday names derived via a static 7-element lookup. Days with exactly 1 timestamp are included — validity is Stage 9's responsibility.
+
+---
+
 ## Agreed Task Sequence (Deferred)
 
 The following tasks were agreed during discovery and must be implemented in order:

@@ -4,6 +4,8 @@ import 'package:excel/excel.dart';
 
 import '../../settings/domain/app_settings.dart';
 import '../../settings/domain/column_header.dart';
+import '../domain/daily_employee_entry.dart';
+import '../domain/daily_period.dart';
 import '../domain/employee_entry.dart';
 import '../domain/schedule_detection_result.dart';
 import '../domain/shift_employee_entry.dart';
@@ -72,6 +74,58 @@ class GenerationService {
 
     return offDays;
   }
+
+  // Stage 7 — Daily Period Extractor
+  Map<String, DailyEmployeeEntry> extractDailyPeriods(
+    Map<String, EmployeeEntry> dailyTable,
+    Set<DateTime> offDays,
+  ) {
+    final result = <String, DailyEmployeeEntry>{};
+
+    for (final entry in dailyTable.values) {
+      final dayMap = _groupByDay(entry.timestamps);
+      final periods = <DailyPeriod>[];
+      var periodIndex = 0;
+
+      final sortedKeys = dayMap.keys.toList()..sort();
+      for (final dateStr in sortedKeys) {
+        final timestamps = dayMap[dateStr]!;
+        final date = DateTime.parse(dateStr);
+        final dayType = offDays.contains(date) ? 'off' : 'regular';
+        periods.add(DailyPeriod(
+          periodIndex: periodIndex,
+          date: dateStr,
+          weekday: _arabicWeekday(date.weekday),
+          dayType: dayType,
+          allTimestamps: timestamps,
+        ));
+        periodIndex++;
+      }
+
+      final dailyEntry = DailyEmployeeEntry(
+        name: entry.name,
+        department: entry.department,
+        timestamps: entry.timestamps,
+      );
+      dailyEntry.periods = periods;
+      result[entry.name] = dailyEntry;
+    }
+
+    return result;
+  }
+
+  static const _arabicWeekdays = [
+    '', // placeholder — DateTime.weekday is 1-based
+    'الاثنين',
+    'الثلاثاء',
+    'الأربعاء',
+    'الخميس',
+    'الجمعة',
+    'السبت',
+    'الأحد',
+  ];
+
+  String _arabicWeekday(int weekday) => _arabicWeekdays[weekday];
 
   // Stage 6 — Shift Period Extractor
   Map<String, ShiftEmployeeEntry> extractShiftPeriods(
