@@ -160,3 +160,9 @@ The following tasks were agreed during discovery and must be implemented in orde
 **Task:** Implemented Stage 10 — the final pipeline stage. All three result sets (shift employees with period details, daily employees with period details, undetected employees) are persisted to SQLite in a single atomic transaction. Timestamps and zone data are serialized as JSON strings per the schema. The Generate button now runs the full 10-stage pipeline end to end; on success the generate screen is replaced by the newly created report screen, the reports list provider is invalidated, and the form state is cleared. On failure, all inputs are preserved and a dismissible Arabic error banner appears. The screen is fully non-interactive during generation via a modal barrier. The generation orchestration lives entirely in the provider notifier — no logic in the screen.
 
 ---
+
+## 20260517-0600 | Detail Screen | TASK
+
+**Task:** Implemented the Detail Screen — the last unimplemented screen. Reached by tapping an employee row on the Report Screen. Fetches its own period data on mount. Shift employees show a fixed header with live-computed overtime (ceiling and baseline from current settings at display time, not the stored value) and a period table where zones are stacked vertically per row — invalid zones are visually flagged. Daily employees show a header with stored total overtime (rounded per current rounding mode) and a nine-column period table. Both tables use light red row backgrounds for invalid periods. Three display-side domain models were introduced to separate DB deserialization from the pipeline's in-memory generation models. The repository was extended with two methods to load individual employee result rows for the header. Provider uses the constructor-arg family pattern consistent with the Report Screen.
+
+---

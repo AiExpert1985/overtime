@@ -170,6 +170,26 @@ class ReportsRepository {
     );
   }
 
+  Future<Map<String, dynamic>> loadShiftEmployeeResult(int id) async {
+    final rows = await _db.query(
+      'shift_employee_results',
+      columns: ['employee_name', 'department', 'overtime_hours'],
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    return rows.first;
+  }
+
+  Future<Map<String, dynamic>> loadDailyEmployeeResult(int id) async {
+    final rows = await _db.query(
+      'daily_employee_results',
+      columns: ['employee_name', 'department', 'total_overtime_minutes'],
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    return rows.first;
+  }
+
   Future<List<Map<String, dynamic>>> loadShiftPeriods(int employeeResultId) async {
     return _db.query(
       'shift_period_details',
