@@ -11,4 +11,7 @@ class DailyEmployeeEntry {
   final String department;
   final List<DateTime> timestamps;
   List<DailyPeriod> periods = [];
+
+  // Set by Stage 9 calculator
+  int? totalOvertimeMinutes;
 }

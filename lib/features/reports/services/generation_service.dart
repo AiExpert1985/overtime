@@ -223,6 +223,95 @@ class GenerationService {
     return shiftTable;
   }
 
+  // Stage 9 — Daily Overtime Calculator
+  Map<String, DailyEmployeeEntry> calculateDailyOvertime(
+    Map<String, DailyEmployeeEntry> dailyEntries,
+    AppSettings settings,
+  ) {
+    final parts = settings.dailyStartTime.split(':');
+    final startMinutes = int.parse(parts[0]) * 60 + int.parse(parts[1]);
+    final endTimeMinutes = startMinutes + settings.dailyWorkDuration * 60;
+    final deadlineMinutes = startMinutes + settings.dailyDelayAllowance;
+    final maxOvertimeMinutes = settings.dailyMaxOvertime * 60;
+
+    for (final entry in dailyEntries.values) {
+      var total = 0;
+      for (final period in entry.periods) {
+        _enrichDailyPeriod(period, endTimeMinutes, deadlineMinutes, maxOvertimeMinutes);
+        total += period.overtimeMinutes!;
+      }
+      entry.totalOvertimeMinutes = total;
+    }
+
+    return dailyEntries;
+  }
+
+  void _enrichDailyPeriod(
+    DailyPeriod period,
+    int endTimeMinutes,
+    int deadlineMinutes,
+    int maxOvertimeMinutes,
+  ) {
+    final timestamps = period.allTimestamps;
+    period.totalAttendanceDuration = timestamps.length >= 2
+        ? timestamps.last.difference(timestamps.first).inMinutes
+        : 0;
+
+    if (period.dayType == 'regular') {
+      _enrichRegularDay(period, endTimeMinutes, deadlineMinutes, maxOvertimeMinutes);
+    } else {
+      _enrichOffDay(period, maxOvertimeMinutes);
+    }
+  }
+
+  void _enrichRegularDay(
+    DailyPeriod period,
+    int endTimeMinutes,
+    int deadlineMinutes,
+    int maxOvertimeMinutes,
+  ) {
+    final timestamps = period.allTimestamps;
+
+    if (timestamps.length < 2) {
+      period.isValid = false;
+      period.overtimeMinutes = 0;
+      period.notes = 'بصمة واحدة فقط';
+      return;
+    }
+
+    final firstMinutes = timestamps.first.hour * 60 + timestamps.first.minute;
+    if (firstMinutes > deadlineMinutes) {
+      period.isValid = false;
+      period.overtimeMinutes = 0;
+      period.notes = 'البصمة الأولى تتجاوز وقت البداية مع وقت السماح';
+      return;
+    }
+
+    final lastMinutes = timestamps.last.hour * 60 + timestamps.last.minute;
+    period.isValid = true;
+    period.overtimeMinutes = (lastMinutes - endTimeMinutes).clamp(0, maxOvertimeMinutes);
+    period.notes = null;
+  }
+
+  void _enrichOffDay(
+    DailyPeriod period,
+    int maxOvertimeMinutes,
+  ) {
+    final timestamps = period.allTimestamps;
+
+    if (timestamps.length < 2) {
+      period.isValid = false;
+      period.overtimeMinutes = 0;
+      period.notes = 'بصمة واحدة فقط';
+      return;
+    }
+
+    final raw = timestamps.last.difference(timestamps.first).inMinutes;
+    period.isValid = true;
+    period.overtimeMinutes = raw.clamp(0, maxOvertimeMinutes);
+    period.notes = null;
+  }
+
   void _enrichShiftPeriod(ShiftPeriod period) {
     final isValid = period.zoneResults.every((z) => z.isSatisfied);
     final first = period.allTimestamps.first;

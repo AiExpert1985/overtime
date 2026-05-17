@@ -117,7 +117,7 @@ The following tasks were agreed during discovery and must be implemented in orde
 
 1. ~~**Report Generation Screen**~~ ✓ Done
 2. ~~**File Upload & Validation**~~ ✓ Done
-3. **Generation Pipeline — Stage by Stage** — Implement the 10-stage pipeline function by function per `main_workflow.md`: dictionary build → schedule detection → off-day detection → ~~shift period extractor~~ ✓ Done → ~~daily period extractor~~ ✓ Done → ~~shift overtime calculator~~ ✓ Done → daily overtime calculator → storage → wire Generate button.
+3. **Generation Pipeline — Stage by Stage** — Implement the 10-stage pipeline function by function per `main_workflow.md`: dictionary build → schedule detection → off-day detection → ~~shift period extractor~~ ✓ Done → ~~daily period extractor~~ ✓ Done → ~~shift overtime calculator~~ ✓ Done → ~~daily overtime calculator~~ ✓ Done → storage → wire Generate button.
 
 **Confirmed 2026-05-16:** Staged implementation order confirmed by user. One stage per task, validated before the next begins. Stages map 1:1 to `main_workflow.md` pipeline stages.
 
@@ -138,5 +138,11 @@ The following tasks were agreed during discovery and must be implemented in orde
 ## 20260516-0700 | Generation Pipeline — Stage 5: Off-Day Detection | TASK
 
 **Task:** Implemented Stage 5 of the report generation pipeline — off-day detection. A synchronous `detectOffDays` method on `GenerationService` takes the daily hash table and the report date range, enumerates every calendar date in the range, counts attending employees per date, and returns a set of dates where attendance fell strictly below the 25% hardcoded threshold. Empty daily table returns an empty set immediately. No new files or domain models — threshold defined as a private constant on the service. Output is consumed by Stage 7 (daily period extractor).
+
+---
+
+## 20260517-0300 | Generation Pipeline — Stage 9: Daily Overtime Calculator | TASK
+
+**Task:** Implemented Stage 9 of the report generation pipeline — daily overtime calculator. Each daily period is validated and enriched with its overtime result. Regular-day validation requires at least two timestamps and the first stamp within the configured delay allowance; overtime is the time worked beyond the derived end-of-day, capped at the daily maximum. Off-day validation requires only two timestamps; overtime is the full attendance span, capped at the same maximum. Both failure cases produce Arabic notes per spec. The daily employee entry model was extended with a total overtime field set by this stage, mirroring the Stage 8 shift pattern, so Stage 10 storage can read it directly. A stale sentence in `overtime_calculation_daily.md` ("computed live at display time — never stored") contradicts the final design; `data_shared_models.md` is authoritative — total is computed at generation time and stored.
 
 ---
