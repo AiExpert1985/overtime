@@ -282,8 +282,8 @@ class _ShiftPeriodRowWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final bg = period.isValid ? null : Colors.red.shade50;
     return Container(
-      color: bg,
       decoration: BoxDecoration(
+        color: bg,
         border: Border(
           bottom: BorderSide(
             color: Theme.of(context).dividerColor,
@@ -343,8 +343,8 @@ class _DailyPeriodRowWidget extends StatelessWidget {
     final dayTypeLabel = period.dayType == 'off' ? 'عطلة' : 'عادي';
 
     return Container(
-      color: bg,
       decoration: BoxDecoration(
+        color: bg,
         border: Border(
           bottom: BorderSide(
             color: Theme.of(context).dividerColor,
