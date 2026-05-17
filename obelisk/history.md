@@ -111,6 +111,14 @@
 
 ---
 
+## 20260517-0500 | Report Screen | TASK
+
+**Task:** Implemented the Report Screen — the main results view for a generated report. The screen loads all three employee result sets from the database on mount and displays them across three tabs (shift / daily / undetected). Each detected tab has live summary cards (total employees, included employees, total overtime), a filter bar with radio buttons (محتسبون / مستثنون), a live search field, and an Excel export button. Employee tables show inclusion toggles that write to the database immediately and update summary totals in place without a full reload. Tapping an employee row navigates to the Detail screen via route parameters. The undetected tab is read-only with search only (no radio, no export). Three new display-side domain models were introduced (separate from pipeline models). The repository was extended with display query methods and a period-loading method used at export time. The Riverpod 3.x family provider pattern uses a constructor-arg notifier (not `FamilyAsyncNotifier`, which does not exist in 3.x). Excel export fetches period details on demand at export time and saves via a Save As dialog. Period details are not loaded or held in memory by this screen.
+
+**Rejected:** Auto-save to a fixed directory for export — Save As dialog chosen so the user controls the destination.
+
+---
+
 ## Agreed Task Sequence (Deferred)
 
 The following tasks were agreed during discovery and must be implemented in order:
