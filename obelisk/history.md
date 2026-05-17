@@ -111,7 +111,7 @@ The following tasks were agreed during discovery and must be implemented in orde
 
 1. ~~**Report Generation Screen**~~ ✓ Done
 2. ~~**File Upload & Validation**~~ ✓ Done
-3. **Generation Pipeline — Stage by Stage** — Implement the 10-stage pipeline function by function per `main_workflow.md`: dictionary build → schedule detection → off-day detection → ~~shift period extractor~~ ✓ Done → daily period extractor → shift overtime calculator → daily overtime calculator → storage → wire Generate button.
+3. **Generation Pipeline — Stage by Stage** — Implement the 10-stage pipeline function by function per `main_workflow.md`: dictionary build → schedule detection → off-day detection → ~~shift period extractor~~ ✓ Done → ~~daily period extractor~~ ✓ Done → shift overtime calculator → daily overtime calculator → storage → wire Generate button.
 
 **Confirmed 2026-05-16:** Staged implementation order confirmed by user. One stage per task, validated before the next begins. Stages map 1:1 to `main_workflow.md` pipeline stages.
 
