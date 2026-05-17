@@ -1,11 +1,19 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/database/database.dart';
 import '../../settings/providers/settings_provider.dart';
+import '../data/reports_repository.dart';
 import '../domain/picked_file.dart';
 import '../services/file_validation_service.dart';
+import '../services/generation_service.dart';
+import 'reports_provider.dart';
 
 final fileValidationServiceProvider = Provider<FileValidationService>((ref) {
   return FileValidationService();
+});
+
+final generationServiceProvider = Provider<GenerationService>((ref) {
+  return GenerationService();
 });
 
 class ReportGenerateState {
@@ -15,6 +23,8 @@ class ReportGenerateState {
     this.endDate,
     this.dateError,
     this.filesError,
+    this.isGenerating = false,
+    this.generationError,
   });
 
   final List<PickedFile> files;
@@ -22,6 +32,8 @@ class ReportGenerateState {
   final DateTime? endDate;
   final String? dateError;
   final String? filesError;
+  final bool isGenerating;
+  final String? generationError;
 
   bool get isGenerateEnabled =>
       files.any((f) => f.isValid) &&
@@ -111,7 +123,104 @@ class ReportGenerateNotifier extends Notifier<ReportGenerateState> {
     );
   }
 
+  void dismissError() {
+    state = ReportGenerateState(
+      files: state.files,
+      startDate: state.startDate,
+      endDate: state.endDate,
+      dateError: state.dateError,
+      filesError: state.filesError,
+    );
+  }
+
   void reset() => state = const ReportGenerateState();
+
+  Future<int?> generate() async {
+    final saved = state;
+    final validPaths =
+        saved.files.where((f) => f.isValid).map((f) => f.path).toList();
+
+    state = ReportGenerateState(
+      files: saved.files,
+      startDate: saved.startDate,
+      endDate: saved.endDate,
+      dateError: saved.dateError,
+      isGenerating: true,
+    );
+
+    try {
+      final settings = await ref.read(settingsProvider.future);
+      final headersMap = await ref.read(columnHeadersProvider.future);
+      final headers = headersMap.values.expand((list) => list).toList();
+      final service = ref.read(generationServiceProvider);
+      final repo = ReportsRepository(ref.read(dbProvider));
+
+      final dictionary = await service.buildDictionary(
+        validPaths,
+        saved.startDate!,
+        saved.endDate!,
+        headers,
+      );
+
+      final schedules = service.detectSchedules(
+        dictionary,
+        saved.startDate!,
+        saved.endDate!,
+        settings,
+      );
+
+      final offDays = service.detectOffDays(
+        schedules.dailyTable,
+        saved.startDate!,
+        saved.endDate!,
+      );
+
+      final shiftEntries = service.extractShiftPeriods(
+        schedules.shiftTable,
+        saved.startDate!,
+        saved.endDate!,
+        settings,
+      );
+
+      final dailyEntries = service.extractDailyPeriods(
+        schedules.dailyTable,
+        offDays,
+      );
+
+      service.calculateShiftOvertime(shiftEntries, settings);
+      service.calculateDailyOvertime(dailyEntries, settings);
+
+      final reportId = await repo.storeReport(
+        rangeStart: saved.startDate!,
+        rangeEnd: saved.endDate!,
+        shiftEntries: shiftEntries,
+        dailyEntries: dailyEntries,
+        undetectedList: schedules.undetectedList,
+      );
+
+      ref.invalidate(reportsProvider);
+      state = const ReportGenerateState();
+      return reportId;
+    } on GenerationException catch (e) {
+      state = ReportGenerateState(
+        files: saved.files,
+        startDate: saved.startDate,
+        endDate: saved.endDate,
+        dateError: saved.dateError,
+        generationError: e.arabicMessage,
+      );
+      return null;
+    } catch (_) {
+      state = ReportGenerateState(
+        files: saved.files,
+        startDate: saved.startDate,
+        endDate: saved.endDate,
+        dateError: saved.dateError,
+        generationError: 'حدث خطأ غير متوقع أثناء توليد التقرير',
+      );
+      return null;
+    }
+  }
 }
 
 String? _validateDates(DateTime? start, DateTime? end, int maxRange) {

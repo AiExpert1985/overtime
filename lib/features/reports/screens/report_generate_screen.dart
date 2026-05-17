@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../settings/providers/settings_provider.dart';
 import '../domain/picked_file.dart';
@@ -19,30 +20,55 @@ class ReportGenerateScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('توليد تقرير')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 700),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildFileCard(context, ref, state),
-                const SizedBox(height: 24),
-                _buildDateSection(context, ref, state, maxRange),
-                const SizedBox(height: 32),
-                FilledButton(
-                  onPressed: state.isGenerateEnabled ? () {} : null,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text('توليد التقرير',
-                      style: TextStyle(fontSize: 16)),
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 700),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (state.generationError != null)
+                      _ErrorBanner(
+                        message: state.generationError!,
+                        onDismiss: () => ref
+                            .read(reportGenerateProvider.notifier)
+                            .dismissError(),
+                      ),
+                    _buildFileCard(context, ref, state),
+                    const SizedBox(height: 24),
+                    _buildDateSection(context, ref, state, maxRange),
+                    const SizedBox(height: 32),
+                    FilledButton(
+                      onPressed:
+                          state.isGenerateEnabled && !state.isGenerating
+                              ? () => _generate(context, ref)
+                              : null,
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: state.isGenerating
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text('توليد التقرير',
+                              style: TextStyle(fontSize: 16)),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
+          if (state.isGenerating)
+            const ModalBarrier(dismissible: false, color: Colors.transparent),
+        ],
       ),
     );
   }
@@ -85,7 +111,8 @@ class ReportGenerateScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               OutlinedButton.icon(
-                onPressed: () => _pickFiles(ref),
+                onPressed:
+                    state.isGenerating ? null : () => _pickFiles(ref),
                 icon: const Icon(Icons.add),
                 label: const Text('إضافة ملفات'),
               ),
@@ -94,13 +121,16 @@ class ReportGenerateScreen extends ConsumerWidget {
               ...state.files.map(
                 (file) => _FileRow(
                   file: file,
-                  onDelete: () => notifier.removeFile(file.path),
+                  onDelete: state.isGenerating
+                      ? null
+                      : () => notifier.removeFile(file.path),
                 ),
               ),
               if (state.files.length < 10) ...[
                 const SizedBox(height: 4),
                 TextButton.icon(
-                  onPressed: () => _pickFiles(ref),
+                  onPressed:
+                      state.isGenerating ? null : () => _pickFiles(ref),
                   icon: const Icon(Icons.add),
                   label: const Text('إضافة المزيد من الملفات'),
                 ),
@@ -137,6 +167,7 @@ class ReportGenerateScreen extends ConsumerWidget {
               child: _DateField(
                 label: 'من',
                 date: state.startDate,
+                enabled: !state.isGenerating,
                 onTap: () => _pickStartDate(context, ref, maxRange),
               ),
             ),
@@ -145,6 +176,7 @@ class ReportGenerateScreen extends ConsumerWidget {
               child: _DateField(
                 label: 'إلى',
                 date: state.endDate,
+                enabled: !state.isGenerating,
                 onTap: () => _pickEndDate(context, ref, maxRange),
               ),
             ),
@@ -162,6 +194,13 @@ class ReportGenerateScreen extends ConsumerWidget {
         ],
       ],
     );
+  }
+
+  Future<void> _generate(BuildContext context, WidgetRef ref) async {
+    final id = await ref.read(reportGenerateProvider.notifier).generate();
+    if (id != null && context.mounted) {
+      context.goNamed('report', pathParameters: {'reportId': '$id'});
+    }
   }
 
   Future<void> _pickFiles(WidgetRef ref) async {
@@ -224,11 +263,56 @@ class ReportGenerateScreen extends ConsumerWidget {
   }
 }
 
+class _ErrorBanner extends StatelessWidget {
+  const _ErrorBanner({required this.message, required this.onDismiss});
+
+  final String message;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Material(
+        color: Theme.of(context).colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(
+                Icons.error_outline,
+                color: Theme.of(context).colorScheme.onErrorContainer,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  message,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onErrorContainer,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: Icon(
+                  Icons.close,
+                  color: Theme.of(context).colorScheme.onErrorContainer,
+                ),
+                onPressed: onDismiss,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _FileRow extends StatelessWidget {
   const _FileRow({required this.file, required this.onDelete});
 
   final PickedFile file;
-  final VoidCallback onDelete;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -282,11 +366,13 @@ class _DateField extends StatelessWidget {
     required this.label,
     required this.date,
     required this.onTap,
+    this.enabled = true,
   });
 
   final String label;
   final DateTime? date;
   final VoidCallback onTap;
+  final bool enabled;
 
   String _format(DateTime d) =>
       '${d.year}/${d.month.toString().padLeft(2, '0')}/${d.day.toString().padLeft(2, '0')}';
@@ -294,7 +380,7 @@ class _DateField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       borderRadius: BorderRadius.circular(4),
       child: InputDecorator(
         decoration: InputDecoration(

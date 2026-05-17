@@ -146,3 +146,9 @@ The following tasks were agreed during discovery and must be implemented in orde
 **Task:** Implemented Stage 9 of the report generation pipeline — daily overtime calculator. Each daily period is validated and enriched with its overtime result. Regular-day validation requires at least two timestamps and the first stamp within the configured delay allowance; overtime is the time worked beyond the derived end-of-day, capped at the daily maximum. Off-day validation requires only two timestamps; overtime is the full attendance span, capped at the same maximum. Both failure cases produce Arabic notes per spec. The daily employee entry model was extended with a total overtime field set by this stage, mirroring the Stage 8 shift pattern, so Stage 10 storage can read it directly. A stale sentence in `overtime_calculation_daily.md` ("computed live at display time — never stored") contradicts the final design; `data_shared_models.md` is authoritative — total is computed at generation time and stored.
 
 ---
+
+## 20260517-0400 | Generation Pipeline — Stage 10: Storage & Wire Generate Button | TASK
+
+**Task:** Implemented Stage 10 — the final pipeline stage. All three result sets (shift employees with period details, daily employees with period details, undetected employees) are persisted to SQLite in a single atomic transaction. Timestamps and zone data are serialized as JSON strings per the schema. The Generate button now runs the full 10-stage pipeline end to end; on success the generate screen is replaced by the newly created report screen, the reports list provider is invalidated, and the form state is cleared. On failure, all inputs are preserved and a dismissible Arabic error banner appears. The screen is fully non-interactive during generation via a modal barrier. The generation orchestration lives entirely in the provider notifier — no logic in the screen.
+
+---
