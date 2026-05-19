@@ -236,11 +236,21 @@ class GenerationService {
 
     for (final entry in dailyEntries.values) {
       var total = 0;
+      var regular = 0;
+      var off = 0;
       for (final period in entry.periods) {
         _enrichDailyPeriod(period, endTimeMinutes, deadlineMinutes, maxOvertimeMinutes);
-        total += period.overtimeMinutes!;
+        final mins = period.overtimeMinutes!;
+        total += mins;
+        if (period.dayType == 'regular') {
+          regular += mins;
+        } else {
+          off += mins;
+        }
       }
       entry.totalOvertimeMinutes = total;
+      entry.regularOvertimeMinutes = regular;
+      entry.offOvertimeMinutes = off;
     }
 
     return dailyEntries;

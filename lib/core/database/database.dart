@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
-const _schemaVersion = 2;
+const _schemaVersion = 3;
 
 final dbProvider = Provider<Database>((ref) {
   throw UnimplementedError('dbProvider must be overridden in main');
@@ -38,6 +38,14 @@ class AppDatabase {
               all_timestamps TEXT NOT NULL
             )
           ''');
+        }
+        if (oldVersion < 3) {
+          await db.execute(
+            'ALTER TABLE daily_employee_results ADD COLUMN regular_overtime_minutes INTEGER NOT NULL DEFAULT 0',
+          );
+          await db.execute(
+            'ALTER TABLE daily_employee_results ADD COLUMN off_overtime_minutes INTEGER NOT NULL DEFAULT 0',
+          );
         }
       },
     );
@@ -90,6 +98,8 @@ class AppDatabase {
         employee_name TEXT NOT NULL,
         department TEXT NOT NULL,
         total_overtime_minutes INTEGER NOT NULL,
+        regular_overtime_minutes INTEGER NOT NULL,
+        off_overtime_minutes INTEGER NOT NULL,
         is_included INTEGER NOT NULL DEFAULT 1
       )
     ''');

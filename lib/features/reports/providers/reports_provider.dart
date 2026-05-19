@@ -76,11 +76,19 @@ class ReportState {
 
   int get totalShift => shiftRows.length;
   int get includedShift => shiftRows.where((r) => r.isIncluded).length;
+  // All employees regardless of is_included (gross total)
+  int get totalShiftOvertimeAllMinutes =>
+      shiftRows.fold(0, (s, r) => s + r.overtimeMinutes);
+  // Included employees only (deserved total)
   int get totalShiftOvertimeMinutes =>
       shiftRows.where((r) => r.isIncluded).fold(0, (s, r) => s + r.overtimeMinutes);
 
   int get totalDaily => dailyRows.length;
   int get includedDaily => dailyRows.where((r) => r.isIncluded).length;
+  // All employees regardless of is_included (gross total)
+  int get totalDailyOvertimeAllMinutes =>
+      dailyRows.fold(0, (s, r) => s + r.totalOvertimeMinutes);
+  // Included employees only (deserved total)
   int get totalDailyOvertimeMinutes =>
       dailyRows.where((r) => r.isIncluded).fold(0, (s, r) => s + r.totalOvertimeMinutes);
 

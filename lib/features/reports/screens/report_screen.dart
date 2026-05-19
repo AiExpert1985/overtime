@@ -96,16 +96,48 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
     );
   }
 
+  bool get _isExporting =>
+      _selectedTab == 0 ? _shiftExporting : _dailyExporting;
+
+  void _doExport(ReportState rs) {
+    if (_selectedTab == 0) {
+      _doExportShift(rs);
+    } else {
+      _doExportDaily(rs);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(reportProvider(widget.reportId));
     final rs = state.whenOrNull(data: (v) => v);
     final undetectedCount = rs?.totalUndetected ?? 0;
 
+    final appBarTitle = rs != null
+        ? 'تقرير الوقت الاضافي للفترة من ${_fmtDate(rs.report.rangeStart)} الى ${_fmtDate(rs.report.rangeEnd)}'
+        : 'التقرير';
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('التقرير'),
+        title: Text(appBarTitle),
         actions: [
+          // Export button — leftmost in RTL (last in actions list)
+          if (rs != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+              child: _isExporting
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : IconButton(
+                      icon: const Icon(Icons.download_rounded),
+                      tooltip: 'تصدير Excel',
+                      onPressed: () => _doExport(rs),
+                    ),
+            ),
+          // Undetected employees warning button
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
             child: Badge(
@@ -131,10 +163,19 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
         error: (e, _) => Center(child: Text('حدث خطأ أثناء التحميل: $e')),
         data: (rs) => Column(
           children: [
+            // Segment buttons — larger and more dominant
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: SegmentedButton<int>(
                 showSelectedIcon: false,
+                style: SegmentedButton.styleFrom(
+                  textStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 32, vertical: 14),
+                ),
                 segments: const [
                   ButtonSegment(value: 0, label: Text('مناوبة')),
                   ButtonSegment(value: 1, label: Text('صباحي')),
@@ -189,14 +230,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                 ],
               ),
             ),
-            _ReportFooter(
-              report: rs.report,
-              isExporting:
-                  _selectedTab == 0 ? _shiftExporting : _dailyExporting,
-              onExport: _selectedTab == 0
-                  ? () => _doExportShift(rs)
-                  : () => _doExportDaily(rs),
-            ),
+            _ReportFooter(report: rs.report),
           ],
         ),
       ),
@@ -259,52 +293,32 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// Report footer (generation info + export)
+// Report footer — generation date only
 // ---------------------------------------------------------------------------
 
 class _ReportFooter extends StatelessWidget {
-  const _ReportFooter({
-    required this.report,
-    required this.isExporting,
-    required this.onExport,
-  });
+  const _ReportFooter({required this.report});
 
   final Report report;
-  final bool isExporting;
-  final VoidCallback onExport;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      color: theme.colorScheme.surfaceContainerHighest,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        children: [
-          Text(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Divider(height: 1, thickness: 1),
+        Container(
+          width: double.infinity,
+          color: theme.colorScheme.surfaceContainerHighest,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
             'تاريخ التوليد: ${_fmtDateTime(report.generationDatetime)}',
             style: theme.textTheme.bodySmall,
+            textAlign: TextAlign.center,
           ),
-          const SizedBox(width: 16),
-          Text(
-            'النطاق: ${_fmtDate(report.rangeStart)} — ${_fmtDate(report.rangeEnd)}',
-            style: theme.textTheme.bodySmall,
-          ),
-          const Spacer(),
-          isExporting
-              ? const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : TextButton.icon(
-                  onPressed: onExport,
-                  icon: const Icon(Icons.download, size: 18),
-                  label: const Text('تصدير Excel'),
-                ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -349,11 +363,21 @@ class _ShiftTab extends StatelessWidget {
       children: [
         _SummaryBar(children: [
           _SummaryCard(
-              label: 'إجمالي الموظفين', value: '${state.totalShift}'),
-          _SummaryCard(label: 'المحتسبون', value: '${state.includedShift}'),
+            label: 'إجمالي موظفي المناوبة',
+            value: '${state.totalShift}',
+          ),
           _SummaryCard(
-              label: 'الساعات الإضافية',
-              value: _fmt(state.totalShiftOvertimeMinutes, roundingMode)),
+            label: 'عدد الموظفين المشمولين',
+            value: '${state.includedShift}',
+          ),
+          _SummaryCard(
+            label: 'الوقت الاضافي الكلي للمناوبة',
+            value: _fmt(state.totalShiftOvertimeAllMinutes, roundingMode),
+          ),
+          _SummaryCard(
+            label: 'الوقت الاضافي المحتسب للمناوبة',
+            value: _fmt(state.totalShiftOvertimeMinutes, roundingMode),
+          ),
         ]),
         _InlineFilterHeader(
           overtimeLabel: 'ساعات إضافية',
@@ -369,6 +393,7 @@ class _ShiftTab extends StatelessWidget {
           onNoOvertimeChanged: onNoOvertimeChanged,
           onShowIncludedChanged: onShowIncludedChanged,
           onShowExcludedChanged: onShowExcludedChanged,
+          isDaily: false,
         ),
         Expanded(
           child: rows.isEmpty
@@ -432,14 +457,24 @@ class _DailyTab extends StatelessWidget {
       children: [
         _SummaryBar(children: [
           _SummaryCard(
-              label: 'إجمالي الموظفين', value: '${state.totalDaily}'),
-          _SummaryCard(label: 'المحتسبون', value: '${state.includedDaily}'),
+            label: 'إجمالي موظفي الدوام الصباحي',
+            value: '${state.totalDaily}',
+          ),
           _SummaryCard(
-              label: 'الساعات الإضافية',
-              value: _fmt(state.totalDailyOvertimeMinutes, roundingMode)),
+            label: 'عدد الموظفين المشمولين',
+            value: '${state.includedDaily}',
+          ),
+          _SummaryCard(
+            label: 'الوقت الاضافي الكلي للدوام الصباحي',
+            value: _fmt(state.totalDailyOvertimeAllMinutes, roundingMode),
+          ),
+          _SummaryCard(
+            label: 'الوقت الاضافي المحتسب للدوام الصباحي',
+            value: _fmt(state.totalDailyOvertimeMinutes, roundingMode),
+          ),
         ]),
         _InlineFilterHeader(
-          overtimeLabel: 'المجموع',
+          overtimeLabel: 'كلي',
           nameController: nameController,
           deptController: deptController,
           onNameSearch: onSearch,
@@ -452,6 +487,7 @@ class _DailyTab extends StatelessWidget {
           onNoOvertimeChanged: onNoOvertimeChanged,
           onShowIncludedChanged: onShowIncludedChanged,
           onShowExcludedChanged: onShowExcludedChanged,
+          isDaily: true,
         ),
         Expanded(
           child: rows.isEmpty
@@ -695,6 +731,7 @@ class _InlineFilterHeader extends StatelessWidget {
     required this.onNoOvertimeChanged,
     required this.onShowIncludedChanged,
     required this.onShowExcludedChanged,
+    required this.isDaily,
   });
 
   final String overtimeLabel;
@@ -710,6 +747,8 @@ class _InlineFilterHeader extends StatelessWidget {
   final void Function(bool) onNoOvertimeChanged;
   final void Function(bool) onShowIncludedChanged;
   final void Function(bool) onShowExcludedChanged;
+  // When true, renders 3 overtime sub-columns (دوام / عطلة / كلي)
+  final bool isDaily;
 
   @override
   Widget build(BuildContext context) {
@@ -717,8 +756,15 @@ class _InlineFilterHeader extends StatelessWidget {
     final labelStyle =
         theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.bold);
 
+    if (isDaily) {
+      return _buildDailyHeader(context, labelStyle);
+    }
+    return _buildShiftHeader(context, labelStyle);
+  }
+
+  Widget _buildShiftHeader(BuildContext context, TextStyle? labelStyle) {
     return Container(
-      color: theme.colorScheme.surfaceContainerHighest,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -759,6 +805,100 @@ class _InlineFilterHeader extends StatelessWidget {
                   ),
                 ),
               ),
+              Expanded(
+                flex: 2,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _CheckRow(
+                      label: 'لديه اضافي',
+                      value: hasOvertime,
+                      onChanged: onHasOvertimeChanged,
+                    ),
+                    _CheckRow(
+                      label: 'بدون اضافي',
+                      value: noOvertime,
+                      onChanged: onNoOvertimeChanged,
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _CheckRow(
+                      label: 'مشمول',
+                      value: showIncluded,
+                      onChanged: onShowIncludedChanged,
+                    ),
+                    _CheckRow(
+                      label: 'غير مشمول',
+                      value: showExcluded,
+                      onChanged: onShowExcludedChanged,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDailyHeader(BuildContext context, TextStyle? labelStyle) {
+    return Container(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(flex: 3, child: Text('اسم الموظف', style: labelStyle)),
+              Expanded(flex: 2, child: Text('القسم', style: labelStyle)),
+              Expanded(flex: 2, child: Text('دوام', style: labelStyle)),
+              Expanded(flex: 2, child: Text('عطلة', style: labelStyle)),
+              Expanded(flex: 2, child: Text('كلي', style: labelStyle)),
+              Expanded(
+                flex: 2,
+                child: Text('المشمولون بالوقت الإضافي', style: labelStyle),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                flex: 3,
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.only(end: 8),
+                  child: _FilterTextField(
+                    controller: nameController,
+                    onChanged: onNameSearch,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.only(end: 8),
+                  child: _FilterTextField(
+                    controller: deptController,
+                    onChanged: onDeptSearch,
+                  ),
+                ),
+              ),
+              // دوام and عطلة columns have no filter controls — spacers only
+              const Expanded(flex: 2, child: SizedBox()),
+              const Expanded(flex: 2, child: SizedBox()),
+              // كلي — overtime filter checkboxes operate on total
               Expanded(
                 flex: 2,
                 child: Column(
@@ -982,6 +1122,14 @@ class _DailyRow extends StatelessWidget {
           children: [
             Expanded(flex: 3, child: Text(row.employeeName)),
             Expanded(flex: 2, child: Text(row.department)),
+            Expanded(
+              flex: 2,
+              child: Text(_fmt(row.regularOvertimeMinutes, roundingMode)),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(_fmt(row.offOvertimeMinutes, roundingMode)),
+            ),
             Expanded(
               flex: 2,
               child: Text(_fmt(row.totalOvertimeMinutes, roundingMode)),

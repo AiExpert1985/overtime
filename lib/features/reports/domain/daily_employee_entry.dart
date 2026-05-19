@@ -14,4 +14,6 @@ class DailyEmployeeEntry {
 
   // Set by Stage 9 calculator
   int? totalOvertimeMinutes;
+  int? regularOvertimeMinutes;
+  int? offOvertimeMinutes;
 }

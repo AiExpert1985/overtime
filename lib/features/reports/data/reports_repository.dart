@@ -87,6 +87,8 @@ class ReportsRepository {
           'employee_name': entry.name,
           'department': entry.department,
           'total_overtime_minutes': entry.totalOvertimeMinutes!,
+          'regular_overtime_minutes': entry.regularOvertimeMinutes!,
+          'off_overtime_minutes': entry.offOvertimeMinutes!,
           'is_included': 0,
         });
 
@@ -160,7 +162,15 @@ class ReportsRepository {
   Future<List<DailyEmployeeRow>> loadDailyResults(int reportId) async {
     final rows = await _db.query(
       'daily_employee_results',
-      columns: ['id', 'employee_name', 'department', 'total_overtime_minutes', 'is_included'],
+      columns: [
+        'id',
+        'employee_name',
+        'department',
+        'total_overtime_minutes',
+        'regular_overtime_minutes',
+        'off_overtime_minutes',
+        'is_included',
+      ],
       where: 'report_id = ?',
       whereArgs: [reportId],
     );
