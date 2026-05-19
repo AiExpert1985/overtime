@@ -48,7 +48,7 @@ class ReportsRepository {
           'employee_name': entry.name,
           'department': entry.department,
           'overtime_hours': entry.overtimeMinutes!,
-          'is_included': 1,
+          'is_included': 0,
         });
 
         for (final period in entry.periods) {
@@ -87,7 +87,7 @@ class ReportsRepository {
           'employee_name': entry.name,
           'department': entry.department,
           'total_overtime_minutes': entry.totalOvertimeMinutes!,
-          'is_included': 1,
+          'is_included': 0,
         });
 
         for (final period in entry.periods) {

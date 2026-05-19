@@ -52,7 +52,9 @@ class ReportScreen extends ConsumerStatefulWidget {
 class _ReportScreenState extends ConsumerState<ReportScreen> {
   int _selectedTab = 0;
   late final TextEditingController _shiftSearch;
+  late final TextEditingController _shiftDeptSearch;
   late final TextEditingController _dailySearch;
+  late final TextEditingController _dailyDeptSearch;
   bool _shiftExporting = false;
   bool _dailyExporting = false;
 
@@ -60,13 +62,17 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
   void initState() {
     super.initState();
     _shiftSearch = TextEditingController();
+    _shiftDeptSearch = TextEditingController();
     _dailySearch = TextEditingController();
+    _dailyDeptSearch = TextEditingController();
   }
 
   @override
   void dispose() {
     _shiftSearch.dispose();
+    _shiftDeptSearch.dispose();
     _dailySearch.dispose();
+    _dailyDeptSearch.dispose();
     super.dispose();
   }
 
@@ -125,7 +131,6 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
         error: (e, _) => Center(child: Text('حدث خطأ أثناء التحميل: $e')),
         data: (rs) => Column(
           children: [
-            _ReportHeader(report: rs.report),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: SegmentedButton<int>(
@@ -146,33 +151,51 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                   _ShiftTab(
                     state: rs,
                     roundingMode: _roundingMode,
-                    isExporting: _shiftExporting,
-                    searchController: _shiftSearch,
+                    nameController: _shiftSearch,
+                    deptController: _shiftDeptSearch,
                     onSearch: (q) => _notifier.setShiftSearch(q),
-                    onFilter: (v) => _notifier.setShiftFilter(v),
-                    onOvertimeFilter: (v) =>
-                        _notifier.setShiftOvertimeFilter(v),
+                    onDeptSearch: (q) => _notifier.setShiftDeptSearch(q),
+                    onHasOvertimeChanged: (v) =>
+                        _notifier.setShiftHasOvertime(v),
+                    onNoOvertimeChanged: (v) =>
+                        _notifier.setShiftNoOvertime(v),
+                    onShowIncludedChanged: (v) =>
+                        _notifier.setShiftShowIncluded(v),
+                    onShowExcludedChanged: (v) =>
+                        _notifier.setShiftShowExcluded(v),
                     onToggle: (id, v) => _notifier.toggleShiftIncluded(id, v),
                     onRowTap: (id) => context
                         .push('/report/${widget.reportId}/detail/shift/$id'),
-                    onExport: () => _doExportShift(rs),
                   ),
                   _DailyTab(
                     state: rs,
                     roundingMode: _roundingMode,
-                    isExporting: _dailyExporting,
-                    searchController: _dailySearch,
+                    nameController: _dailySearch,
+                    deptController: _dailyDeptSearch,
                     onSearch: (q) => _notifier.setDailySearch(q),
-                    onFilter: (v) => _notifier.setDailyFilter(v),
-                    onOvertimeFilter: (v) =>
-                        _notifier.setDailyOvertimeFilter(v),
+                    onDeptSearch: (q) => _notifier.setDailyDeptSearch(q),
+                    onHasOvertimeChanged: (v) =>
+                        _notifier.setDailyHasOvertime(v),
+                    onNoOvertimeChanged: (v) =>
+                        _notifier.setDailyNoOvertime(v),
+                    onShowIncludedChanged: (v) =>
+                        _notifier.setDailyShowIncluded(v),
+                    onShowExcludedChanged: (v) =>
+                        _notifier.setDailyShowExcluded(v),
                     onToggle: (id, v) => _notifier.toggleDailyIncluded(id, v),
                     onRowTap: (id) => context
                         .push('/report/${widget.reportId}/detail/daily/$id'),
-                    onExport: () => _doExportDaily(rs),
                   ),
                 ],
               ),
+            ),
+            _ReportFooter(
+              report: rs.report,
+              isExporting:
+                  _selectedTab == 0 ? _shiftExporting : _dailyExporting,
+              onExport: _selectedTab == 0
+                  ? () => _doExportShift(rs)
+                  : () => _doExportDaily(rs),
             ),
           ],
         ),
@@ -236,13 +259,19 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// Report header
+// Report footer (generation info + export)
 // ---------------------------------------------------------------------------
 
-class _ReportHeader extends StatelessWidget {
-  const _ReportHeader({required this.report});
+class _ReportFooter extends StatelessWidget {
+  const _ReportFooter({
+    required this.report,
+    required this.isExporting,
+    required this.onExport,
+  });
 
   final Report report;
+  final bool isExporting;
+  final VoidCallback onExport;
 
   @override
   Widget build(BuildContext context) {
@@ -250,18 +279,30 @@ class _ReportHeader extends StatelessWidget {
     return Container(
       width: double.infinity,
       color: theme.colorScheme.surfaceContainerHighest,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             'تاريخ التوليد: ${_fmtDateTime(report.generationDatetime)}',
             style: theme.textTheme.bodySmall,
           ),
+          const SizedBox(width: 16),
           Text(
             'النطاق: ${_fmtDate(report.rangeStart)} — ${_fmtDate(report.rangeEnd)}',
             style: theme.textTheme.bodySmall,
           ),
+          const Spacer(),
+          isExporting
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : TextButton.icon(
+                  onPressed: onExport,
+                  icon: const Icon(Icons.download, size: 18),
+                  label: const Text('تصدير Excel'),
+                ),
         ],
       ),
     );
@@ -276,26 +317,30 @@ class _ShiftTab extends StatelessWidget {
   const _ShiftTab({
     required this.state,
     required this.roundingMode,
-    required this.isExporting,
-    required this.searchController,
+    required this.nameController,
+    required this.deptController,
     required this.onSearch,
-    required this.onFilter,
-    required this.onOvertimeFilter,
+    required this.onDeptSearch,
+    required this.onHasOvertimeChanged,
+    required this.onNoOvertimeChanged,
+    required this.onShowIncludedChanged,
+    required this.onShowExcludedChanged,
     required this.onToggle,
     required this.onRowTap,
-    required this.onExport,
   });
 
   final ReportState state;
   final String roundingMode;
-  final bool isExporting;
-  final TextEditingController searchController;
+  final TextEditingController nameController;
+  final TextEditingController deptController;
   final void Function(String) onSearch;
-  final void Function(bool?) onFilter;
-  final void Function(bool?) onOvertimeFilter;
+  final void Function(String) onDeptSearch;
+  final void Function(bool) onHasOvertimeChanged;
+  final void Function(bool) onNoOvertimeChanged;
+  final void Function(bool) onShowIncludedChanged;
+  final void Function(bool) onShowExcludedChanged;
   final void Function(int, bool) onToggle;
   final void Function(int) onRowTap;
-  final VoidCallback onExport;
 
   @override
   Widget build(BuildContext context) {
@@ -310,24 +355,25 @@ class _ShiftTab extends StatelessWidget {
               label: 'الساعات الإضافية',
               value: _fmt(state.totalShiftOvertimeMinutes, roundingMode)),
         ]),
-        _FilterBar(
+        _InlineFilterHeader(
+          overtimeLabel: 'ساعات إضافية',
+          nameController: nameController,
+          deptController: deptController,
+          onNameSearch: onSearch,
+          onDeptSearch: onDeptSearch,
+          hasOvertime: state.shiftHasOvertime,
+          noOvertime: state.shiftNoOvertime,
           showIncluded: state.shiftShowIncluded,
-          overtimeOnly: state.shiftOvertimeOnly,
-          searchController: searchController,
-          onSearch: onSearch,
-          onFilter: onFilter,
-          onOvertimeFilter: onOvertimeFilter,
-          isExporting: isExporting,
-          onExport: onExport,
-        ),
-        const _TableHeader(
-          columns: ['اسم الموظف', 'القسم', 'ساعات إضافية', 'محتسب'],
-          flexes: [3, 2, 2, 1],
+          showExcluded: state.shiftShowExcluded,
+          onHasOvertimeChanged: onHasOvertimeChanged,
+          onNoOvertimeChanged: onNoOvertimeChanged,
+          onShowIncludedChanged: onShowIncludedChanged,
+          onShowExcludedChanged: onShowExcludedChanged,
         ),
         Expanded(
           child: rows.isEmpty
               ? _EmptyState(
-                  message: state.shiftSearch.isEmpty
+                  message: state.shiftRows.isEmpty
                       ? 'لا يوجد موظفون بنظام المناوبة'
                       : 'لا توجد نتائج مطابقة',
                 )
@@ -354,26 +400,30 @@ class _DailyTab extends StatelessWidget {
   const _DailyTab({
     required this.state,
     required this.roundingMode,
-    required this.isExporting,
-    required this.searchController,
+    required this.nameController,
+    required this.deptController,
     required this.onSearch,
-    required this.onFilter,
-    required this.onOvertimeFilter,
+    required this.onDeptSearch,
+    required this.onHasOvertimeChanged,
+    required this.onNoOvertimeChanged,
+    required this.onShowIncludedChanged,
+    required this.onShowExcludedChanged,
     required this.onToggle,
     required this.onRowTap,
-    required this.onExport,
   });
 
   final ReportState state;
   final String roundingMode;
-  final bool isExporting;
-  final TextEditingController searchController;
+  final TextEditingController nameController;
+  final TextEditingController deptController;
   final void Function(String) onSearch;
-  final void Function(bool?) onFilter;
-  final void Function(bool?) onOvertimeFilter;
+  final void Function(String) onDeptSearch;
+  final void Function(bool) onHasOvertimeChanged;
+  final void Function(bool) onNoOvertimeChanged;
+  final void Function(bool) onShowIncludedChanged;
+  final void Function(bool) onShowExcludedChanged;
   final void Function(int, bool) onToggle;
   final void Function(int) onRowTap;
-  final VoidCallback onExport;
 
   @override
   Widget build(BuildContext context) {
@@ -388,24 +438,25 @@ class _DailyTab extends StatelessWidget {
               label: 'الساعات الإضافية',
               value: _fmt(state.totalDailyOvertimeMinutes, roundingMode)),
         ]),
-        _FilterBar(
+        _InlineFilterHeader(
+          overtimeLabel: 'المجموع',
+          nameController: nameController,
+          deptController: deptController,
+          onNameSearch: onSearch,
+          onDeptSearch: onDeptSearch,
+          hasOvertime: state.dailyHasOvertime,
+          noOvertime: state.dailyNoOvertime,
           showIncluded: state.dailyShowIncluded,
-          overtimeOnly: state.dailyOvertimeOnly,
-          searchController: searchController,
-          onSearch: onSearch,
-          onFilter: onFilter,
-          onOvertimeFilter: onOvertimeFilter,
-          isExporting: isExporting,
-          onExport: onExport,
-        ),
-        const _TableHeader(
-          columns: ['اسم الموظف', 'القسم', 'المجموع', 'محتسب'],
-          flexes: [3, 2, 2, 1],
+          showExcluded: state.dailyShowExcluded,
+          onHasOvertimeChanged: onHasOvertimeChanged,
+          onNoOvertimeChanged: onNoOvertimeChanged,
+          onShowIncludedChanged: onShowIncludedChanged,
+          onShowExcludedChanged: onShowExcludedChanged,
         ),
         Expanded(
           child: rows.isEmpty
               ? _EmptyState(
-                  message: state.dailySearch.isEmpty
+                  message: state.dailyRows.isEmpty
                       ? 'لا يوجد موظفون بنظام الدوام الصباحي'
                       : 'لا توجد نتائج مطابقة',
                 )
@@ -599,114 +650,7 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-class _FilterBar extends StatelessWidget {
-  const _FilterBar({
-    required this.showIncluded,
-    required this.overtimeOnly,
-    required this.searchController,
-    required this.onSearch,
-    required this.onFilter,
-    required this.onOvertimeFilter,
-    required this.isExporting,
-    required this.onExport,
-  });
-
-  final bool? showIncluded;
-  final bool? overtimeOnly;
-  final TextEditingController searchController;
-  final void Function(String) onSearch;
-  final void Function(bool?) onFilter;
-  final void Function(bool?) onOvertimeFilter;
-  final bool isExporting;
-  final VoidCallback onExport;
-
-  static const _dropdownDecoration = InputDecoration(
-    isDense: true,
-    border: OutlineInputBorder(),
-    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-  );
-
-  Widget _dropdown<T>({
-    required T value,
-    required List<DropdownMenuItem<T>> items,
-    required void Function(T?) onChanged,
-    required double width,
-  }) {
-    return SizedBox(
-      width: width,
-      child: InputDecorator(
-        decoration: _dropdownDecoration,
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<T>(
-            value: value,
-            isDense: true,
-            items: items,
-            onChanged: onChanged,
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-      child: Row(
-        children: [
-          _dropdown<bool?>(
-            value: showIncluded,
-            width: 140,
-            items: const [
-              DropdownMenuItem(value: null, child: Text('الكل')),
-              DropdownMenuItem(value: true, child: Text('محتسبون')),
-              DropdownMenuItem(value: false, child: Text('مستثنون')),
-            ],
-            onChanged: onFilter,
-          ),
-          const SizedBox(width: 8),
-          _dropdown<bool?>(
-            value: overtimeOnly,
-            width: 178,
-            items: const [
-              DropdownMenuItem(value: null, child: Text('الكل')),
-              DropdownMenuItem(value: true, child: Text('بوقت إضافي')),
-              DropdownMenuItem(value: false, child: Text('بدون وقت إضافي')),
-            ],
-            onChanged: onOvertimeFilter,
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 220,
-            child: TextField(
-              controller: searchController,
-              decoration: const InputDecoration(
-                hintText: 'بحث باسم الموظف',
-                prefixIcon: Icon(Icons.search),
-                isDense: true,
-                border: OutlineInputBorder(),
-              ),
-              onChanged: onSearch,
-            ),
-          ),
-          const SizedBox(width: 8),
-          isExporting
-              ? const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : TextButton.icon(
-                  onPressed: onExport,
-                  icon: const Icon(Icons.download, size: 18),
-                  label: const Text('تصدير Excel'),
-                ),
-        ],
-      ),
-    );
-  }
-}
-
+// Kept for the undetected dialog.
 class _TableHeader extends StatelessWidget {
   const _TableHeader({required this.columns, required this.flexes});
 
@@ -732,6 +676,192 @@ class _TableHeader extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+class _InlineFilterHeader extends StatelessWidget {
+  const _InlineFilterHeader({
+    required this.overtimeLabel,
+    required this.nameController,
+    required this.deptController,
+    required this.onNameSearch,
+    required this.onDeptSearch,
+    required this.hasOvertime,
+    required this.noOvertime,
+    required this.showIncluded,
+    required this.showExcluded,
+    required this.onHasOvertimeChanged,
+    required this.onNoOvertimeChanged,
+    required this.onShowIncludedChanged,
+    required this.onShowExcludedChanged,
+  });
+
+  final String overtimeLabel;
+  final TextEditingController nameController;
+  final TextEditingController deptController;
+  final void Function(String) onNameSearch;
+  final void Function(String) onDeptSearch;
+  final bool hasOvertime;
+  final bool noOvertime;
+  final bool showIncluded;
+  final bool showExcluded;
+  final void Function(bool) onHasOvertimeChanged;
+  final void Function(bool) onNoOvertimeChanged;
+  final void Function(bool) onShowIncludedChanged;
+  final void Function(bool) onShowExcludedChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final labelStyle =
+        theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.bold);
+
+    return Container(
+      color: theme.colorScheme.surfaceContainerHighest,
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(flex: 3, child: Text('اسم الموظف', style: labelStyle)),
+              Expanded(flex: 2, child: Text('القسم', style: labelStyle)),
+              Expanded(flex: 2, child: Text(overtimeLabel, style: labelStyle)),
+              Expanded(
+                flex: 2,
+                child: Text('المشمولون بالوقت الإضافي', style: labelStyle),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                flex: 3,
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.only(end: 8),
+                  child: _FilterTextField(
+                    controller: nameController,
+                    onChanged: onNameSearch,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.only(end: 8),
+                  child: _FilterTextField(
+                    controller: deptController,
+                    onChanged: onDeptSearch,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _CheckRow(
+                      label: 'لديه اضافي',
+                      value: hasOvertime,
+                      onChanged: onHasOvertimeChanged,
+                    ),
+                    _CheckRow(
+                      label: 'بدون اضافي',
+                      value: noOvertime,
+                      onChanged: onNoOvertimeChanged,
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _CheckRow(
+                      label: 'مشمول',
+                      value: showIncluded,
+                      onChanged: onShowIncludedChanged,
+                    ),
+                    _CheckRow(
+                      label: 'غير مشمول',
+                      value: showExcluded,
+                      onChanged: onShowExcludedChanged,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterTextField extends StatelessWidget {
+  const _FilterTextField({required this.controller, required this.onChanged});
+
+  final TextEditingController controller;
+  final void Function(String) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 36,
+      child: TextField(
+        controller: controller,
+        decoration: const InputDecoration(
+          prefixIcon: Icon(Icons.search, size: 16),
+          isDense: true,
+          border: OutlineInputBorder(),
+          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        ),
+        style: const TextStyle(fontSize: 13),
+        onChanged: onChanged,
+      ),
+    );
+  }
+}
+
+class _CheckRow extends StatelessWidget {
+  const _CheckRow({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final bool value;
+  final void Function(bool) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 20,
+          height: 20,
+          child: Checkbox(
+            value: value,
+            onChanged: (v) => onChanged(v ?? value),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+        const SizedBox(width: 4),
+        GestureDetector(
+          onTap: () => onChanged(!value),
+          child: Text(label, style: Theme.of(context).textTheme.bodySmall),
+        ),
+      ],
     );
   }
 }
@@ -801,7 +931,7 @@ class _ShiftRow extends StatelessWidget {
               child: Text(_fmt(row.overtimeMinutes, roundingMode)),
             ),
             Expanded(
-              flex: 1,
+              flex: 2,
               child: Switch(
                 value: row.isIncluded,
                 onChanged: onToggle,
@@ -857,7 +987,7 @@ class _DailyRow extends StatelessWidget {
               child: Text(_fmt(row.totalOvertimeMinutes, roundingMode)),
             ),
             Expanded(
-              flex: 1,
+              flex: 2,
               child: Switch(
                 value: row.isIncluded,
                 onChanged: onToggle,

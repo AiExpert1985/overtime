@@ -192,3 +192,9 @@ The following tasks were agreed during discovery and must be implemented in orde
 **Task:** Redesigned the Report Screen UI. The three-tab bar was replaced with a two-segment button (مناوبة / صباحي) that looks and behaves like a toggle button. Undetected employees were moved out of the tab bar into a warning icon button in the AppBar with a badge showing the count; clicking opens a dismissable modal dialog with the same search-and-table content as before. Filter radio buttons were replaced with two dropdowns — inclusion (الكل / محتسبون / مستثنون) and overtime (الكل / بوقت إضافي / بدون وقت إضافي) — both defaulting to الكل. Filter state in the provider changed from non-nullable bool to nullable bool (null = show all) using a copyWith sentinel pattern. Employee rows are now color-coded: excluded rows get a light grey background, rows with overtime get a light amber background. The search field was narrowed with a clearer Arabic hint. The day type label "عادي" was renamed to "دوام" in both the detail screen and the Excel export.
 
 ---
+
+## 20260519-0300 | Report Screen Inline Filters | TASK
+
+**Task:** Moved all Report Screen filters inline under their corresponding table column headers, replacing the separate filter bar. Each column now carries its own filter control: employee name search (name-only), department search, an overtime checkbox pair (لديه اضافي / بدون اضافي), and an inclusion checkbox pair (مشمول / غير مشمول). Checkbox pair logic: both checked or both unchecked shows all; only one checked filters to that category. The last column was renamed to "المشمولون بالوقت الإضافي". The report info bar (generation date + date range) was moved to the bottom of the screen; the export button was consolidated into that footer at the far left, and is tab-aware. Employee name search is now name-only — department has its own separate field.
+
+---

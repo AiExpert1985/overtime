@@ -29,9 +29,6 @@ final reportsProvider =
 // Report screen state
 // ---------------------------------------------------------------------------
 
-// Sentinel used by copyWith to distinguish "set to null" from "not provided".
-const _absent = Object();
-
 class ReportState {
   const ReportState({
     required this.report,
@@ -41,10 +38,16 @@ class ReportState {
     this.shiftSearch = '',
     this.dailySearch = '',
     this.undetectedSearch = '',
-    this.shiftShowIncluded,
-    this.dailyShowIncluded,
-    this.shiftOvertimeOnly,
-    this.dailyOvertimeOnly,
+    this.shiftDeptSearch = '',
+    this.dailyDeptSearch = '',
+    this.shiftShowIncluded = true,
+    this.shiftShowExcluded = true,
+    this.dailyShowIncluded = true,
+    this.dailyShowExcluded = true,
+    this.shiftHasOvertime = true,
+    this.shiftNoOvertime = true,
+    this.dailyHasOvertime = true,
+    this.dailyNoOvertime = true,
   });
 
   final Report report;
@@ -54,14 +57,20 @@ class ReportState {
   final String shiftSearch;
   final String dailySearch;
   final String undetectedSearch;
+  final String shiftDeptSearch;
+  final String dailyDeptSearch;
 
-  // null = show all, true = included only, false = excluded only
-  final bool? shiftShowIncluded;
-  final bool? dailyShowIncluded;
+  // Paired booleans: both true or both false → show all;
+  // only one true → filter to that category.
+  final bool shiftShowIncluded;
+  final bool shiftShowExcluded;
+  final bool dailyShowIncluded;
+  final bool dailyShowExcluded;
 
-  // null = show all, true = with overtime only, false = without overtime only
-  final bool? shiftOvertimeOnly;
-  final bool? dailyOvertimeOnly;
+  final bool shiftHasOvertime;
+  final bool shiftNoOvertime;
+  final bool dailyHasOvertime;
+  final bool dailyNoOvertime;
 
   // --- summaries (included employees only) ---
 
@@ -80,43 +89,55 @@ class ReportState {
   // --- filtered + sorted views ---
 
   List<ShiftEmployeeRow> get visibleShiftRows {
-    var list = shiftShowIncluded == null
-        ? List<ShiftEmployeeRow>.from(shiftRows)
-        : shiftRows.where((r) => r.isIncluded == shiftShowIncluded).toList();
-    if (shiftOvertimeOnly == true) {
-      list = list.where((r) => r.overtimeMinutes > 0).toList();
-    } else if (shiftOvertimeOnly == false) {
-      list = list.where((r) => r.overtimeMinutes == 0).toList();
+    var list = List<ShiftEmployeeRow>.from(shiftRows);
+
+    if (shiftShowIncluded != shiftShowExcluded) {
+      list = list.where((r) => r.isIncluded == shiftShowIncluded).toList();
     }
-    if (shiftSearch.isNotEmpty) {
-      final q = shiftSearch.toLowerCase();
+
+    if (shiftHasOvertime != shiftNoOvertime) {
       list = list
-          .where((r) =>
-              r.employeeName.toLowerCase().contains(q) ||
-              r.department.toLowerCase().contains(q))
+          .where((r) => (r.overtimeMinutes > 0) == shiftHasOvertime)
           .toList();
     }
+
+    if (shiftSearch.isNotEmpty) {
+      final q = shiftSearch.toLowerCase();
+      list = list.where((r) => r.employeeName.toLowerCase().contains(q)).toList();
+    }
+
+    if (shiftDeptSearch.isNotEmpty) {
+      final q = shiftDeptSearch.toLowerCase();
+      list = list.where((r) => r.department.toLowerCase().contains(q)).toList();
+    }
+
     list.sort((a, b) => a.employeeName.compareTo(b.employeeName));
     return list;
   }
 
   List<DailyEmployeeRow> get visibleDailyRows {
-    var list = dailyShowIncluded == null
-        ? List<DailyEmployeeRow>.from(dailyRows)
-        : dailyRows.where((r) => r.isIncluded == dailyShowIncluded).toList();
-    if (dailyOvertimeOnly == true) {
-      list = list.where((r) => r.totalOvertimeMinutes > 0).toList();
-    } else if (dailyOvertimeOnly == false) {
-      list = list.where((r) => r.totalOvertimeMinutes == 0).toList();
+    var list = List<DailyEmployeeRow>.from(dailyRows);
+
+    if (dailyShowIncluded != dailyShowExcluded) {
+      list = list.where((r) => r.isIncluded == dailyShowIncluded).toList();
     }
-    if (dailySearch.isNotEmpty) {
-      final q = dailySearch.toLowerCase();
+
+    if (dailyHasOvertime != dailyNoOvertime) {
       list = list
-          .where((r) =>
-              r.employeeName.toLowerCase().contains(q) ||
-              r.department.toLowerCase().contains(q))
+          .where((r) => (r.totalOvertimeMinutes > 0) == dailyHasOvertime)
           .toList();
     }
+
+    if (dailySearch.isNotEmpty) {
+      final q = dailySearch.toLowerCase();
+      list = list.where((r) => r.employeeName.toLowerCase().contains(q)).toList();
+    }
+
+    if (dailyDeptSearch.isNotEmpty) {
+      final q = dailyDeptSearch.toLowerCase();
+      list = list.where((r) => r.department.toLowerCase().contains(q)).toList();
+    }
+
     list.sort((a, b) => a.employeeName.compareTo(b.employeeName));
     return list;
   }
@@ -141,11 +162,16 @@ class ReportState {
     String? shiftSearch,
     String? dailySearch,
     String? undetectedSearch,
-    // Object? + _absent sentinel lets callers explicitly pass null to clear a filter.
-    Object? shiftShowIncluded = _absent,
-    Object? dailyShowIncluded = _absent,
-    Object? shiftOvertimeOnly = _absent,
-    Object? dailyOvertimeOnly = _absent,
+    String? shiftDeptSearch,
+    String? dailyDeptSearch,
+    bool? shiftShowIncluded,
+    bool? shiftShowExcluded,
+    bool? dailyShowIncluded,
+    bool? dailyShowExcluded,
+    bool? shiftHasOvertime,
+    bool? shiftNoOvertime,
+    bool? dailyHasOvertime,
+    bool? dailyNoOvertime,
   }) =>
       ReportState(
         report: report,
@@ -155,18 +181,16 @@ class ReportState {
         shiftSearch: shiftSearch ?? this.shiftSearch,
         dailySearch: dailySearch ?? this.dailySearch,
         undetectedSearch: undetectedSearch ?? this.undetectedSearch,
-        shiftShowIncluded: identical(shiftShowIncluded, _absent)
-            ? this.shiftShowIncluded
-            : shiftShowIncluded as bool?,
-        dailyShowIncluded: identical(dailyShowIncluded, _absent)
-            ? this.dailyShowIncluded
-            : dailyShowIncluded as bool?,
-        shiftOvertimeOnly: identical(shiftOvertimeOnly, _absent)
-            ? this.shiftOvertimeOnly
-            : shiftOvertimeOnly as bool?,
-        dailyOvertimeOnly: identical(dailyOvertimeOnly, _absent)
-            ? this.dailyOvertimeOnly
-            : dailyOvertimeOnly as bool?,
+        shiftDeptSearch: shiftDeptSearch ?? this.shiftDeptSearch,
+        dailyDeptSearch: dailyDeptSearch ?? this.dailyDeptSearch,
+        shiftShowIncluded: shiftShowIncluded ?? this.shiftShowIncluded,
+        shiftShowExcluded: shiftShowExcluded ?? this.shiftShowExcluded,
+        dailyShowIncluded: dailyShowIncluded ?? this.dailyShowIncluded,
+        dailyShowExcluded: dailyShowExcluded ?? this.dailyShowExcluded,
+        shiftHasOvertime: shiftHasOvertime ?? this.shiftHasOvertime,
+        shiftNoOvertime: shiftNoOvertime ?? this.shiftNoOvertime,
+        dailyHasOvertime: dailyHasOvertime ?? this.dailyHasOvertime,
+        dailyNoOvertime: dailyNoOvertime ?? this.dailyNoOvertime,
       );
 }
 
@@ -237,28 +261,64 @@ class ReportNotifier extends AsyncNotifier<ReportState> {
     state = AsyncData(current.copyWith(undetectedSearch: q));
   }
 
-  void setShiftFilter(bool? showIncluded) {
+  void setShiftDeptSearch(String q) {
     final current = _current;
     if (current == null) return;
-    state = AsyncData(current.copyWith(shiftShowIncluded: showIncluded));
+    state = AsyncData(current.copyWith(shiftDeptSearch: q));
   }
 
-  void setDailyFilter(bool? showIncluded) {
+  void setDailyDeptSearch(String q) {
     final current = _current;
     if (current == null) return;
-    state = AsyncData(current.copyWith(dailyShowIncluded: showIncluded));
+    state = AsyncData(current.copyWith(dailyDeptSearch: q));
   }
 
-  void setShiftOvertimeFilter(bool? overtimeOnly) {
+  void setShiftShowIncluded(bool v) {
     final current = _current;
     if (current == null) return;
-    state = AsyncData(current.copyWith(shiftOvertimeOnly: overtimeOnly));
+    state = AsyncData(current.copyWith(shiftShowIncluded: v));
   }
 
-  void setDailyOvertimeFilter(bool? overtimeOnly) {
+  void setShiftShowExcluded(bool v) {
     final current = _current;
     if (current == null) return;
-    state = AsyncData(current.copyWith(dailyOvertimeOnly: overtimeOnly));
+    state = AsyncData(current.copyWith(shiftShowExcluded: v));
+  }
+
+  void setDailyShowIncluded(bool v) {
+    final current = _current;
+    if (current == null) return;
+    state = AsyncData(current.copyWith(dailyShowIncluded: v));
+  }
+
+  void setDailyShowExcluded(bool v) {
+    final current = _current;
+    if (current == null) return;
+    state = AsyncData(current.copyWith(dailyShowExcluded: v));
+  }
+
+  void setShiftHasOvertime(bool v) {
+    final current = _current;
+    if (current == null) return;
+    state = AsyncData(current.copyWith(shiftHasOvertime: v));
+  }
+
+  void setShiftNoOvertime(bool v) {
+    final current = _current;
+    if (current == null) return;
+    state = AsyncData(current.copyWith(shiftNoOvertime: v));
+  }
+
+  void setDailyHasOvertime(bool v) {
+    final current = _current;
+    if (current == null) return;
+    state = AsyncData(current.copyWith(dailyHasOvertime: v));
+  }
+
+  void setDailyNoOvertime(bool v) {
+    final current = _current;
+    if (current == null) return;
+    state = AsyncData(current.copyWith(dailyNoOvertime: v));
   }
 }
 
