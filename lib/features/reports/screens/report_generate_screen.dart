@@ -6,14 +6,63 @@ import 'package:go_router/go_router.dart';
 import '../../settings/providers/settings_provider.dart';
 import '../domain/picked_file.dart';
 import '../providers/report_generate_provider.dart';
+import '../widgets/generation_overlay.dart';
 
-class ReportGenerateScreen extends ConsumerWidget {
+class ReportGenerateScreen extends ConsumerStatefulWidget {
   const ReportGenerateScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ReportGenerateScreen> createState() =>
+      _ReportGenerateScreenState();
+}
+
+class _ReportGenerateScreenState extends ConsumerState<ReportGenerateScreen> {
+  static const _phases = [
+    GenerationPhase(label: 'إعداد قائمة الموظفين'),
+    GenerationPhase(label: 'جمع البصمات'),
+    GenerationPhase(label: 'تصنيف الموظفين'),
+    GenerationPhase(label: 'تحديد أيام العطل'),
+    GenerationPhase(label: 'احتساب الوقت الإضافي'),
+    GenerationPhase(label: 'تجهيز التقرير'),
+  ];
+
+  Future<void>? _generationFuture;
+  int? _pendingReportId;
+
+  void _onGenerateTapped() {
+    _pendingReportId = null;
+    final future = ref.read(reportGenerateProvider.notifier).generate().then((
+      id,
+    ) {
+      if (id == null) throw Exception('generation failed');
+      _pendingReportId = id;
+    });
+    setState(() { _generationFuture = future; });
+  }
+
+  void _onOverlayComplete() {
+    final id = _pendingReportId;
+    setState(() {
+      _generationFuture = null;
+      _pendingReportId = null;
+    });
+    if (id != null && mounted) {
+      context.goNamed('report', pathParameters: {'reportId': '$id'});
+    }
+  }
+
+  void _onOverlayError(Object _) {
+    setState(() {
+      _generationFuture = null;
+      _pendingReportId = null;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(reportGenerateProvider);
-    final maxRange = ref
+    final maxRange =
+        ref
             .watch(settingsProvider)
             .whenOrNull(data: (s) => s.maxReportDateRange) ??
         32;
@@ -37,47 +86,43 @@ class ReportGenerateScreen extends ConsumerWidget {
                             .read(reportGenerateProvider.notifier)
                             .dismissError(),
                       ),
-                    _buildFileCard(context, ref, state),
+                    _buildFileCard(state),
                     const SizedBox(height: 24),
-                    _buildDateSection(context, ref, state, maxRange),
+                    _buildDateSection(state, maxRange),
                     const SizedBox(height: 32),
                     FilledButton(
                       onPressed:
-                          state.isGenerateEnabled && !state.isGenerating
-                              ? () => _generate(context, ref)
-                              : null,
+                          state.isGenerateEnabled && _generationFuture == null
+                          ? _onGenerateTapped
+                          : null,
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      child: state.isGenerating
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text('توليد التقرير',
-                              style: TextStyle(fontSize: 16)),
+                      child: const Text(
+                        'توليد التقرير',
+                        style: TextStyle(fontSize: 16),
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
           ),
-          if (state.isGenerating)
-            const ModalBarrier(dismissible: false, color: Colors.transparent),
+          if (_generationFuture != null)
+            Positioned.fill(
+              child: GenerationOverlay(
+                phases: _phases,
+                generationFuture: _generationFuture!,
+                onComplete: _onOverlayComplete,
+                onError: _onOverlayError,
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildFileCard(
-    BuildContext context,
-    WidgetRef ref,
-    ReportGenerateState state,
-  ) {
+  Widget _buildFileCard(ReportGenerateState state) {
     final notifier = ref.read(reportGenerateProvider.notifier);
 
     return Card(
@@ -91,14 +136,13 @@ class ReportGenerateScreen extends ConsumerWidget {
                 if (state.files.isEmpty)
                   const Text(
                     'ملفات الحضور',
-                    style: TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.info_outline),
                   tooltip: 'معلومات',
-                  onPressed: () => _showInfoDialog(context),
+                  onPressed: () => _showInfoDialog(),
                 ),
               ],
             ),
@@ -111,8 +155,9 @@ class ReportGenerateScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               OutlinedButton.icon(
-                onPressed:
-                    state.isGenerating ? null : () => _pickFiles(ref),
+                onPressed: _generationFuture == null
+                    ? () => _pickFiles()
+                    : null,
                 icon: const Icon(Icons.add),
                 label: const Text('إضافة ملفات'),
               ),
@@ -121,16 +166,17 @@ class ReportGenerateScreen extends ConsumerWidget {
               ...state.files.map(
                 (file) => _FileRow(
                   file: file,
-                  onDelete: state.isGenerating
-                      ? null
-                      : () => notifier.removeFile(file.path),
+                  onDelete: _generationFuture == null
+                      ? () => notifier.removeFile(file.path)
+                      : null,
                 ),
               ),
               if (state.files.length < 10) ...[
                 const SizedBox(height: 4),
                 TextButton.icon(
-                  onPressed:
-                      state.isGenerating ? null : () => _pickFiles(ref),
+                  onPressed: _generationFuture == null
+                      ? () => _pickFiles()
+                      : null,
                   icon: const Icon(Icons.add),
                   label: const Text('إضافة المزيد من الملفات'),
                 ),
@@ -152,12 +198,7 @@ class ReportGenerateScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildDateSection(
-    BuildContext context,
-    WidgetRef ref,
-    ReportGenerateState state,
-    int maxRange,
-  ) {
+  Widget _buildDateSection(ReportGenerateState state, int maxRange) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -167,8 +208,8 @@ class ReportGenerateScreen extends ConsumerWidget {
               child: _DateField(
                 label: 'من',
                 date: state.startDate,
-                enabled: !state.isGenerating,
-                onTap: () => _pickStartDate(context, ref, maxRange),
+                enabled: _generationFuture == null,
+                onTap: () => _pickStartDate(maxRange),
               ),
             ),
             const SizedBox(width: 16),
@@ -176,8 +217,8 @@ class ReportGenerateScreen extends ConsumerWidget {
               child: _DateField(
                 label: 'إلى',
                 date: state.endDate,
-                enabled: !state.isGenerating,
-                onTap: () => _pickEndDate(context, ref, maxRange),
+                enabled: _generationFuture == null,
+                onTap: () => _pickEndDate(maxRange),
               ),
             ),
           ],
@@ -196,28 +237,19 @@ class ReportGenerateScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _generate(BuildContext context, WidgetRef ref) async {
-    final id = await ref.read(reportGenerateProvider.notifier).generate();
-    if (id != null && context.mounted) {
-      context.goNamed('report', pathParameters: {'reportId': '$id'});
-    }
-  }
-
-  Future<void> _pickFiles(WidgetRef ref) async {
+  Future<void> _pickFiles() async {
     final result = await FilePicker.pickFiles(
       allowMultiple: true,
       type: FileType.custom,
       allowedExtensions: ['xlsx', 'xls'],
     );
     if (result == null) return;
-    final paths =
-        result.files.map((f) => f.path).whereType<String>().toList();
+    final paths = result.files.map((f) => f.path).whereType<String>().toList();
     if (paths.isEmpty) return;
     ref.read(reportGenerateProvider.notifier).addFiles(paths);
   }
 
-  Future<void> _pickStartDate(
-      BuildContext context, WidgetRef ref, int maxRange) async {
+  Future<void> _pickStartDate(int maxRange) async {
     final current = ref.read(reportGenerateProvider).startDate;
     final picked = await showDatePicker(
       context: context,
@@ -230,8 +262,7 @@ class ReportGenerateScreen extends ConsumerWidget {
     ref.read(reportGenerateProvider.notifier).setStartDate(picked, maxRange);
   }
 
-  Future<void> _pickEndDate(
-      BuildContext context, WidgetRef ref, int maxRange) async {
+  Future<void> _pickEndDate(int maxRange) async {
     final state = ref.read(reportGenerateProvider);
     final picked = await showDatePicker(
       context: context,
@@ -244,7 +275,7 @@ class ReportGenerateScreen extends ConsumerWidget {
     ref.read(reportGenerateProvider.notifier).setEndDate(picked, maxRange);
   }
 
-  void _showInfoDialog(BuildContext context) {
+  void _showInfoDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
