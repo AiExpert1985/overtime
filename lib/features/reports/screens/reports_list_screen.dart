@@ -14,6 +14,7 @@ class ReportsListScreen extends ConsumerWidget {
     final reportsAsync = ref.watch(reportsProvider);
 
     return Scaffold(
+      appBar: AppBar(title: const Text('التقارير السابقة')),
       body: reportsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('خطأ في تحميل التقارير: $e')),
@@ -21,11 +22,6 @@ class ReportsListScreen extends ConsumerWidget {
             ? const Center(child: Text('لا توجد تقارير سابقة'))
             : _ReportsTable(reports: reports),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.goNamed('report_generate'),
-        child: const Icon(Icons.add),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
     );
   }
 }
@@ -86,7 +82,7 @@ class _ReportRow extends ConsumerWidget {
     final dateFmt = DateFormat('dd/MM/yyyy');
 
     return InkWell(
-      onTap: () => context.goNamed(
+      onTap: () => context.pushNamed(
         'report',
         pathParameters: {'reportId': '${report.id}'},
       ),

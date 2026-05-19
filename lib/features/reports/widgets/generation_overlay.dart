@@ -107,80 +107,63 @@ class _GenerationOverlayState extends State<GenerationOverlay>
   Widget build(BuildContext context) {
     final phase = widget.phases[_currentPhaseIndex];
 
-    final size = MediaQuery.of(context).size;
-
     return AbsorbPointer(
       child: Container(
         color: Colors.black54,
         child: Center(
-          child: Container(
-            width: size.width * 0.25,
-            height: size.height * 0.25,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black38,
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                AnimatedBuilder(
-                  animation: _pulseController,
-                  builder: (_, child) => Transform.scale(
-                    scale: _scaleAnimation.value,
-                    child: Transform.rotate(
-                      angle: _rotationAnimation.value,
-                      child: child,
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.auto_fix_high,
-                    size: 48,
-                    color: Color(0xFFFFD700),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedBuilder(
+                animation: _pulseController,
+                builder: (_, child) => Transform.scale(
+                  scale: _scaleAnimation.value,
+                  child: Transform.rotate(
+                    angle: _rotationAnimation.value,
+                    child: child,
                   ),
                 ),
-                const SizedBox(height: 20),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 500),
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, 0.3),
-                        end: Offset.zero,
-                      ).animate(
-                        CurvedAnimation(
-                          parent: animation,
-                          curve: Curves.easeOut,
-                        ),
+                child: const Icon(
+                  Icons.auto_fix_high,
+                  size: 100,
+                  color: Color(0xFFFFD700),
+                ),
+              ),
+              const SizedBox(height: 36),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 500),
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 0.3),
+                      end: Offset.zero,
+                    ).animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOut,
                       ),
-                      child: child,
                     ),
-                  ),
-                  child: Text(
-                    phase.label,
-                    key: ValueKey(_currentPhaseIndex),
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.3,
-                    ),
+                    child: child,
                   ),
                 ),
-                const SizedBox(height: 20),
-                _PhaseDots(
-                  count: widget.phases.length,
-                  current: _currentPhaseIndex,
+                child: Text(
+                  phase.label,
+                  key: ValueKey(_currentPhaseIndex),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 32),
+              _PhaseDots(
+                count: widget.phases.length,
+                current: _currentPhaseIndex,
+              ),
+            ],
           ),
         ),
       ),
@@ -202,14 +185,14 @@ class _PhaseDots extends StatelessWidget {
         final isActiveOrDone = i <= current;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 300),
-          margin: const EdgeInsets.symmetric(horizontal: 5),
-          width: isActiveOrDone ? 10 : 7,
-          height: isActiveOrDone ? 10 : 7,
+          margin: const EdgeInsets.symmetric(horizontal: 6),
+          width: isActiveOrDone ? 12 : 8,
+          height: isActiveOrDone ? 12 : 8,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: isActiveOrDone
                 ? const Color(0xFFFFD700)
-                : Colors.white24,
+                : Colors.white38,
           ),
         );
       }),

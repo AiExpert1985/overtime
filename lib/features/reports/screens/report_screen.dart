@@ -119,7 +119,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
                     onOvertimeFilter: (v) => _notifier.setShiftOvertimeFilter(v),
                     onToggle: (id, v) => _notifier.toggleShiftIncluded(id, v),
                     onRowTap: (id) => context.push(
-                        '/reports/${widget.reportId}/detail/shift/$id'),
+                        '/report/${widget.reportId}/detail/shift/$id'),
                     onExport: () => _doExportShift(rs),
                   ),
                   _DailyTab(
@@ -132,7 +132,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
                     onOvertimeFilter: (v) => _notifier.setDailyOvertimeFilter(v),
                     onToggle: (id, v) => _notifier.toggleDailyIncluded(id, v),
                     onRowTap: (id) => context.push(
-                        '/reports/${widget.reportId}/detail/daily/$id'),
+                        '/report/${widget.reportId}/detail/daily/$id'),
                     onExport: () => _doExportDaily(rs),
                   ),
                   _UndetectedTab(
@@ -140,7 +140,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
                     searchController: _undetectedSearch,
                     onSearch: (q) => _notifier.setUndetectedSearch(q),
                     onRowTap: (id) => context.push(
-                        '/reports/${widget.reportId}/detail/undetected/$id'),
+                        '/report/${widget.reportId}/detail/undetected/$id'),
                   ),
                 ],
               ),

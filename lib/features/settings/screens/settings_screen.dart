@@ -58,6 +58,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final headersAsync = ref.watch(columnHeadersProvider);
 
     return Scaffold(
+      appBar: AppBar(title: const Text('اعدادات النظام')),
       body: settingsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('خطأ في تحميل الإعدادات: $e')),

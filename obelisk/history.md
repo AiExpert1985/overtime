@@ -178,3 +178,11 @@ The following tasks were agreed during discovery and must be implemented in orde
 **Task:** Replaced the modal barrier shown during report generation with a pluggable, animated full-screen overlay. A self-contained `GenerationOverlay` widget accepts a list of `GenerationPhase` objects (each with a label and configurable duration, default 4 s) and a generation future, then runs the phase animation in parallel with the pipeline. Navigation fires only when both the animation sequence and the pipeline complete. If the pipeline errors, the animation is interrupted immediately and the existing error banner is shown. The overlay displays a pulsing gold magic-wand icon, a fade+slide phase label transition, and animated progress dots — all inside a centered dialog box sized at ¼ screen width × ¼ screen height with a semi-transparent backdrop. Phases are defined in the generate screen and passed to the widget, keeping the overlay free of business logic. The generate screen was converted to a stateful widget to hold the active future reference.
 
 ---
+
+## 20260519-0100 | Home Screen & Drawer Navigation Restructure | TASK
+
+**Task:** Replaced the two-tab bottom-nav shell with a flat router where the report generation screen is the root. History and Settings are now reached via a side drawer, both opened with push navigation so the back button always returns to the home screen. The reports list FAB was removed — new reports start only from the home screen. AppBar titles added to the history and settings screens. The drawer contains navigation tiles for history and settings plus an "عن النظام" section with the department credit text. The generation form is vertically centered in the viewport. The home screen title was moved from the AppBar into the body as a large heading above the form, with the AppBar kept for the drawer icon only. Report navigation after generation uses push (not go) so the back button on the report screen naturally returns to home. The generation overlay card was removed — animation and phase text render directly on the full-screen dark backdrop at larger sizes.
+
+**Rejected:** Using go (stack-replace) for post-generation report navigation — it left the report screen with no back button; push was used instead.
+
+---

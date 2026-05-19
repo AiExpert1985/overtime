@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../settings/providers/settings_provider.dart';
 import '../domain/picked_file.dart';
 import '../providers/report_generate_provider.dart';
+import '../providers/reports_provider.dart';
 import '../widgets/generation_overlay.dart';
 
 class ReportGenerateScreen extends ConsumerStatefulWidget {
@@ -47,7 +48,7 @@ class _ReportGenerateScreenState extends ConsumerState<ReportGenerateScreen> {
       _pendingReportId = null;
     });
     if (id != null && mounted) {
-      context.goNamed('report', pathParameters: {'reportId': '$id'});
+      context.pushNamed('report', pathParameters: {'reportId': '$id'});
     }
   }
 
@@ -68,42 +69,56 @@ class _ReportGenerateScreenState extends ConsumerState<ReportGenerateScreen> {
         32;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('توليد تقرير')),
+      appBar: AppBar(),
+      drawer: _AppDrawer(),
       body: Stack(
         children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 700),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (state.generationError != null)
-                      _ErrorBanner(
-                        message: state.generationError!,
-                        onDismiss: () => ref
-                            .read(reportGenerateProvider.notifier)
-                            .dismissError(),
+          LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight - 48,
+                    maxWidth: 700,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'نظام حساب الأوقات الإضافية للموظفين',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
-                    _buildFileCard(state),
-                    const SizedBox(height: 24),
-                    _buildDateSection(state, maxRange),
-                    const SizedBox(height: 32),
-                    FilledButton(
-                      onPressed:
-                          state.isGenerateEnabled && _generationFuture == null
-                          ? _onGenerateTapped
-                          : null,
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      const SizedBox(height: 32),
+                      if (state.generationError != null)
+                        _ErrorBanner(
+                          message: state.generationError!,
+                          onDismiss: () => ref
+                              .read(reportGenerateProvider.notifier)
+                              .dismissError(),
+                        ),
+                      _buildFileCard(state),
+                      const SizedBox(height: 24),
+                      _buildDateSection(state, maxRange),
+                      const SizedBox(height: 32),
+                      FilledButton(
+                        onPressed:
+                            state.isGenerateEnabled && _generationFuture == null
+                            ? _onGenerateTapped
+                            : null,
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        child: const Text(
+                          'توليد التقرير',
+                          style: TextStyle(fontSize: 16),
+                        ),
                       ),
-                      child: const Text(
-                        'توليد التقرير',
-                        style: TextStyle(fontSize: 16),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -287,6 +302,83 @@ class _ReportGenerateScreenState extends ConsumerState<ReportGenerateScreen> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('حسناً'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AppDrawer extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          DrawerHeader(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primaryContainer,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Icon(
+                  Icons.access_time_rounded,
+                  size: 44,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'نظام الأوقات الإضافية',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.history),
+            title: const Text('التقارير السابقة'),
+            onTap: () {
+              Navigator.of(context).pop();
+              ref.invalidate(reportsProvider);
+              context.push('/reports');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings_outlined),
+            title: const Text('الإعدادات'),
+            onTap: () {
+              Navigator.of(context).pop();
+              context.push('/settings');
+            },
+          ),
+          const Divider(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'عن النظام',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'هذا نظام ذكي لاحتساب الأوقات الإضافية للموظفين اليوميين '
+                  'والانتقاليين وإعداد التقارير، صُمِّم ونُفِّذ من قِبَل شعبة '
+                  'الاتصالات والحاسبات في فرع كهرباء نينوى المركز.',
+                  style: TextStyle(fontSize: 13, height: 1.6),
+                ),
+              ],
+            ),
           ),
         ],
       ),
