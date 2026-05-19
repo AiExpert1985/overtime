@@ -49,30 +49,24 @@ class ReportScreen extends ConsumerStatefulWidget {
   ConsumerState<ReportScreen> createState() => _ReportScreenState();
 }
 
-class _ReportScreenState extends ConsumerState<ReportScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabs;
+class _ReportScreenState extends ConsumerState<ReportScreen> {
+  int _selectedTab = 0;
   late final TextEditingController _shiftSearch;
   late final TextEditingController _dailySearch;
-  late final TextEditingController _undetectedSearch;
   bool _shiftExporting = false;
   bool _dailyExporting = false;
 
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 3, vsync: this);
     _shiftSearch = TextEditingController();
     _dailySearch = TextEditingController();
-    _undetectedSearch = TextEditingController();
   }
 
   @override
   void dispose() {
-    _tabs.dispose();
     _shiftSearch.dispose();
     _dailySearch.dispose();
-    _undetectedSearch.dispose();
     super.dispose();
   }
 
@@ -83,21 +77,48 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
       ref.read(settingsProvider).whenOrNull(data: (s) => s.roundingMode) ??
       'quarter';
 
+  void _showUndetectedDialog(ReportState rs) {
+    showDialog(
+      context: context,
+      builder: (_) => _UndetectedDialog(
+        rows: rs.undetectedRows,
+        onRowTap: (id) {
+          Navigator.of(context).pop();
+          context.push('/report/${widget.reportId}/detail/undetected/$id');
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(reportProvider(widget.reportId));
+    final rs = state.whenOrNull(data: (v) => v);
+    final undetectedCount = rs?.totalUndetected ?? 0;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('التقرير'),
-        bottom: TabBar(
-          controller: _tabs,
-          tabs: const [
-            Tab(text: 'مناوبة'),
-            Tab(text: 'صباحي'),
-            Tab(text: 'غير محدَّدون'),
-          ],
-        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+            child: Badge(
+              label: Text('$undetectedCount'),
+              isLabelVisible: undetectedCount > 0,
+              backgroundColor: Colors.orange.shade700,
+              child: IconButton(
+                icon: Icon(
+                  Icons.warning_amber_rounded,
+                  color: undetectedCount > 0
+                      ? Colors.orange.shade700
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                tooltip: 'الموظفون غير المحدَّدون',
+                onPressed: rs != null ? () => _showUndetectedDialog(rs) : null,
+              ),
+            ),
+          ),
+        ],
       ),
       body: state.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -105,9 +126,22 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
         data: (rs) => Column(
           children: [
             _ReportHeader(report: rs.report),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: SegmentedButton<int>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: 0, label: Text('مناوبة')),
+                  ButtonSegment(value: 1, label: Text('صباحي')),
+                ],
+                selected: {_selectedTab},
+                onSelectionChanged: (s) =>
+                    setState(() => _selectedTab = s.first),
+              ),
+            ),
             Expanded(
-              child: TabBarView(
-                controller: _tabs,
+              child: IndexedStack(
+                index: _selectedTab,
                 children: [
                   _ShiftTab(
                     state: rs,
@@ -116,10 +150,11 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
                     searchController: _shiftSearch,
                     onSearch: (q) => _notifier.setShiftSearch(q),
                     onFilter: (v) => _notifier.setShiftFilter(v),
-                    onOvertimeFilter: (v) => _notifier.setShiftOvertimeFilter(v),
+                    onOvertimeFilter: (v) =>
+                        _notifier.setShiftOvertimeFilter(v),
                     onToggle: (id, v) => _notifier.toggleShiftIncluded(id, v),
-                    onRowTap: (id) => context.push(
-                        '/report/${widget.reportId}/detail/shift/$id'),
+                    onRowTap: (id) => context
+                        .push('/report/${widget.reportId}/detail/shift/$id'),
                     onExport: () => _doExportShift(rs),
                   ),
                   _DailyTab(
@@ -129,18 +164,12 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
                     searchController: _dailySearch,
                     onSearch: (q) => _notifier.setDailySearch(q),
                     onFilter: (v) => _notifier.setDailyFilter(v),
-                    onOvertimeFilter: (v) => _notifier.setDailyOvertimeFilter(v),
+                    onOvertimeFilter: (v) =>
+                        _notifier.setDailyOvertimeFilter(v),
                     onToggle: (id, v) => _notifier.toggleDailyIncluded(id, v),
-                    onRowTap: (id) => context.push(
-                        '/report/${widget.reportId}/detail/daily/$id'),
+                    onRowTap: (id) => context
+                        .push('/report/${widget.reportId}/detail/daily/$id'),
                     onExport: () => _doExportDaily(rs),
-                  ),
-                  _UndetectedTab(
-                    state: rs,
-                    searchController: _undetectedSearch,
-                    onSearch: (q) => _notifier.setUndetectedSearch(q),
-                    onRowTap: (id) => context.push(
-                        '/report/${widget.reportId}/detail/undetected/$id'),
                   ),
                 ],
               ),
@@ -262,8 +291,8 @@ class _ShiftTab extends StatelessWidget {
   final bool isExporting;
   final TextEditingController searchController;
   final void Function(String) onSearch;
-  final void Function(bool) onFilter;
-  final void Function(bool) onOvertimeFilter;
+  final void Function(bool?) onFilter;
+  final void Function(bool?) onOvertimeFilter;
   final void Function(int, bool) onToggle;
   final void Function(int) onRowTap;
   final VoidCallback onExport;
@@ -276,8 +305,7 @@ class _ShiftTab extends StatelessWidget {
         _SummaryBar(children: [
           _SummaryCard(
               label: 'إجمالي الموظفين', value: '${state.totalShift}'),
-          _SummaryCard(
-              label: 'المحتسبون', value: '${state.includedShift}'),
+          _SummaryCard(label: 'المحتسبون', value: '${state.includedShift}'),
           _SummaryCard(
               label: 'الساعات الإضافية',
               value: _fmt(state.totalShiftOvertimeMinutes, roundingMode)),
@@ -341,8 +369,8 @@ class _DailyTab extends StatelessWidget {
   final bool isExporting;
   final TextEditingController searchController;
   final void Function(String) onSearch;
-  final void Function(bool) onFilter;
-  final void Function(bool) onOvertimeFilter;
+  final void Function(bool?) onFilter;
+  final void Function(bool?) onOvertimeFilter;
   final void Function(int, bool) onToggle;
   final void Function(int) onRowTap;
   final VoidCallback onExport;
@@ -355,8 +383,7 @@ class _DailyTab extends StatelessWidget {
         _SummaryBar(children: [
           _SummaryCard(
               label: 'إجمالي الموظفين', value: '${state.totalDaily}'),
-          _SummaryCard(
-              label: 'المحتسبون', value: '${state.includedDaily}'),
+          _SummaryCard(label: 'المحتسبون', value: '${state.includedDaily}'),
           _SummaryCard(
               label: 'الساعات الإضافية',
               value: _fmt(state.totalDailyOvertimeMinutes, roundingMode)),
@@ -398,64 +425,123 @@ class _DailyTab extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Undetected tab
+// Undetected dialog
 // ---------------------------------------------------------------------------
 
-class _UndetectedTab extends StatelessWidget {
-  const _UndetectedTab({
-    required this.state,
-    required this.searchController,
-    required this.onSearch,
+class _UndetectedDialog extends StatefulWidget {
+  const _UndetectedDialog({
+    required this.rows,
     required this.onRowTap,
   });
 
-  final ReportState state;
-  final TextEditingController searchController;
-  final void Function(String) onSearch;
+  final List<UndetectedEmployeeRow> rows;
   final void Function(int) onRowTap;
 
   @override
+  State<_UndetectedDialog> createState() => _UndetectedDialogState();
+}
+
+class _UndetectedDialogState extends State<_UndetectedDialog> {
+  final _search = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  List<UndetectedEmployeeRow> get _filtered {
+    var list = List<UndetectedEmployeeRow>.from(widget.rows);
+    if (_query.isNotEmpty) {
+      final q = _query.toLowerCase();
+      list = list
+          .where((r) =>
+              r.employeeName.toLowerCase().contains(q) ||
+              r.department.toLowerCase().contains(q))
+          .toList();
+    }
+    list.sort((a, b) => a.employeeName.compareTo(b.employeeName));
+    return list;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final rows = state.visibleUndetectedRows;
-    return Column(
-      children: [
-        _SummaryBar(children: [
-          _SummaryCard(
-              label: 'غير محدَّدون', value: '${state.totalUndetected}'),
-        ]),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-          child: TextField(
-            controller: searchController,
-            decoration: const InputDecoration(
-              hintText: 'بحث باسم الموظف أو القسم',
-              prefixIcon: Icon(Icons.search),
-              isDense: true,
-              border: OutlineInputBorder(),
-            ),
-            onChanged: onSearch,
-          ),
-        ),
-        const _TableHeader(
-          columns: ['اسم الموظف', 'القسم', 'سبب عدم الكشف'],
-          flexes: [3, 2, 3],
-        ),
-        Expanded(
-          child: rows.isEmpty
-              ? _EmptyState(
-                  message: state.undetectedSearch.isEmpty
-                      ? 'تم كشف جميع الموظفين بنجاح'
-                      : 'لا توجد نتائج مطابقة',
-                )
-              : ListView.builder(
-                  itemCount: rows.length,
-                  itemBuilder: (_, i) => _UndetectedRow(
-                    row: rows[i],
-                    onTap: () => onRowTap(rows[i].id),
+    final theme = Theme.of(context);
+    final rows = _filtered;
+
+    return Dialog(
+      child: SizedBox(
+        width: 600,
+        height: 450,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded,
+                      color: Colors.orange.shade700),
+                  const SizedBox(width: 8),
+                  Text(
+                    'غير محدَّدون',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
                   ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '(${widget.rows.length})',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: TextField(
+                controller: _search,
+                decoration: const InputDecoration(
+                  hintText: 'بحث باسم الموظف',
+                  prefixIcon: Icon(Icons.search),
+                  isDense: true,
+                  border: OutlineInputBorder(),
                 ),
+                onChanged: (q) => setState(() => _query = q),
+              ),
+            ),
+            const _TableHeader(
+              columns: ['اسم الموظف', 'القسم', 'سبب عدم الكشف'],
+              flexes: [3, 2, 3],
+            ),
+            Expanded(
+              child: rows.isEmpty
+                  ? Center(
+                      child: Text(
+                        _query.isEmpty
+                            ? 'تم كشف جميع الموظفين بنجاح'
+                            : 'لا توجد نتائج مطابقة',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: rows.length,
+                      itemBuilder: (_, i) => _UndetectedRow(
+                        row: rows[i],
+                        onTap: () => widget.onRowTap(rows[i].id),
+                      ),
+                    ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -475,7 +561,8 @@ class _SummaryBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: children
-            .map((c) => Expanded(child: Padding(
+            .map((c) => Expanded(
+                    child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: c,
                 )))
@@ -524,14 +611,42 @@ class _FilterBar extends StatelessWidget {
     required this.onExport,
   });
 
-  final bool showIncluded;
-  final bool overtimeOnly;
+  final bool? showIncluded;
+  final bool? overtimeOnly;
   final TextEditingController searchController;
   final void Function(String) onSearch;
-  final void Function(bool) onFilter;
-  final void Function(bool) onOvertimeFilter;
+  final void Function(bool?) onFilter;
+  final void Function(bool?) onOvertimeFilter;
   final bool isExporting;
   final VoidCallback onExport;
+
+  static const _dropdownDecoration = InputDecoration(
+    isDense: true,
+    border: OutlineInputBorder(),
+    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+  );
+
+  Widget _dropdown<T>({
+    required T value,
+    required List<DropdownMenuItem<T>> items,
+    required void Function(T?) onChanged,
+    required double width,
+  }) {
+    return SizedBox(
+      width: width,
+      child: InputDecorator(
+        decoration: _dropdownDecoration,
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<T>(
+            value: value,
+            isDense: true,
+            items: items,
+            onChanged: onChanged,
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -539,63 +654,34 @@ class _FilterBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
       child: Row(
         children: [
-          RadioGroup<bool>(
-            groupValue: showIncluded,
-            onChanged: (v) { if (v != null) onFilter(v); },
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IntrinsicWidth(
-                  child: RadioListTile<bool>(
-                    value: true,
-                    title: const Text('محتسبون'),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                IntrinsicWidth(
-                  child: RadioListTile<bool>(
-                    value: false,
-                    title: const Text('مستثنون'),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          RadioGroup<bool>(
-            groupValue: overtimeOnly,
-            onChanged: (v) { if (v != null) onOvertimeFilter(v); },
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IntrinsicWidth(
-                  child: RadioListTile<bool>(
-                    value: false,
-                    title: const Text('الكل'),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                IntrinsicWidth(
-                  child: RadioListTile<bool>(
-                    value: true,
-                    title: const Text('بوقت إضافي'),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              ],
-            ),
+          _dropdown<bool?>(
+            value: showIncluded,
+            width: 140,
+            items: const [
+              DropdownMenuItem(value: null, child: Text('الكل')),
+              DropdownMenuItem(value: true, child: Text('محتسبون')),
+              DropdownMenuItem(value: false, child: Text('مستثنون')),
+            ],
+            onChanged: onFilter,
           ),
           const SizedBox(width: 8),
-          Expanded(
+          _dropdown<bool?>(
+            value: overtimeOnly,
+            width: 178,
+            items: const [
+              DropdownMenuItem(value: null, child: Text('الكل')),
+              DropdownMenuItem(value: true, child: Text('بوقت إضافي')),
+              DropdownMenuItem(value: false, child: Text('بدون وقت إضافي')),
+            ],
+            onChanged: onOvertimeFilter,
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 220,
             child: TextField(
               controller: searchController,
               decoration: const InputDecoration(
-                hintText: 'بحث',
+                hintText: 'بحث باسم الموظف',
                 prefixIcon: Icon(Icons.search),
                 isDense: true,
                 border: OutlineInputBorder(),
@@ -687,11 +773,18 @@ class _ShiftRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bg = !row.isIncluded
+        ? Colors.grey.shade100
+        : row.overtimeMinutes > 0
+            ? Colors.amber.shade100
+            : null;
+
     return InkWell(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
+          color: bg,
           border: Border(
             bottom: BorderSide(
               color: Theme.of(context).dividerColor,
@@ -736,11 +829,18 @@ class _DailyRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bg = !row.isIncluded
+        ? Colors.grey.shade100
+        : row.totalOvertimeMinutes > 0
+            ? Colors.amber.shade100
+            : null;
+
     return InkWell(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
+          color: bg,
           border: Border(
             bottom: BorderSide(
               color: Theme.of(context).dividerColor,

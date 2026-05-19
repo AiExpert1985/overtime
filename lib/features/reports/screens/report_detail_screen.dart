@@ -343,7 +343,7 @@ class _DailyPeriodRowWidget extends StatelessWidget {
     final exit = ts.length > 1 ? _fmtTime(ts.last) : '—';
     final intermediates =
         ts.length > 2 ? ts.sublist(1, ts.length - 1) : <DateTime>[];
-    final dayTypeLabel = period.dayType == 'off' ? 'عطلة' : 'عادي';
+    final dayTypeLabel = period.dayType == 'off' ? 'عطلة' : 'دوام';
 
     return Container(
       decoration: BoxDecoration(

@@ -186,7 +186,7 @@ class ReportExportService {
         final first = timestamps.isNotEmpty ? _timeOnly(DateTime.parse(timestamps.first)) : '';
         final last =
             timestamps.length > 1 ? _timeOnly(DateTime.parse(timestamps.last)) : '';
-        final dayType = p['day_type'] as String == 'off' ? 'عطلة' : 'عادي';
+        final dayType = p['day_type'] as String == 'off' ? 'عطلة' : 'دوام';
         sheet.appendRow([
           TextCellValue(p['date'] as String),
           TextCellValue(p['weekday'] as String),

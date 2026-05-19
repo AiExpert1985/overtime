@@ -186,3 +186,9 @@ The following tasks were agreed during discovery and must be implemented in orde
 **Rejected:** Using go (stack-replace) for post-generation report navigation — it left the report screen with no back button; push was used instead.
 
 ---
+
+## 20260519-0200 | Report Screen UI Improvements | TASK
+
+**Task:** Redesigned the Report Screen UI. The three-tab bar was replaced with a two-segment button (مناوبة / صباحي) that looks and behaves like a toggle button. Undetected employees were moved out of the tab bar into a warning icon button in the AppBar with a badge showing the count; clicking opens a dismissable modal dialog with the same search-and-table content as before. Filter radio buttons were replaced with two dropdowns — inclusion (الكل / محتسبون / مستثنون) and overtime (الكل / بوقت إضافي / بدون وقت إضافي) — both defaulting to الكل. Filter state in the provider changed from non-nullable bool to nullable bool (null = show all) using a copyWith sentinel pattern. Employee rows are now color-coded: excluded rows get a light grey background, rows with overtime get a light amber background. The search field was narrowed with a clearer Arabic hint. The day type label "عادي" was renamed to "دوام" in both the detail screen and the Excel export.
+
+---
