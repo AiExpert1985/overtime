@@ -862,9 +862,9 @@ class _InlineFilterHeader extends StatelessWidget {
             children: [
               Expanded(flex: 3, child: Text('اسم الموظف', style: labelStyle)),
               Expanded(flex: 2, child: Text('القسم', style: labelStyle)),
-              Expanded(flex: 2, child: Text('دوام', style: labelStyle)),
-              Expanded(flex: 2, child: Text('عطلة', style: labelStyle)),
-              Expanded(flex: 2, child: Text('كلي', style: labelStyle)),
+              Expanded(
+                  flex: 2,
+                  child: Text('الساعات الاضافية', style: labelStyle)),
               Expanded(
                 flex: 2,
                 child: Text('المشمولون بالوقت الإضافي', style: labelStyle),
@@ -895,10 +895,6 @@ class _InlineFilterHeader extends StatelessWidget {
                   ),
                 ),
               ),
-              // دوام and عطلة columns have no filter controls — spacers only
-              const Expanded(flex: 2, child: SizedBox()),
-              const Expanded(flex: 2, child: SizedBox()),
-              // كلي — overtime filter checkboxes operate on total
               Expanded(
                 flex: 2,
                 child: Column(
@@ -1124,15 +1120,21 @@ class _DailyRow extends StatelessWidget {
             Expanded(flex: 2, child: Text(row.department)),
             Expanded(
               flex: 2,
-              child: Text(_fmt(row.regularOvertimeMinutes, roundingMode)),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text(_fmt(row.offOvertimeMinutes, roundingMode)),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text(_fmt(row.totalOvertimeMinutes, roundingMode)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (row.offOvertimeMinutes > 0)
+                    Text('عطلة: ${_fmt(row.offOvertimeMinutes, roundingMode)}'),
+                  if (row.regularOvertimeMinutes > 0)
+                    Text(
+                        'دوام: ${_fmt(row.regularOvertimeMinutes, roundingMode)}'),
+                  if (row.offOvertimeMinutes > 0 &&
+                      row.regularOvertimeMinutes > 0)
+                    Text(
+                        'الكلي: ${_fmt(row.totalOvertimeMinutes, roundingMode)}'),
+                ],
+              ),
             ),
             Expanded(
               flex: 2,
