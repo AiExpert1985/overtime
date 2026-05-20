@@ -1,21 +1,22 @@
 # schedule_detection
 
-**Created**: 12-May-2026
-**Modified**: 14-May-2026
+**Created**: 12-May-2026 **Modified**: 16-May-2026
 
 ---
 
 ## Purpose
 
-Defines the algorithm for detecting each employee's employment type (shift or daily) and, for shift employees, their shift start time. Runs inline as Stage 4 of the report generation pipeline. Operates entirely on the working dictionary built in Stage 3. No database reads or writes during detection. No user interaction — runs silently to completion.
+Defines the algorithm for detecting each employee's employment type (shift or daily) and, for shift employees, their shift start time and shift periods. Runs inline as Stage 4 of the report generation pipeline. Operates entirely on the working dictionary built in Stage 3. No database reads or writes during detection. No user interaction — runs silently to completion.
+
+**This stage replaces both the old Stage 4 (type detection) and Stage 6 (shift period extraction).** Valid shift periods are built during detection and carried directly into the shift hash table. Stage 6 is removed from the pipeline.
 
 ---
 
 ## Inputs
 
 - Working dictionary: `employeeName → { name, department, [timestamps] }` — timestamps sorted ascending, filtered to report date range
-- Report period duration — total calendar days between report start and end date (inclusive). Used as the denominator for the 20% threshold.
-- Config: `shift_start_times`, `shift_zone_interval`, `shift_tolerance`
+- Report period duration — total calendar days between report start and end date (inclusive)
+- Config: `shift_start_times`, `shift_duration`, `shift_zone_interval`, `shift_tolerance`
 
 ---
 
@@ -23,136 +24,182 @@ Defines the algorithm for detecting each employee's employment type (shift or da
 
 Every employee is assigned exactly one of three types as the output of this stage:
 
-| Type | Meaning |
+|Type|Meaning|
 |---|---|
-| `shift` | Confirmed shift employee with a detected start time |
-| `daily` | Confirmed daily employee |
-| `undetected` | Could not be classified — stored with a failure reason |
+|`shift`|Confirmed shift employee with a detected start time and populated periods|
+|`daily`|Confirmed daily employee|
+|`undetected`|Could not be classified — stored with a failure reason|
 
 ---
 
-## Algorithm 1 — Employment Type Detection
+## Hardcoded Constants
 
-Runs iteratively — independently for each employee in the dictionary.
-
-### Pre-Check — Attendance Density
-
-Count all calendar days where the employee has at least 1 timestamp. This answers: did this employee show up enough days to be worth analyzing at all?
-
-**Note:** This check is intentionally separate from Stage 1. The pre-check measures raw presence — how many days this employee appeared in the attendance file regardless of timestamp quality. Stage 1 then filters to days with ≥ 2 timestamps, which are the only days usable for zone analysis. An employee could pass the pre-check but still fail Stage 1 if most of their days had only a single timestamp.
-
-`attendance_days / report_period_days ≥ 20%`
-
-If fails → mark employee as `undetected`, reason: **أيام الحضور أقل من 20% من مدة الفترة**, skip to next employee.
-
-### Stage 1 — Day Filtering
-
-From the employee's days, discard any day with fewer than 2 timestamps — these days cannot produce meaningful zone signal. Check the remaining days (days with ≥ 2 timestamps):
-
-`remaining_days / report_period_days ≥ 20%`
-
-If fails → mark employee as `undetected`, reason: **أيام الحضور الصالحة أقل من 20% من مدة الفترة**, skip to next employee.
-
-If passes → proceed to Stage 2 with these days.
-
-### Stage 2 — Zone Bucketing
-
-For each remaining day, divide the 24-hour period into zones using `shift_zone_interval`. Count active zones (zones containing at least one timestamp).
-
-Zone count per day = `24 / shift_zone_interval` (default 24 / 6 = 4 zones).
-
-Classify each day:
-- 1 active zone → **discard** (insufficient signal)
-- 2 active zones → **daily bucket**
-- 3 or more active zones → **shift bucket**
-
-**Note:** A day with 0 active zones cannot occur at this stage — Stage 1 guarantees every day has ≥ 2 timestamps, so at least 1 zone will always be active.
-
-### Stage 3 — Employment Type Vote
-
-- `winning_bucket` = whichever of shift or daily bucket has more days
-- `losing_bucket` = the other bucket
-
-**Confidence check:** `winning_bucket / (winning_bucket + losing_bucket) ≥ 0.75`
-
-If the two buckets are equal, confidence is exactly 50% — fails the threshold.
-
-If fails → mark employee as `undetected`, reason: **نوع التوظيف غير واضح**, skip to next employee.
-
-If passes → employment type confirmed as the winning bucket's type. Shift employees proceed to Algorithm 2. Daily employees are placed in the daily hash table.
+|Constant|Value|Reason|
+|---|---|---|
+|min_attendance_density|0.15|Cheap pre-filter — employee must have appeared on at least 15% of report days|
+|min_valid_periods|3|Winner must have at least 3 valid periods — hard to achieve by luck, absorbs mis-punches|
+|min_start_time_confidence|0.60|Applied only when multiple start times are configured. Winner's valid periods must be ≥ 60% of all valid periods across all start times.|
+|min_zones_satisfied|2|Minimum satisfied zones for a window to be counted as a valid period|
 
 ---
 
-## Algorithm 2 — Shift Start Time Detection
+## Zone Layout
 
-Runs only for employees confirmed as `shift` in Algorithm 1. Runs iteratively — independently for each shift employee.
+Identical to `period_extractor_shift.md`. Defined here for completeness.
 
-### Stage 1 — Start Time Bucketing
+Zone count = `(shift_duration / shift_zone_interval) + 1` Default: `(24 / 6) + 1 = 5 zones` (B1 through B5).
 
-**Note:** Only the shift bucket days from Algorithm 1 Stage 2 are used here — not all calendar days of the employee.
+For a window starting at `windowStart = D @ S − shift_tolerance`:
 
-For each shift bucket day, check every configured start time in `shift_start_times`. For each start time, check if any timestamp in that day falls within `shift_tolerance` of that start time. If yes → assign the day to that start time's bucket.
+|Field|Formula|
+|---|---|
+|Zone start|`windowStart + i × shift_zone_interval`|
+|Zone end|`windowStart + (i+1) × shift_zone_interval` for inner zones; `windowEnd` for last zone|
+|Zone center|`D @ S + i × shift_zone_interval`|
+|Center window|`[zone_center − shift_tolerance, zone_center + shift_tolerance]`|
+|isSatisfied|at least one timestamp falls within center window|
 
-One day may be assigned to multiple start time buckets if its timestamps match more than one start time window.
+Last zone end is always inclusive. All other zone ends are exclusive.
 
-Days whose timestamps match no start time window at all are placed in the **unmatched bucket**. A day that matched at least one start time bucket is never placed in the unmatched bucket — these are mutually exclusive.
+---
 
-Three bucket types always exist:
-- **Start time buckets** — one per configured start time (may have 0 days)
-- **Unmatched bucket** — days that matched no start time window at all
+## Algorithm
 
-### Stage 2 — Start Time Vote
+Runs independently for each employee.
 
-- `winning_bucket` = start time bucket with the most days
-- `losing_buckets` = all other start time buckets combined
-- `unmatched_bucket` = days that matched no start time window
+### Step 1 — Attendance Pre-Check
 
-**Confidence check:** `winning_bucket / (winning_bucket + losing_buckets + unmatched_bucket) ≥ 0.60`
+Count all calendar days where the employee has at least 1 timestamp.
 
-The unmatched bucket is always included in the denominator — this ensures the formula works consistently whether one or many start times are configured, and naturally penalizes employees whose timestamps don't align well with any configured start time.
+`attendance_days / report_period_days ≥ min_attendance_density (0.15)`
 
-If two start time buckets are tied for most days, pick either as winner — the confidence will be ≤ 50% and will fail the threshold regardless.
+If fails → mark employee as `undetected`, reason: **أيام الحضور أقل من 15% من مدة الفترة**, skip to next employee.
 
-If fails → mark employee as `undetected`, reason: **وقت بداية المناوبة غير واضح**.
+### Step 2 — Build Valid Periods Per Start Time
 
-If passes → shift start time confirmed as the winning bucket's configured start time. Employee placed in the shift hash table with their detected start time.
+For each configured start time S in `shift_start_times`, build `validPeriods[S] = []`:
+
+For each calendar day D in the report range:
+
+```
+windowStart      = D @ S − shift_tolerance
+windowEnd        = D @ S + shift_duration + shift_tolerance
+windowTimestamps = all employee timestamps where windowStart ≤ ts ≤ windowEnd
+```
+
+If `windowTimestamps` is empty → skip this day, no period created.
+
+Otherwise, compute zone results using the Zone Layout above. Count `satisfiedZones`.
+
+If `satisfiedZones ≥ min_zones_satisfied (2)` → append a `ShiftPeriod` to `validPeriods[S]`:
+
+|Field|Value|
+|---|---|
+|periodIndex|0-based index within validPeriods[S]|
+|periodDate|D (ISO 8601)|
+|allTimestamps|windowTimestamps, sorted ascending|
+|zoneResults|list of `{ zoneIndex, startTime, endTime, timestamps[], isSatisfied }`|
+
+Calculated fields (`endDate`, `totalAttendanceDuration`, `hoursCounted`, `isValid`, `notes`) are left unset — the calculator fills them in Stage 8.
+
+### Step 3 — Find the Winning Start Time
+
+```
+winnerStartTime = S with max len(validPeriods[S])
+winnerCount     = len(validPeriods[winnerStartTime])
+totalValid      = sum of len(validPeriods[S]) for all S
+```
+
+If two or more start times share the same `winnerCount`, a tie exists. The confidence check in Step 4 handles this.
+
+### Step 4 — Classify
+
+**Check 1 — Minimum valid periods:**
+
+```
+if winnerCount < min_valid_periods (3):
+  → daily
+```
+
+No meaningful shift pattern — employee is genuinely daily.
+
+**Check 2 — Start time confidence (only when multiple start times configured):**
+
+```
+if len(shift_start_times) > 1:
+  if tie OR winnerCount / totalValid < min_start_time_confidence (0.60):
+    → undetected: "وقت بداية المناوبة غير واضح"
+```
+
+Employee has clear shift signal but it is split across multiple start times — ambiguous, not daily. When only one start time is configured this check is skipped entirely — `winnerCount / totalValid` is always 100%.
+
+**Result — shift:**
+
+```
+detectedShiftStartTime = winnerStartTime
+periods = validPeriods[winnerStartTime]
+→ shift
+```
+
+---
+
+## Classification Logic Summary
+
+|Condition|Result|Reason|
+|---|---|---|
+|attendance_days / reportDays < 0.15|undetected|Too little data to analyze|
+|winnerCount < 3|daily|No meaningful shift pattern|
+|Multiple start times AND (tie OR confidence < 0.60)|undetected|Ambiguous start time|
+|Otherwise|shift|Clear pattern confirmed|
+
+An employee with weak signal is daily. An employee with strong but ambiguous signal is undetected — they need investigation, not a default classification.
 
 ---
 
 ## Detection Failure Reasons
 
-| Reason | Arabic |
+|Reason|Arabic|
 |---|---|
-| Raw attendance days below 20% of period | أيام الحضور أقل من 20% من مدة الفترة |
-| Usable days (≥ 2 timestamps) below 20% of period | أيام الحضور الصالحة أقل من 20% من مدة الفترة |
-| Employment type vote failed | نوع التوظيف غير واضح |
-| Shift start time vote failed | وقت بداية المناوبة غير واضح |
+|Raw attendance days below 15% of period|أيام الحضور أقل من 15% من مدة الفترة|
+|Shift start time ambiguous|وقت بداية المناوبة غير واضح|
 
 ---
 
 ## Output — Three Buckets
 
-After both algorithms complete for all employees:
+**Shift hash table:** `employeeName → { name, department, detectedShiftStartTime, [timestamps], [ShiftPeriod] }` Employees confirmed as shift, with periods already populated. Stage 8 calculator enriches these periods directly.
 
-**Shift hash table:** `employeeName → { name, department, detectedShiftStartTime, [timestamps] }`
-Employees confirmed as shift with a confirmed start time.
+**Daily hash table:** `employeeName → { name, department, [timestamps] }` Employees confirmed as daily.
 
-**Daily hash table:** `employeeName → { name, department, [timestamps] }`
-Employees confirmed as daily.
-
-**Undetected list:** `[ { name, department, failureReason } ]`
-Employees who failed at any stage of either algorithm. Carried directly to storage in Stage 10 — no extraction or calculation runs for them.
+**Undetected list:** `[ { name, department, failureReason } ]` Employees who failed the pre-check or the confidence check. Carried directly to storage in Stage 10.
 
 All three are in-memory only. None is persisted until Stage 10.
 
 ---
 
-## What This Algorithm Does NOT Do
+## Pipeline Impact
+
+This stage now produces shift periods directly, making the old Stage 6 (`period_extractor_shift.md`) redundant. The pipeline stages are renumbered:
+
+|Old|New|Change|
+|---|---|---|
+|Stage 4 — Schedule Detection|Stage 4 — Schedule Detection|Replaced with this algorithm. Now also builds ShiftPeriod objects.|
+|Stage 5 — Off-Day Detection|Stage 5 — Off-Day Detection|No change|
+|Stage 6 — Shift Period Extraction|**Removed**|Merged into Stage 4|
+|Stage 7 — Daily Period Extraction|Stage 6 — Daily Period Extraction|Renumbered only|
+|Stage 8 — Shift Overtime Calculation|Stage 7 — Shift Overtime Calculation|Renumbered only|
+|Stage 9 — Daily Overtime Calculation|Stage 8 — Daily Overtime Calculation|Renumbered only|
+|Stage 10 — Store and Navigate|Stage 9 — Store and Navigate|Renumbered only|
+
+---
+
+## What This Stage Does NOT Do
 
 - Does not read from or write to the database
 - Does not use any previously stored employee data
 - Does not show any dialog or pause generation
 - Does not detect daily employee start time — all daily employees use the global `daily_start_time` from config
+- Does not enrich ShiftPeriod calculated fields — that is the shift overtime calculator
 
 ---
 
