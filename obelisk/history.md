@@ -258,3 +258,11 @@ The following tasks were agreed during discovery and must be implemented in orde
 **Task:** Replaced the department text-search fields in the shift and daily filter headers on the Report Screen with exact-match dropdown selectors, matching the pattern already in use on the undetected employees screen. Dropdown options are derived from the full unfiltered row set at render time so available options never disappear while other filters are active. Selecting "الكل" clears the department filter. The provider state fields were changed from `String` (substring search) to `String?` (null = all, non-null = exact match), with a sentinel pattern in `copyWith` to distinguish "clear to null" from "not provided".
 
 ---
+
+## 20260520-0800 | Schedule Detection Phase 2 — Irregular Shift Detection | TASK
+
+**Task:** Added Phase 2 anchor pair detection to the schedule detection stage. Employees who fail Phase 1 (fewer than 3 valid zone-based periods) are now tested for an irregular shift pattern before being defaulted to daily. An anchor pair requires four conditions on a calendar day D: an opening stamp within the tight shift start window, a closing stamp within the same tight window on D+1, a rest gap (zero timestamps on D+2 and D+3), and a return stamp on D+4 or D+5. Employees with 2 or more valid anchor pairs are classified as shift; below that threshold they fall to daily. The start-time confidence check (60%) applies in Phase 2 identically to Phase 1. Anchor pair periods are stored as ShiftPeriod objects and flow through the shift overtime calculator unchanged — since only zones 1 and 5 are satisfied, all anchor pair periods are marked invalid with 0 hours counted. The intent is correct classification (shift tab, not daily), not overtime accrual for these periods.
+
+**Rejected:** Hardcoding `min_zones_satisfied = 4` — kept the existing dynamic formula `(zoneCount − 1).clamp(2, zoneCount)` which is more correct for non-default zone configurations. Raising `min_start_time_confidence` from 0.60 to 0.75 — deferred to a future task.
+
+---
