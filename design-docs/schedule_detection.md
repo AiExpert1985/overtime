@@ -111,15 +111,16 @@ hasOpening  = any timestamp falls within openingWindow
 hasActivity = any timestamp exists on D+1 (any time)
 hasRestGap  = zero timestamps on D+2 AND zero timestamps on D+3
 hasReturn   = any timestamp exists on D+4
+isWeekend   = D+2 is Friday AND D+3 is Saturday
 
-if hasOpening AND hasActivity AND hasRestGap AND hasReturn:
+if hasOpening AND hasActivity AND hasRestGap AND hasReturn AND NOT isWeekend:
   append a ShiftPeriod to validPeriods[S] with:
     periodDate    = D
     allTimestamps = all timestamps from D and D+1, sorted ascending
     zoneResults   = zone results computed above (most zones unsatisfied — stored for audit)
 ```
 
-The opening stamp confirms shift start. Activity on D+1 confirms presence during the shift body without requiring an exact closing time. The rest gap confirms genuine days off. The return stamp on D+4 confirms the repeating cycle — ruling out a one-off isolated period.
+`isWeekend` guards against a weekly false positive: when shift start time is close to daily start time, a Sun–Thu daily employee satisfies all four conditions every week (works Wed→Thu, off Fri–Sat, returns Sun). Two weeks produces `winnerCount = 2`, wrongly classifying them as shift. Excluding the natural Friday–Saturday weekend eliminates this pattern with no dependency on Stage 5 off-day detection.
 
 Anchor pair periods are appended to the same `validPeriods[S]` bucket as zone-check periods. The classification step treats them identically. Because most interior zones are unsatisfied, the shift overtime calculator (Stage 7) will mark these periods as `isValid = false` and `hoursCounted = 0` — they appear in the detail screen for audit but do not contribute to overtime totals.
 
@@ -197,6 +198,22 @@ An employee with weak signal is daily. An employee with strong but ambiguous sig
 **Undetected list:** `[ { name, department, failureReason } ]` Employees who failed the pre-check or the confidence check. Carried directly to storage in Stage 9.
 
 All three are in-memory only. None is persisted until Stage 9.
+
+---
+
+## Pipeline Impact
+
+This stage now produces shift periods directly, making the old Stage 6 (`period_extractor_shift.md`) redundant. The pipeline stages are renumbered:
+
+|Old|New|Change|
+|---|---|---|
+|Stage 4 — Schedule Detection|Stage 4 — Schedule Detection|Replaced with this algorithm. Now also builds ShiftPeriod objects.|
+|Stage 5 — Off-Day Detection|Stage 5 — Off-Day Detection|No change|
+|Stage 6 — Shift Period Extraction|**Removed**|Merged into Stage 4|
+|Stage 7 — Daily Period Extraction|Stage 6 — Daily Period Extraction|Renumbered only|
+|Stage 8 — Shift Overtime Calculation|Stage 7 — Shift Overtime Calculation|Renumbered only|
+|Stage 9 — Daily Overtime Calculation|Stage 8 — Daily Overtime Calculation|Renumbered only|
+|Stage 10 — Store and Navigate|Stage 9 — Store and Navigate|Renumbered only|
 
 ---
 
