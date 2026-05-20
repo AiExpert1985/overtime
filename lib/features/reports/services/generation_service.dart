@@ -300,8 +300,8 @@ class GenerationService {
     if (!hasReturn) return null;
 
     final anchorTimestamps = [
-      ...(dayMap[_dayKey(day)] ?? []),
-      ...(dayMap[_dayKey(dayPlus1)] ?? []),
+      ...(dayMap[_dayKey(day)] ?? <DateTime>[]),
+      ...(dayMap[_dayKey(dayPlus1)] ?? <DateTime>[]),
     ]..sort();
 
     return ShiftPeriod(
