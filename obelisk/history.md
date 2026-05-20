@@ -224,3 +224,11 @@ The following tasks were agreed during discovery and must be implemented in orde
 **Rejected:** Passing undetected rows via route extras — provider access by report ID is cleaner and avoids stale data.
 
 ---
+
+## 20260520-0300 | Shift Detail Zone Display Improvements | TASK
+
+**Task:** Three UI-only improvements to the zone checkpoint column in the shift employee detail screen. (1) Removed the "نقطة X:" prefix from zone labels. (2) Timestamps moved inline with the zone window on the same line, formatted as "window: ts1، ts2"; zones with no timestamps show "✗" after the window instead of "---", with no leading ✗ sign. (3) Each zone row uses a fixed flex-ratio layout (window flex:2, content flex:3) so all windows are the same width and all timestamps start from the same horizontal point. (4) Zone window now shows the acceptable timestamp window (center − tolerance to center + tolerance) instead of the full zone boundary. Generation-time tolerance is derived from the last zone's stored width (lastZone.endTime − lastZone.startTime = 2 × tolerance), eliminating any dependency on current settings.
+
+**Rejected:** Reading tolerance from current settingsProvider — incorrect if settings changed after report generation. Storing tolerance as a separate field in zone JSON — unnecessary since it is recoverable from the last zone's stored boundaries.
+
+---

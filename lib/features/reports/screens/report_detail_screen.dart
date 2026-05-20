@@ -347,6 +347,14 @@ class _ShiftPeriodRowWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bg = period.isValid ? null : Colors.red.shade50;
+
+    // Last zone width = 2 × tolerance (pipeline stores windowEnd = center + tolerance
+    // as the last zone's endTime). Derive generation-time tolerance from stored data.
+    final zones = period.zoneResults;
+    final toleranceMinutes = zones.isNotEmpty
+        ? zones.last.endTime.difference(zones.last.startTime).inMinutes ~/ 2
+        : 0;
+
     return Container(
       decoration: BoxDecoration(
         color: bg,
@@ -366,8 +374,8 @@ class _ShiftPeriodRowWidget extends StatelessWidget {
             flex: flexes[2],
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: period.zoneResults
-                  .map((z) => _ZoneWidget(zone: z))
+              children: zones
+                  .map((z) => _ZoneWidget(zone: z, toleranceMinutes: toleranceMinutes))
                   .toList(),
             ),
           ),
@@ -455,42 +463,48 @@ class _DailyPeriodRowWidget extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ZoneWidget extends StatelessWidget {
-  const _ZoneWidget({required this.zone});
+  const _ZoneWidget({required this.zone, required this.toleranceMinutes});
 
   final ZoneRow zone;
+  final int toleranceMinutes;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final label =
-        'نقطة ${zone.zoneIndex + 1}: ${_fmtTime(zone.startTime)} - ${_fmtTime(zone.endTime)}';
+    final hasTs = zone.timestamps.isNotEmpty;
+    final centerHigh =
+        zone.startTime.add(Duration(minutes: 2 * toleranceMinutes));
+    final window = '${_fmtTime(zone.startTime)} - ${_fmtTime(centerHigh)}';
 
     return Container(
       color: zone.isSatisfied ? null : Colors.red.shade50,
       padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 4),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              if (!zone.isSatisfied)
-                Text(
-                  '✗ ',
-                  style: TextStyle(
-                    color: Colors.red.shade700,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              Text(label,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(fontWeight: FontWeight.w600)),
-            ],
-          ),
-          for (final ts in zone.timestamps)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Text(_fmtTime(ts), style: theme.textTheme.bodySmall),
+          Expanded(
+            flex: 2,
+            child: Text(
+              hasTs ? '$window:' : window,
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(fontWeight: FontWeight.w600),
             ),
+          ),
+          Expanded(
+            flex: 3,
+            child: hasTs
+                ? Text(
+                    zone.timestamps.map(_fmtTime).join('، '),
+                    style: theme.textTheme.bodySmall,
+                  )
+                : Text(
+                    '✗',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.red.shade700,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+          ),
         ],
       ),
     );

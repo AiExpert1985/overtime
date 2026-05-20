@@ -39,11 +39,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   void _initControllers(AppSettings s) {
     if (_initialized) return;
-    _dailyWorkDurationCtrl = TextEditingController(text: '${s.dailyWorkDuration}');
-    _dailyMaxOvertimeCtrl = TextEditingController(text: '${s.dailyMaxOvertime}');
-    _dailyDelayAllowanceCtrl = TextEditingController(text: '${s.dailyDelayAllowance}');
+    _dailyWorkDurationCtrl = TextEditingController(
+      text: '${s.dailyWorkDuration}',
+    );
+    _dailyMaxOvertimeCtrl = TextEditingController(
+      text: '${s.dailyMaxOvertime}',
+    );
+    _dailyDelayAllowanceCtrl = TextEditingController(
+      text: '${s.dailyDelayAllowance}',
+    );
     _shiftDurationCtrl = TextEditingController(text: '${s.shiftDuration}');
-    _shiftZoneIntervalCtrl = TextEditingController(text: '${s.shiftZoneInterval}');
+    _shiftZoneIntervalCtrl = TextEditingController(
+      text: '${s.shiftZoneInterval}',
+    );
     _shiftToleranceCtrl = TextEditingController(text: '${s.shiftTolerance}');
     _shiftBaselineCtrl = TextEditingController(text: '${s.shiftBaselineHours}');
     _shiftCeilingCtrl = TextEditingController(text: '${s.shiftCeilingHours}');
@@ -66,7 +74,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _initControllers(settings);
           return headersAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('خطأ في تحميل عناوين الأعمدة: $e')),
+            error: (e, _) =>
+                Center(child: Text('خطأ في تحميل عناوين الأعمدة: $e')),
             data: (headers) => _buildContent(settings, headers),
           );
         },
@@ -108,10 +117,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         children: [
           Text(
             title,
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
           const Divider(height: 20),
         ],
@@ -128,14 +136,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _settingRow(
           label: 'بداية الدوام',
           hint: 'وقت بداية الدوام الصباحي',
-          value: _timeTile(s.dailyStartTime, () => _saveTime(s.dailyStartTime, notifier.updateDailyStartTime)),
+          value: _timeTile(
+            s.dailyStartTime,
+            () => _saveTime(s.dailyStartTime, notifier.updateDailyStartTime),
+          ),
         ),
         _settingRow(
           label: 'ساعات الدوام',
           hint: 'مدة يوم العمل الاعتيادي بالساعات',
           value: _numberField(
             _dailyWorkDurationCtrl,
-            () => _saveNumber(_dailyWorkDurationCtrl, '${s.dailyWorkDuration}', (v) => v > 0, notifier.updateDailyWorkDuration),
+            () => _saveNumber(
+              _dailyWorkDurationCtrl,
+              '${s.dailyWorkDuration}',
+              (v) => v > 0,
+              notifier.updateDailyWorkDuration,
+            ),
           ),
         ),
         _settingRow(
@@ -143,15 +159,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           hint: 'أقصى عدد ساعات إضافية الممكن احتسابه للموظف في اليوم الواحد',
           value: _numberField(
             _dailyMaxOvertimeCtrl,
-            () => _saveNumber(_dailyMaxOvertimeCtrl, '${s.dailyMaxOvertime}', (v) => v > 0, notifier.updateDailyMaxOvertime),
+            () => _saveNumber(
+              _dailyMaxOvertimeCtrl,
+              '${s.dailyMaxOvertime}',
+              (v) => v > 0,
+              notifier.updateDailyMaxOvertime,
+            ),
           ),
         ),
         _settingRow(
-          label: 'وقت السماح بالتأخير',
-          hint: 'الهامش الزمني المسموح به للموظف للحضور بعد وقت البداية في أيام العمل الاعتيادية',
+          label: 'وقت السماح بالتأخير الصباحي (بالدقيقة)',
+          hint:
+              'الهامش الزمني المسموح به للموظف للحضور بعد وقت البداية في أيام العمل الاعتيادية',
           value: _numberField(
             _dailyDelayAllowanceCtrl,
-            () => _saveNumber(_dailyDelayAllowanceCtrl, '${s.dailyDelayAllowance}', (v) => v >= 0, notifier.updateDailyDelayAllowance),
+            () => _saveNumber(
+              _dailyDelayAllowanceCtrl,
+              '${s.dailyDelayAllowance}',
+              (v) => v >= 0,
+              notifier.updateDailyDelayAllowance,
+            ),
           ),
         ),
         _readOnlyRow('وقت النهاية', s.dailyEndTime),
@@ -175,7 +202,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           hint: 'المدة الكاملة للمناوبة الواحدة بالساعات',
           value: _numberField(
             _shiftDurationCtrl,
-            () => _saveNumber(_shiftDurationCtrl, '${s.shiftDuration}', (v) => v > 0, notifier.updateShiftDuration),
+            () => _saveNumber(
+              _shiftDurationCtrl,
+              '${s.shiftDuration}',
+              (v) => v > 0,
+              notifier.updateShiftDuration,
+            ),
           ),
         ),
         _settingRow(
@@ -183,15 +215,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           hint: 'الوقت المسموح به للبصمات خلال المناوبة الواحدة',
           value: _numberField(
             _shiftZoneIntervalCtrl,
-            () => _saveNumber(_shiftZoneIntervalCtrl, '${s.shiftZoneInterval}', (v) => v > 0 && v <= s.shiftDuration, notifier.updateShiftZoneInterval),
+            () => _saveNumber(
+              _shiftZoneIntervalCtrl,
+              '${s.shiftZoneInterval}',
+              (v) => v > 0 && v <= s.shiftDuration,
+              notifier.updateShiftZoneInterval,
+            ),
           ),
         ),
         _settingRow(
-          label: 'دقائق السماح للبصمة',
+          label: 'وقت السماح للتقديم او التأخير بالبصمة (بالدقيقة)',
           hint: 'الهامش الزمني بالدقائق المسموح به لجميع البصمات في المناوبة',
           value: _numberField(
             _shiftToleranceCtrl,
-            () => _saveNumber(_shiftToleranceCtrl, '${s.shiftTolerance}', (v) => v >= 0, notifier.updateShiftTolerance),
+            () => _saveNumber(
+              _shiftToleranceCtrl,
+              '${s.shiftTolerance}',
+              (v) => v >= 0,
+              notifier.updateShiftTolerance,
+            ),
           ),
         ),
         _settingRow(
@@ -199,15 +241,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           hint: 'عدد ساعات العمل الشهرية المطلوبة',
           value: _numberField(
             _shiftBaselineCtrl,
-            () => _saveNumber(_shiftBaselineCtrl, '${s.shiftBaselineHours}', (v) => v > 0 && v < s.shiftCeilingHours, notifier.updateShiftBaselineHours),
+            () => _saveNumber(
+              _shiftBaselineCtrl,
+              '${s.shiftBaselineHours}',
+              (v) => v > 0 && v < s.shiftCeilingHours,
+              notifier.updateShiftBaselineHours,
+            ),
           ),
         ),
         _settingRow(
           label: 'الحد الأقصى للساعات الشهرية',
-          hint: 'أقصى عدد ساعات عمل يُحتسب في الشهر، اي ساعات اكثر منه تهمل و لا تدخل في حساب الساعات الاضافية',
+          hint:
+              'أقصى عدد ساعات عمل يُحتسب في الشهر، اي ساعات اكثر منه تهمل و لا تدخل في حساب الساعات الاضافية',
           value: _numberField(
             _shiftCeilingCtrl,
-            () => _saveNumber(_shiftCeilingCtrl, '${s.shiftCeilingHours}', (v) => v > s.shiftBaselineHours, notifier.updateShiftCeilingHours),
+            () => _saveNumber(
+              _shiftCeilingCtrl,
+              '${s.shiftCeilingHours}',
+              (v) => v > s.shiftBaselineHours,
+              notifier.updateShiftCeilingHours,
+            ),
           ),
         ),
         _readOnlyRow('عدد نقاط التحقق', '${s.zoneCount}'),
@@ -258,17 +311,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       children: [
         _settingRow(
           label: 'وضع التقريب',
-          hint: 'طريقة عرض الساعات الإضافية: بدون تقريب، تقريب لربع ساعة، نصف ساعة، أو تقريب لساعة كاملة',
+          hint:
+              'طريقة عرض الساعات الإضافية: بدون تقريب، تقريب لربع ساعة، نصف ساعة، أو تقريب لساعة كاملة',
           value: const SizedBox.shrink(),
         ),
         RadioGroup<String>(
           groupValue: s.roundingMode,
           onChanged: (v) {
-            if (v != null) ref.read(settingsProvider.notifier).updateRoundingMode(v);
+            if (v != null) {
+              ref.read(settingsProvider.notifier).updateRoundingMode(v);
+            }
           },
           child: Column(
             children: modes
-                .map((m) => RadioListTile<String>(title: Text(m.$2), value: m.$1))
+                .map(
+                  (m) => RadioListTile<String>(title: Text(m.$2), value: m.$1),
+                )
                 .toList(),
           ),
         ),
@@ -282,11 +340,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: _columnHeaderCard('employee_name', 'اسم الموظف', headers['employee_name'] ?? [])),
+        Expanded(
+          child: _columnHeaderCard(
+            'employee_name',
+            'اسم الموظف',
+            headers['employee_name'] ?? [],
+          ),
+        ),
         const SizedBox(width: 12),
-        Expanded(child: _columnHeaderCard('department', 'القسم', headers['department'] ?? [])),
+        Expanded(
+          child: _columnHeaderCard(
+            'department',
+            'القسم',
+            headers['department'] ?? [],
+          ),
+        ),
         const SizedBox(width: 12),
-        Expanded(child: _columnHeaderCard('datetime', 'التاريخ والوقت', headers['datetime'] ?? [])),
+        Expanded(
+          child: _columnHeaderCard(
+            'datetime',
+            'التاريخ والوقت',
+            headers['datetime'] ?? [],
+          ),
+        ),
       ],
     );
   }
@@ -322,7 +398,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       child: Row(
         children: [
           Expanded(
-            child: Text(header.headerValue, style: Theme.of(context).textTheme.bodySmall),
+            child: Text(
+              header.headerValue,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           ),
           if (header.isDefault)
             const Padding(
@@ -417,8 +496,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _readOnlyRow(String label, String value) {
     final style = Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: Theme.of(context).colorScheme.outline,
-        );
+      color: Theme.of(context).colorScheme.outline,
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -467,7 +546,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final picked = await _pickTime('08:00');
     if (picked == null || !mounted) return;
     try {
-      await ref.read(settingsProvider.notifier).updateShiftStartTimes([...current, picked]);
+      await ref.read(settingsProvider.notifier).updateShiftStartTimes([
+        ...current,
+        picked,
+      ]);
     } catch (_) {
       _snack('حدث خطأ أثناء الحفظ');
     }
@@ -506,7 +588,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       builder: (ctx) => AlertDialog(
         content: Text(description, textAlign: TextAlign.right),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('حسناً')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('حسناً'),
+          ),
         ],
       ),
     );
@@ -521,7 +606,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         controller: ctrl,
         confirmLabel: 'إضافة',
         onConfirm: (value) {
-          if (existing.any((h) => h.headerValue == value)) return 'القيمة موجودة مسبقاً';
+          if (existing.any((h) => h.headerValue == value)) {
+            return 'القيمة موجودة مسبقاً';
+          }
           Navigator.pop(ctx);
           ref.read(columnHeadersProvider.notifier).add(fieldKey, value);
           return null;
@@ -544,7 +631,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             return null;
           }
           Navigator.pop(ctx);
-          ref.read(columnHeadersProvider.notifier).updateHeader(header.id, value);
+          ref
+              .read(columnHeadersProvider.notifier)
+              .updateHeader(header.id, value);
           return null;
         },
       ),
@@ -555,15 +644,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        content: Text('هل تريد حذف "${header.headerValue}"؟', textAlign: TextAlign.right),
+        content: Text(
+          'هل تريد حذف "${header.headerValue}"؟',
+          textAlign: TextAlign.right,
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء'),
+          ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               ref.read(columnHeadersProvider.notifier).delete(header.id);
             },
-            child: Text('حذف', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            child: Text(
+              'حذف',
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
           ),
         ],
       ),
@@ -616,7 +714,10 @@ class _HeaderInputDialogState extends State<_HeaderInputDialog> {
         onSubmitted: (_) => _submit(),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('إلغاء'),
+        ),
         TextButton(onPressed: _submit, child: Text(widget.confirmLabel)),
       ],
     );
