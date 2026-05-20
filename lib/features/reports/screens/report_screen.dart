@@ -51,9 +51,7 @@ class ReportScreen extends ConsumerStatefulWidget {
 class _ReportScreenState extends ConsumerState<ReportScreen> {
   int _selectedTab = 0;
   late final TextEditingController _shiftSearch;
-  late final TextEditingController _shiftDeptSearch;
   late final TextEditingController _dailySearch;
-  late final TextEditingController _dailyDeptSearch;
   bool _shiftExporting = false;
   bool _dailyExporting = false;
 
@@ -61,17 +59,13 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
   void initState() {
     super.initState();
     _shiftSearch = TextEditingController();
-    _shiftDeptSearch = TextEditingController();
     _dailySearch = TextEditingController();
-    _dailyDeptSearch = TextEditingController();
   }
 
   @override
   void dispose() {
     _shiftSearch.dispose();
-    _shiftDeptSearch.dispose();
     _dailySearch.dispose();
-    _dailyDeptSearch.dispose();
     super.dispose();
   }
 
@@ -183,9 +177,8 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                     state: rs,
                     roundingMode: _roundingMode,
                     nameController: _shiftSearch,
-                    deptController: _shiftDeptSearch,
                     onSearch: (q) => _notifier.setShiftSearch(q),
-                    onDeptSearch: (q) => _notifier.setShiftDeptSearch(q),
+                    onDeptChanged: (v) => _notifier.setShiftDeptFilter(v),
                     onHasOvertimeChanged: (v) =>
                         _notifier.setShiftHasOvertime(v),
                     onNoOvertimeChanged: (v) =>
@@ -202,9 +195,8 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                     state: rs,
                     roundingMode: _roundingMode,
                     nameController: _dailySearch,
-                    deptController: _dailyDeptSearch,
                     onSearch: (q) => _notifier.setDailySearch(q),
-                    onDeptSearch: (q) => _notifier.setDailyDeptSearch(q),
+                    onDeptChanged: (v) => _notifier.setDailyDeptFilter(v),
                     onHasOvertimeChanged: (v) =>
                         _notifier.setDailyHasOvertime(v),
                     onNoOvertimeChanged: (v) =>
@@ -320,9 +312,8 @@ class _ShiftTab extends StatelessWidget {
     required this.state,
     required this.roundingMode,
     required this.nameController,
-    required this.deptController,
     required this.onSearch,
-    required this.onDeptSearch,
+    required this.onDeptChanged,
     required this.onHasOvertimeChanged,
     required this.onNoOvertimeChanged,
     required this.onShowIncludedChanged,
@@ -334,9 +325,8 @@ class _ShiftTab extends StatelessWidget {
   final ReportState state;
   final String roundingMode;
   final TextEditingController nameController;
-  final TextEditingController deptController;
   final void Function(String) onSearch;
-  final void Function(String) onDeptSearch;
+  final void Function(String?) onDeptChanged;
   final void Function(bool) onHasOvertimeChanged;
   final void Function(bool) onNoOvertimeChanged;
   final void Function(bool) onShowIncludedChanged;
@@ -347,6 +337,9 @@ class _ShiftTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rows = state.visibleShiftRows;
+    final depts = ({...state.shiftRows.map((r) => r.department)}.toList()
+          ..sort())
+        .cast<String>();
     return Column(
       children: [
         _SummaryBar(children: [
@@ -370,9 +363,10 @@ class _ShiftTab extends StatelessWidget {
         _InlineFilterHeader(
           overtimeLabel: 'ساعات إضافية',
           nameController: nameController,
-          deptController: deptController,
+          depts: depts,
+          selectedDept: state.shiftDeptFilter,
           onNameSearch: onSearch,
-          onDeptSearch: onDeptSearch,
+          onDeptChanged: onDeptChanged,
           hasOvertime: state.shiftHasOvertime,
           noOvertime: state.shiftNoOvertime,
           showIncluded: state.shiftShowIncluded,
@@ -414,9 +408,8 @@ class _DailyTab extends StatelessWidget {
     required this.state,
     required this.roundingMode,
     required this.nameController,
-    required this.deptController,
     required this.onSearch,
-    required this.onDeptSearch,
+    required this.onDeptChanged,
     required this.onHasOvertimeChanged,
     required this.onNoOvertimeChanged,
     required this.onShowIncludedChanged,
@@ -428,9 +421,8 @@ class _DailyTab extends StatelessWidget {
   final ReportState state;
   final String roundingMode;
   final TextEditingController nameController;
-  final TextEditingController deptController;
   final void Function(String) onSearch;
-  final void Function(String) onDeptSearch;
+  final void Function(String?) onDeptChanged;
   final void Function(bool) onHasOvertimeChanged;
   final void Function(bool) onNoOvertimeChanged;
   final void Function(bool) onShowIncludedChanged;
@@ -441,6 +433,9 @@ class _DailyTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rows = state.visibleDailyRows;
+    final depts = ({...state.dailyRows.map((r) => r.department)}.toList()
+          ..sort())
+        .cast<String>();
     return Column(
       children: [
         _SummaryBar(children: [
@@ -464,9 +459,10 @@ class _DailyTab extends StatelessWidget {
         _InlineFilterHeader(
           overtimeLabel: 'كلي',
           nameController: nameController,
-          deptController: deptController,
+          depts: depts,
+          selectedDept: state.dailyDeptFilter,
           onNameSearch: onSearch,
-          onDeptSearch: onDeptSearch,
+          onDeptChanged: onDeptChanged,
           hasOvertime: state.dailyHasOvertime,
           noOvertime: state.dailyNoOvertime,
           showIncluded: state.dailyShowIncluded,
@@ -556,9 +552,10 @@ class _InlineFilterHeader extends StatelessWidget {
   const _InlineFilterHeader({
     required this.overtimeLabel,
     required this.nameController,
-    required this.deptController,
+    required this.depts,
+    required this.selectedDept,
     required this.onNameSearch,
-    required this.onDeptSearch,
+    required this.onDeptChanged,
     required this.hasOvertime,
     required this.noOvertime,
     required this.showIncluded,
@@ -572,9 +569,10 @@ class _InlineFilterHeader extends StatelessWidget {
 
   final String overtimeLabel;
   final TextEditingController nameController;
-  final TextEditingController deptController;
+  final List<String> depts;
+  final String? selectedDept;
   final void Function(String) onNameSearch;
-  final void Function(String) onDeptSearch;
+  final void Function(String?) onDeptChanged;
   final bool hasOvertime;
   final bool noOvertime;
   final bool showIncluded;
@@ -635,9 +633,11 @@ class _InlineFilterHeader extends StatelessWidget {
                 flex: 2,
                 child: Padding(
                   padding: const EdgeInsetsDirectional.only(end: 8),
-                  child: _FilterTextField(
-                    controller: deptController,
-                    onChanged: onDeptSearch,
+                  child: _FilterDropdown(
+                    hint: 'الكل',
+                    value: selectedDept,
+                    items: depts,
+                    onChanged: onDeptChanged,
                   ),
                 ),
               ),
@@ -725,9 +725,11 @@ class _InlineFilterHeader extends StatelessWidget {
                 flex: 2,
                 child: Padding(
                   padding: const EdgeInsetsDirectional.only(end: 8),
-                  child: _FilterTextField(
-                    controller: deptController,
-                    onChanged: onDeptSearch,
+                  child: _FilterDropdown(
+                    hint: 'الكل',
+                    value: selectedDept,
+                    items: depts,
+                    onChanged: onDeptChanged,
                   ),
                 ),
               ),
@@ -797,6 +799,58 @@ class _FilterTextField extends StatelessWidget {
         ),
         style: const TextStyle(fontSize: 13),
         onChanged: onChanged,
+      ),
+    );
+  }
+}
+
+class _FilterDropdown extends StatelessWidget {
+  const _FilterDropdown({
+    required this.hint,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+
+  final String hint;
+  final String? value;
+  final List<String> items;
+  final void Function(String?) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      height: 36,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(color: theme.colorScheme.outline),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          isDense: true,
+          underline: const SizedBox(),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface),
+          hint: Text(hint,
+              style: TextStyle(
+                  fontSize: 13, color: theme.colorScheme.onSurfaceVariant)),
+          items: [
+            DropdownMenuItem<String>(
+              value: null,
+              child: Text(hint, style: const TextStyle(fontSize: 13)),
+            ),
+            ...items.map(
+              (v) => DropdownMenuItem<String>(
+                value: v,
+                child: Text(v, style: const TextStyle(fontSize: 13)),
+              ),
+            ),
+          ],
+          onChanged: onChanged,
+        ),
       ),
     );
   }

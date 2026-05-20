@@ -38,8 +38,8 @@ class ReportState {
     this.shiftSearch = '',
     this.dailySearch = '',
     this.undetectedSearch = '',
-    this.shiftDeptSearch = '',
-    this.dailyDeptSearch = '',
+    this.shiftDeptFilter,
+    this.dailyDeptFilter,
     this.shiftShowIncluded = true,
     this.shiftShowExcluded = true,
     this.dailyShowIncluded = true,
@@ -57,8 +57,8 @@ class ReportState {
   final String shiftSearch;
   final String dailySearch;
   final String undetectedSearch;
-  final String shiftDeptSearch;
-  final String dailyDeptSearch;
+  final String? shiftDeptFilter;
+  final String? dailyDeptFilter;
 
   // Paired booleans: both true → show all; one true → filter to that category;
   // both false → show none.
@@ -120,9 +120,8 @@ class ReportState {
       list = list.where((r) => r.employeeName.toLowerCase().contains(q)).toList();
     }
 
-    if (shiftDeptSearch.isNotEmpty) {
-      final q = shiftDeptSearch.toLowerCase();
-      list = list.where((r) => r.department.toLowerCase().contains(q)).toList();
+    if (shiftDeptFilter != null) {
+      list = list.where((r) => r.department == shiftDeptFilter).toList();
     }
 
     list.sort((a, b) => a.employeeName.compareTo(b.employeeName));
@@ -153,9 +152,8 @@ class ReportState {
       list = list.where((r) => r.employeeName.toLowerCase().contains(q)).toList();
     }
 
-    if (dailyDeptSearch.isNotEmpty) {
-      final q = dailyDeptSearch.toLowerCase();
-      list = list.where((r) => r.department.toLowerCase().contains(q)).toList();
+    if (dailyDeptFilter != null) {
+      list = list.where((r) => r.department == dailyDeptFilter).toList();
     }
 
     list.sort((a, b) => a.employeeName.compareTo(b.employeeName));
@@ -176,14 +174,16 @@ class ReportState {
     return list;
   }
 
+  static const Object _omit = Object();
+
   ReportState copyWith({
     List<ShiftEmployeeRow>? shiftRows,
     List<DailyEmployeeRow>? dailyRows,
     String? shiftSearch,
     String? dailySearch,
     String? undetectedSearch,
-    String? shiftDeptSearch,
-    String? dailyDeptSearch,
+    Object? shiftDeptFilter = _omit,
+    Object? dailyDeptFilter = _omit,
     bool? shiftShowIncluded,
     bool? shiftShowExcluded,
     bool? dailyShowIncluded,
@@ -201,8 +201,12 @@ class ReportState {
         shiftSearch: shiftSearch ?? this.shiftSearch,
         dailySearch: dailySearch ?? this.dailySearch,
         undetectedSearch: undetectedSearch ?? this.undetectedSearch,
-        shiftDeptSearch: shiftDeptSearch ?? this.shiftDeptSearch,
-        dailyDeptSearch: dailyDeptSearch ?? this.dailyDeptSearch,
+        shiftDeptFilter: shiftDeptFilter == _omit
+            ? this.shiftDeptFilter
+            : shiftDeptFilter as String?,
+        dailyDeptFilter: dailyDeptFilter == _omit
+            ? this.dailyDeptFilter
+            : dailyDeptFilter as String?,
         shiftShowIncluded: shiftShowIncluded ?? this.shiftShowIncluded,
         shiftShowExcluded: shiftShowExcluded ?? this.shiftShowExcluded,
         dailyShowIncluded: dailyShowIncluded ?? this.dailyShowIncluded,
@@ -281,16 +285,16 @@ class ReportNotifier extends AsyncNotifier<ReportState> {
     state = AsyncData(current.copyWith(undetectedSearch: q));
   }
 
-  void setShiftDeptSearch(String q) {
+  void setShiftDeptFilter(String? v) {
     final current = _current;
     if (current == null) return;
-    state = AsyncData(current.copyWith(shiftDeptSearch: q));
+    state = AsyncData(current.copyWith(shiftDeptFilter: v));
   }
 
-  void setDailyDeptSearch(String q) {
+  void setDailyDeptFilter(String? v) {
     final current = _current;
     if (current == null) return;
-    state = AsyncData(current.copyWith(dailyDeptSearch: q));
+    state = AsyncData(current.copyWith(dailyDeptFilter: v));
   }
 
   void setShiftShowIncluded(bool v) {

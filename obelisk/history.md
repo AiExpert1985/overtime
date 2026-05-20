@@ -252,3 +252,9 @@ The following tasks were agreed during discovery and must be implemented in orde
 **Rejected:** Keeping V1 as a user-facing settings toggle alongside V2 — V2 is strictly better and a toggle creates user confusion with no benefit. Pre-filtering apparent daily employees before V2 (Solution 2) — adds fragile heuristics with new tunable parameters; the dynamic zone threshold cleanly handles the described case. Treating the confidence check across start times as a robust multi-start-time discriminator — it has a known failure mode when start times are separated by exact multiples of zone_interval, so it serves only as a secondary guard for the ambiguous-start-time undetected reason.
 
 ---
+
+## 20260520-0700 | Department Filter Dropdown on Report Screen | TASK
+
+**Task:** Replaced the department text-search fields in the shift and daily filter headers on the Report Screen with exact-match dropdown selectors, matching the pattern already in use on the undetected employees screen. Dropdown options are derived from the full unfiltered row set at render time so available options never disappear while other filters are active. Selecting "الكل" clears the department filter. The provider state fields were changed from `String` (substring search) to `String?` (null = all, non-null = exact match), with a sentinel pattern in `copyWith` to distinguish "clear to null" from "not provided".
+
+---
