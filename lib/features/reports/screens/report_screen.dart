@@ -6,7 +6,6 @@ import '../../settings/providers/settings_provider.dart';
 import '../domain/daily_employee_row.dart';
 import '../domain/report.dart';
 import '../domain/shift_employee_row.dart';
-import '../domain/undetected_employee_row.dart';
 import '../providers/reports_provider.dart';
 import '../services/report_export_service.dart';
 
@@ -83,17 +82,8 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
       ref.read(settingsProvider).whenOrNull(data: (s) => s.roundingMode) ??
       'quarter';
 
-  void _showUndetectedDialog(ReportState rs) {
-    showDialog(
-      context: context,
-      builder: (_) => _UndetectedDialog(
-        rows: rs.undetectedRows,
-        onRowTap: (id) {
-          Navigator.of(context).pop();
-          context.push('/report/${widget.reportId}/detail/undetected/$id');
-        },
-      ),
-    );
+  void _showUndetected() {
+    context.push('/report/${widget.reportId}/undetected');
   }
 
   bool get _isExporting =>
@@ -152,7 +142,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                       : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
                 tooltip: 'الموظفون غير المحدَّدون',
-                onPressed: rs != null ? () => _showUndetectedDialog(rs) : null,
+                onPressed: rs != null ? _showUndetected : null,
               ),
             ),
           ),
@@ -510,128 +500,6 @@ class _DailyTab extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Undetected dialog
-// ---------------------------------------------------------------------------
-
-class _UndetectedDialog extends StatefulWidget {
-  const _UndetectedDialog({
-    required this.rows,
-    required this.onRowTap,
-  });
-
-  final List<UndetectedEmployeeRow> rows;
-  final void Function(int) onRowTap;
-
-  @override
-  State<_UndetectedDialog> createState() => _UndetectedDialogState();
-}
-
-class _UndetectedDialogState extends State<_UndetectedDialog> {
-  final _search = TextEditingController();
-  String _query = '';
-
-  @override
-  void dispose() {
-    _search.dispose();
-    super.dispose();
-  }
-
-  List<UndetectedEmployeeRow> get _filtered {
-    var list = List<UndetectedEmployeeRow>.from(widget.rows);
-    if (_query.isNotEmpty) {
-      final q = _query.toLowerCase();
-      list = list
-          .where((r) =>
-              r.employeeName.toLowerCase().contains(q) ||
-              r.department.toLowerCase().contains(q))
-          .toList();
-    }
-    list.sort((a, b) => a.employeeName.compareTo(b.employeeName));
-    return list;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final rows = _filtered;
-
-    return Dialog(
-      child: SizedBox(
-        width: 600,
-        height: 450,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-              child: Row(
-                children: [
-                  Icon(Icons.warning_amber_rounded,
-                      color: Colors.orange.shade700),
-                  const SizedBox(width: 8),
-                  Text(
-                    'غير محدَّدون',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '(${widget.rows.length})',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: TextField(
-                controller: _search,
-                decoration: const InputDecoration(
-                  hintText: 'بحث باسم الموظف',
-                  prefixIcon: Icon(Icons.search),
-                  isDense: true,
-                  border: OutlineInputBorder(),
-                ),
-                onChanged: (q) => setState(() => _query = q),
-              ),
-            ),
-            const _TableHeader(
-              columns: ['اسم الموظف', 'القسم', 'سبب عدم الكشف'],
-              flexes: [3, 2, 3],
-            ),
-            Expanded(
-              child: rows.isEmpty
-                  ? Center(
-                      child: Text(
-                        _query.isEmpty
-                            ? 'تم كشف جميع الموظفين بنجاح'
-                            : 'لا توجد نتائج مطابقة',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: rows.length,
-                      itemBuilder: (_, i) => _UndetectedRow(
-                        row: rows[i],
-                        onTap: () => widget.onRowTap(rows[i].id),
-                      ),
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Shared widgets
 // ---------------------------------------------------------------------------
 
@@ -679,36 +547,6 @@ class _SummaryCard extends StatelessWidget {
                     ?.copyWith(fontWeight: FontWeight.bold)),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// Kept for the undetected dialog.
-class _TableHeader extends StatelessWidget {
-  const _TableHeader({required this.columns, required this.flexes});
-
-  final List<String> columns;
-  final List<int> flexes;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      color: theme.colorScheme.surfaceContainerHighest,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        children: [
-          for (var i = 0; i < columns.length; i++)
-            Expanded(
-              flex: flexes[i],
-              child: Text(
-                columns[i],
-                style: theme.textTheme.labelMedium
-                    ?.copyWith(fontWeight: FontWeight.bold),
-              ),
-            ),
-        ],
       ),
     );
   }
@@ -1155,34 +993,3 @@ class _DailyRow extends StatelessWidget {
   }
 }
 
-class _UndetectedRow extends StatelessWidget {
-  const _UndetectedRow({required this.row, required this.onTap});
-
-  final UndetectedEmployeeRow row;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: Theme.of(context).dividerColor,
-              width: 0.5,
-            ),
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(flex: 3, child: Text(row.employeeName)),
-            Expanded(flex: 2, child: Text(row.department)),
-            Expanded(flex: 3, child: Text(row.failureReason)),
-          ],
-        ),
-      ),
-    );
-  }
-}

@@ -216,3 +216,11 @@ The following tasks were agreed during discovery and must be implemented in orde
 **Task:** Two improvements to the Report Screen. (1) Overtime cells in the employee list now show "---" instead of empty or "0 ساعة" when an employee has no overtime — applies to both shift rows (which previously showed "0 ساعة") and daily rows (which rendered an empty Column). (2) Daily employee Excel export employee table split from one total overtime column into three columns: off-day overtime, regular-day overtime, and total overtime. Off-day and regular columns show "---" when zero; total always shows the formatted value.
 
 ---
+
+## 20260520-0200 | Undetected Employees Full Screen & Inline Filters | TASK
+
+**Task:** Replaced the undetected employees modal dialog on the Report Screen with a dedicated full-screen route pushed via go_router. The new screen reads from the existing report provider by report ID — no new data loading. A new named route `undetected` was added nested under the report route. The screen has a combined inline filter header with three per-column controls: a name search field, a department dropdown, and a failure-reason dropdown. Dropdowns are populated from the full unfiltered row set so options never disappear while filtering. Selecting "الكل" (null value) in a dropdown shows all rows for that column. Row taps navigate to the existing undetected detail screen. The old `_UndetectedDialog`, `_TableHeader`, and `_UndetectedRow` classes were removed from the report screen file.
+
+**Rejected:** Passing undetected rows via route extras — provider access by report ID is cleaner and avoids stale data.
+
+---
