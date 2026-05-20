@@ -232,3 +232,9 @@ The following tasks were agreed during discovery and must be implemented in orde
 **Rejected:** Reading tolerance from current settingsProvider — incorrect if settings changed after report generation. Storing tolerance as a separate field in zone JSON — unnecessary since it is recoverable from the last zone's stored boundaries.
 
 ---
+
+## 20260520-0400 | Shift Detail Zone Timestamp Split | TASK
+
+**Task:** Split the single timestamps column in the shift employee detail screen's zone widget into two separate sub-columns — one for timestamps within the allowed window (center ± tolerance) and one for timestamps within the zone boundary but outside that window. A sub-header row ("النافذة" / "داخل النافذة" / "خارج النافذة") is prepended once per period's zone group. Both sub-columns show a red ✗ when empty. Zone invalidity (red background) is still determined by the stored isSatisfied flag. The split is computed at render time from existing ZoneRow data — no data model, DB, or pipeline changes.
+
+---

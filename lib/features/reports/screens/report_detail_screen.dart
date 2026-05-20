@@ -374,9 +374,12 @@ class _ShiftPeriodRowWidget extends StatelessWidget {
             flex: flexes[2],
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: zones
-                  .map((z) => _ZoneWidget(zone: z, toleranceMinutes: toleranceMinutes))
-                  .toList(),
+              children: [
+                const _ZoneSubHeader(),
+                ...zones.map(
+                  (z) => _ZoneWidget(zone: z, toleranceMinutes: toleranceMinutes),
+                ),
+              ],
             ),
           ),
           _Cell(
@@ -462,6 +465,27 @@ class _DailyPeriodRowWidget extends StatelessWidget {
 // Zone widget
 // ---------------------------------------------------------------------------
 
+class _ZoneSubHeader extends StatelessWidget {
+  const _ZoneSubHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+      child: Row(
+        children: [
+          Expanded(flex: 3, child: Text('النافذة', style: style)),
+          Expanded(flex: 4, child: Text('داخل النافذة', style: style)),
+          Expanded(flex: 4, child: Text('خارج النافذة', style: style)),
+        ],
+      ),
+    );
+  }
+}
+
 class _ZoneWidget extends StatelessWidget {
   const _ZoneWidget({required this.zone, required this.toleranceMinutes});
 
@@ -471,10 +495,16 @@ class _ZoneWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hasTs = zone.timestamps.isNotEmpty;
-    final centerHigh =
+    final windowEnd =
         zone.startTime.add(Duration(minutes: 2 * toleranceMinutes));
-    final window = '${_fmtTime(zone.startTime)} - ${_fmtTime(centerHigh)}';
+    final window = '${_fmtTime(zone.startTime)} - ${_fmtTime(windowEnd)}';
+
+    final inWindow = zone.timestamps
+        .where((ts) => !ts.isBefore(zone.startTime) && !ts.isAfter(windowEnd))
+        .toList();
+    final outOfWindow = zone.timestamps
+        .where((ts) => ts.isBefore(zone.startTime) || ts.isAfter(windowEnd))
+        .toList();
 
     return Container(
       color: zone.isSatisfied ? null : Colors.red.shade50,
@@ -483,18 +513,33 @@ class _ZoneWidget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            flex: 2,
+            flex: 3,
             child: Text(
-              hasTs ? '$window:' : window,
+              window,
               style: theme.textTheme.bodySmall
                   ?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
           Expanded(
-            flex: 3,
-            child: hasTs
+            flex: 4,
+            child: inWindow.isNotEmpty
                 ? Text(
-                    zone.timestamps.map(_fmtTime).join('، '),
+                    inWindow.map(_fmtTime).join('، '),
+                    style: theme.textTheme.bodySmall,
+                  )
+                : Text(
+                    '✗',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.red.shade700,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+          ),
+          Expanded(
+            flex: 4,
+            child: outOfWindow.isNotEmpty
+                ? Text(
+                    outOfWindow.map(_fmtTime).join('، '),
                     style: theme.textTheme.bodySmall,
                   )
                 : Text(
