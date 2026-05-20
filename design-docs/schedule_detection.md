@@ -39,7 +39,7 @@ Every employee is assigned exactly one of three types as the output of this stag
 |min_attendance_density|0.15|Cheap pre-filter — employee must have appeared on at least 15% of report days|
 |min_valid_periods|3|Winner must have at least 3 valid periods — hard to achieve by luck, absorbs mis-punches|
 |min_start_time_confidence|0.60|Applied only when multiple start times are configured. Winner's valid periods must be ≥ 60% of all valid periods across all start times.|
-|min_zones_satisfied|2|Minimum satisfied zones for a window to be counted as a valid period|
+|min_zones_satisfied|4|Minimum satisfied zones for a window to be counted as a valid period. Requires overnight zone presence — blocks daily employee collision where zones 1, 2, and 5 are accidentally satisfied by a normal morning/afternoon pattern.|
 
 ---
 
@@ -91,7 +91,7 @@ If `windowTimestamps` is empty → skip this day, no period created.
 
 Otherwise, compute zone results using the Zone Layout above. Count `satisfiedZones`.
 
-If `satisfiedZones ≥ min_zones_satisfied (2)` → append a `ShiftPeriod` to `validPeriods[S]`:
+If `satisfiedZones ≥ min_zones_satisfied (4)` → append a `ShiftPeriod` to `validPeriods[S]`:
 
 |Field|Value|
 |---|---|
@@ -100,7 +100,7 @@ If `satisfiedZones ≥ min_zones_satisfied (2)` → append a `ShiftPeriod` to `v
 |allTimestamps|windowTimestamps, sorted ascending|
 |zoneResults|list of `{ zoneIndex, startTime, endTime, timestamps[], isSatisfied }`|
 
-Calculated fields (`endDate`, `totalAttendanceDuration`, `hoursCounted`, `isValid`, `notes`) are left unset — the calculator fills them in Stage 8.
+Calculated fields (`endDate`, `totalAttendanceDuration`, `hoursCounted`, `isValid`, `notes`) are left unset — the calculator fills them in Stage 7.
 
 ### Step 3 — Find the Winning Start Time
 

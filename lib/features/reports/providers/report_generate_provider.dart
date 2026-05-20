@@ -169,35 +169,26 @@ class ReportGenerateNotifier extends Notifier<ReportGenerateState> {
         settings,
       );
 
-      final promoted = service.promoteUndetectedToDaily(schedules);
-
       final offDays = service.detectOffDays(
-        promoted.dailyTable,
+        schedules.dailyTable,
         saved.startDate!,
         saved.endDate!,
-      );
-
-      final shiftEntries = service.extractShiftPeriods(
-        promoted.shiftTable,
-        saved.startDate!,
-        saved.endDate!,
-        settings,
       );
 
       final dailyEntries = service.extractDailyPeriods(
-        promoted.dailyTable,
+        schedules.dailyTable,
         offDays,
       );
 
-      service.calculateShiftOvertime(shiftEntries, settings);
+      service.calculateShiftOvertime(schedules.shiftTable, settings);
       service.calculateDailyOvertime(dailyEntries, settings);
 
       final reportId = await repo.storeReport(
         rangeStart: saved.startDate!,
         rangeEnd: saved.endDate!,
-        shiftEntries: shiftEntries,
+        shiftEntries: schedules.shiftTable,
         dailyEntries: dailyEntries,
-        undetectedList: promoted.undetectedList,
+        undetectedList: schedules.undetectedList,
       );
 
       ref.invalidate(reportsProvider);

@@ -21,7 +21,9 @@ class GenerationException implements Exception {
 class GenerationService {
   static const _requiredKeys = ['employee_name', 'department', 'datetime'];
   static const _offDayThreshold = 0.25;
-  static const _promoteToDailyThresholdDays = 10;
+  static const _minAttendanceDensity = 0.15;
+  static const _minValidPeriods = 3;
+  static const _minStartTimeConfidence = 0.60;
 
   // Stage 3 — Dictionary Build
   Future<Map<String, EmployeeEntry>> buildDictionary(
@@ -44,33 +46,189 @@ class GenerationService {
     return dictionary;
   }
 
-  // Stage 4.5 — Undetected-to-Daily Promotion
-  ScheduleDetectionResult promoteUndetectedToDaily(
-    ScheduleDetectionResult schedules,
+  // Stage 4 — Schedule Detection + Shift Period Extraction (V2)
+  //
+  // Replaces the old Stage 4 (type detection) and Stage 6 (shift period
+  // extraction). Valid shift periods are built during detection and carried
+  // directly into the shift hash table. Stage 4.5 (promote undetected to
+  // daily) and Stage 6 are removed from the pipeline.
+  ScheduleDetectionResult detectSchedules(
+    Map<String, EmployeeEntry> dictionary,
+    DateTime startDate,
+    DateTime endDate,
+    AppSettings settings,
   ) {
-    final promoted = <String, EmployeeEntry>{};
-    final remaining = <UndetectedEntry>[];
+    final reportDays = endDate.difference(startDate).inDays + 1;
+    final shiftTable = <String, ShiftEmployeeEntry>{};
+    final dailyTable = <String, EmployeeEntry>{};
+    final undetectedList = <UndetectedEntry>[];
 
-    for (final entry in schedules.undetectedList) {
-      final dayCount = _groupByDay(entry.timestamps).length;
-      if (dayCount >= _promoteToDailyThresholdDays) {
-        final dailyEntry = EmployeeEntry(
-          name: entry.name,
-          department: entry.department,
-        )..timestamps.addAll(entry.timestamps);
-        promoted[entry.name] = dailyEntry;
-      } else {
-        remaining.add(entry);
+    for (final entry in dictionary.values) {
+      final result = _classifyEmployee(
+        entry,
+        reportDays,
+        startDate,
+        endDate,
+        settings,
+      );
+      switch (result) {
+        case _ShiftResult(:final startTime, :final periods):
+          shiftTable[entry.name] = ShiftEmployeeEntry(
+            name: entry.name,
+            department: entry.department,
+            detectedShiftStartTime: startTime,
+            timestamps: entry.timestamps,
+          )..periods = periods;
+        case _DailyResult():
+          dailyTable[entry.name] = entry;
+        case _UndetectedResult(:final reason):
+          undetectedList.add(
+            UndetectedEntry(
+              name: entry.name,
+              department: entry.department,
+              failureReason: reason,
+              timestamps: entry.timestamps,
+            ),
+          );
       }
     }
 
-    if (promoted.isEmpty) return schedules;
-
     return ScheduleDetectionResult(
-      shiftTable: schedules.shiftTable,
-      dailyTable: {...schedules.dailyTable, ...promoted},
-      undetectedList: remaining,
+      shiftTable: shiftTable,
+      dailyTable: dailyTable,
+      undetectedList: undetectedList,
     );
+  }
+
+  _DetectResult _classifyEmployee(
+    EmployeeEntry entry,
+    int reportDays,
+    DateTime startDate,
+    DateTime endDate,
+    AppSettings settings,
+  ) {
+    // Step 1 — Attendance pre-check
+    final attendanceDays = _groupByDay(entry.timestamps).length;
+    if (attendanceDays / reportDays < _minAttendanceDensity) {
+      return _UndetectedResult('أيام الحضور أقل من 15% من مدة الفترة');
+    }
+
+    // Step 2 — Build valid periods for every configured start time
+    final validPeriodsMap = <String, List<ShiftPeriod>>{
+      for (final st in settings.shiftStartTimes)
+        st: _buildValidPeriods(
+          entry.timestamps,
+          st,
+          startDate,
+          endDate,
+          settings,
+        ),
+    };
+
+    // Step 3 — Find the winning start time (strict >; ties stay with first)
+    var winnerStartTime = settings.shiftStartTimes.first;
+    var winnerCount = validPeriodsMap[winnerStartTime]!.length;
+
+    for (final st in settings.shiftStartTimes) {
+      final count = validPeriodsMap[st]!.length;
+      if (count > winnerCount) {
+        winnerCount = count;
+        winnerStartTime = st;
+      }
+    }
+
+    // Step 4 — Classify
+
+    // Check 1: must have a minimum number of valid periods to be shift at all.
+    // Employees below this threshold have no meaningful shift pattern → daily.
+    if (winnerCount < _minValidPeriods) return _DailyResult();
+
+    // Check 2: start time confidence — only required when multiple start times
+    // are configured. A tie (≤ 50%) always fails the 60% threshold, so ties
+    // are implicitly handled here without a separate branch.
+    if (settings.shiftStartTimes.length > 1) {
+      final totalValid = validPeriodsMap.values.fold(
+        0,
+        (sum, list) => sum + list.length,
+      );
+      if (totalValid == 0 ||
+          winnerCount / totalValid < _minStartTimeConfidence) {
+        return _UndetectedResult('وقت بداية المناوبة غير واضح');
+      }
+    }
+
+    return _ShiftResult(winnerStartTime, validPeriodsMap[winnerStartTime]!);
+  }
+
+  List<ShiftPeriod> _buildValidPeriods(
+    List<DateTime> timestamps,
+    String startTimeStr,
+    DateTime startDate,
+    DateTime endDate,
+    AppSettings settings,
+  ) {
+    final parts = startTimeStr.split(':');
+    final startHour = int.parse(parts[0]);
+    final startMinute = int.parse(parts[1]);
+
+    final toleranceMinutes = settings.shiftTolerance;
+    final zoneIntervalHours = settings.shiftZoneInterval;
+    final shiftDurationHours = settings.shiftDuration;
+    final zoneCount = settings.zoneCount;
+    final minZones = (zoneCount - 1).clamp(2, zoneCount);
+
+    final periods = <ShiftPeriod>[];
+    var periodIndex = 0;
+
+    var day = DateTime(startDate.year, startDate.month, startDate.day);
+    final lastDay = DateTime(endDate.year, endDate.month, endDate.day);
+
+    while (!day.isAfter(lastDay)) {
+      final startTimeOnDay = day.add(
+        Duration(hours: startHour, minutes: startMinute),
+      );
+      final windowStart = startTimeOnDay.subtract(
+        Duration(minutes: toleranceMinutes),
+      );
+      final windowEnd = startTimeOnDay.add(
+        Duration(hours: shiftDurationHours, minutes: toleranceMinutes),
+      );
+
+      final windowTimestamps = timestamps
+          .where((ts) => !ts.isBefore(windowStart) && !ts.isAfter(windowEnd))
+          .toList();
+
+      if (windowTimestamps.isNotEmpty) {
+        final zoneResults = _buildZoneResults(
+          windowTimestamps,
+          windowStart,
+          windowEnd,
+          startTimeOnDay,
+          zoneCount,
+          zoneIntervalHours,
+          toleranceMinutes,
+        );
+
+        final satisfiedCount = zoneResults.where((z) => z.isSatisfied).length;
+        if (satisfiedCount >= minZones) {
+          final dateStr =
+              '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+          periods.add(
+            ShiftPeriod(
+              periodIndex: periodIndex,
+              periodDate: dateStr,
+              allTimestamps: windowTimestamps,
+              zoneResults: zoneResults,
+            ),
+          );
+          periodIndex++;
+        }
+      }
+
+      day = day.add(const Duration(days: 1));
+    }
+
+    return periods;
   }
 
   // Stage 5 — Off-Day Detection
@@ -106,7 +264,7 @@ class GenerationService {
     return offDays;
   }
 
-  // Stage 7 — Daily Period Extractor
+  // Stage 6 — Daily Period Extractor
   Map<String, DailyEmployeeEntry> extractDailyPeriods(
     Map<String, EmployeeEntry> dailyTable,
     Set<DateTime> offDays,
@@ -160,94 +318,7 @@ class GenerationService {
 
   String _arabicWeekday(int weekday) => _arabicWeekdays[weekday];
 
-  // Stage 6 — Shift Period Extractor
-  Map<String, ShiftEmployeeEntry> extractShiftPeriods(
-    Map<String, ShiftEmployeeEntry> shiftTable,
-    DateTime startDate,
-    DateTime endDate,
-    AppSettings settings,
-  ) {
-    for (final entry in shiftTable.values) {
-      entry.periods = _extractPeriodsForEmployee(
-        entry,
-        startDate,
-        endDate,
-        settings,
-      );
-    }
-    return shiftTable;
-  }
-
-  List<ShiftPeriod> _extractPeriodsForEmployee(
-    ShiftEmployeeEntry entry,
-    DateTime startDate,
-    DateTime endDate,
-    AppSettings settings,
-  ) {
-    final parts = entry.detectedShiftStartTime.split(':');
-    final startHour = int.parse(parts[0]);
-    final startMinute = int.parse(parts[1]);
-
-    final zoneCount = settings.zoneCount;
-    final toleranceMinutes = settings.shiftTolerance;
-    final zoneIntervalHours = settings.shiftZoneInterval;
-    final shiftDurationHours = settings.shiftDuration;
-
-    final periods = <ShiftPeriod>[];
-    var periodIndex = 0;
-
-    var day = DateTime(startDate.year, startDate.month, startDate.day);
-    final lastDay = DateTime(endDate.year, endDate.month, endDate.day);
-
-    while (!day.isAfter(lastDay)) {
-      final startTimeOnDay = day.add(
-        Duration(hours: startHour, minutes: startMinute),
-      );
-      final windowStart = startTimeOnDay.subtract(
-        Duration(minutes: toleranceMinutes),
-      );
-      final windowEnd = startTimeOnDay.add(
-        Duration(hours: shiftDurationHours, minutes: toleranceMinutes),
-      );
-
-      final windowTimestamps = entry.timestamps
-          .where((ts) => !ts.isBefore(windowStart) && !ts.isAfter(windowEnd))
-          .toList();
-
-      if (windowTimestamps.isNotEmpty) {
-        final zoneResults = _buildZoneResults(
-          windowTimestamps,
-          windowStart,
-          windowEnd,
-          startTimeOnDay,
-          zoneCount,
-          zoneIntervalHours,
-          toleranceMinutes,
-        );
-
-        final satisfiedCount = zoneResults.where((z) => z.isSatisfied).length;
-        if (satisfiedCount >= 2) {
-          final dateStr =
-              '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
-          periods.add(
-            ShiftPeriod(
-              periodIndex: periodIndex,
-              periodDate: dateStr,
-              allTimestamps: windowTimestamps,
-              zoneResults: zoneResults,
-            ),
-          );
-          periodIndex++;
-        }
-      }
-
-      day = day.add(const Duration(days: 1));
-    }
-
-    return periods;
-  }
-
-  // Stage 8 — Shift Overtime Calculator
+  // Stage 7 — Shift Overtime Calculator
   Map<String, ShiftEmployeeEntry> calculateShiftOvertime(
     Map<String, ShiftEmployeeEntry> shiftTable,
     AppSettings settings,
@@ -271,7 +342,7 @@ class GenerationService {
     return shiftTable;
   }
 
-  // Stage 9 — Daily Overtime Calculator
+  // Stage 8 — Daily Overtime Calculator
   Map<String, DailyEmployeeEntry> calculateDailyOvertime(
     Map<String, DailyEmployeeEntry> dailyEntries,
     AppSettings settings,
@@ -410,7 +481,6 @@ class GenerationService {
           ? windowStart.add(Duration(hours: (i + 1) * zoneIntervalHours))
           : windowEnd;
 
-      // Center for zone i: startTime + i * zoneInterval (works for all zones including last)
       final zoneCenter = startTimeOnDay.add(
         Duration(hours: i * zoneIntervalHours),
       );
@@ -419,8 +489,6 @@ class GenerationService {
       );
       final centerHigh = zoneCenter.add(Duration(minutes: toleranceMinutes));
 
-      // Non-last zones: [zoneStart, zoneEnd) — exclusive end avoids double-counting
-      // Last zone: [zoneStart, windowEnd] — inclusive to capture closing stamp
       final zoneTimestamps = timestamps.where((ts) {
         if (i < zoneCount - 1) {
           return !ts.isBefore(zoneStart) && ts.isBefore(zoneEnd);
@@ -447,153 +515,6 @@ class GenerationService {
     return zones;
   }
 
-  // Stage 4 — Schedule Detection
-  ScheduleDetectionResult detectSchedules(
-    Map<String, EmployeeEntry> dictionary,
-    DateTime startDate,
-    DateTime endDate,
-    AppSettings settings,
-  ) {
-    final periodDays = endDate.difference(startDate).inDays + 1;
-    final shiftTable = <String, ShiftEmployeeEntry>{};
-    final dailyTable = <String, EmployeeEntry>{};
-    final undetectedList = <UndetectedEntry>[];
-
-    for (final entry in dictionary.values) {
-      final result = _classifyEmployee(entry, periodDays, settings);
-      switch (result) {
-        case _ShiftResult(:final startTime):
-          shiftTable[entry.name] = ShiftEmployeeEntry(
-            name: entry.name,
-            department: entry.department,
-            detectedShiftStartTime: startTime,
-            timestamps: entry.timestamps,
-          );
-        case _DailyResult():
-          dailyTable[entry.name] = entry;
-        case _UndetectedResult(:final reason):
-          undetectedList.add(
-            UndetectedEntry(
-              name: entry.name,
-              department: entry.department,
-              failureReason: reason,
-              timestamps: entry.timestamps,
-            ),
-          );
-      }
-    }
-
-    return ScheduleDetectionResult(
-      shiftTable: shiftTable,
-      dailyTable: dailyTable,
-      undetectedList: undetectedList,
-    );
-  }
-
-  _DetectResult _classifyEmployee(
-    EmployeeEntry entry,
-    int periodDays,
-    AppSettings settings,
-  ) {
-    final dayMap = _groupByDay(entry.timestamps);
-
-    // Pre-check: raw attendance days >= 20% of period
-    if (dayMap.length / periodDays < 0.20) {
-      return _UndetectedResult('أيام الحضور أقل من 20% من مدة الفترة');
-    }
-
-    // Stage 1: usable days (>= 2 timestamps) >= 20% of period
-    final usableDays = dayMap.values.where((ts) => ts.length >= 2).toList();
-    if (usableDays.length / periodDays < 0.20) {
-      return _UndetectedResult('أيام الحضور الصالحة أقل من 20% من مدة الفترة');
-    }
-
-    // Stage 2: zone bucketing
-    final shiftDays = <List<DateTime>>[];
-    var dailyCount = 0;
-
-    for (final dayTimestamps in usableDays) {
-      final activeZones = <int>{};
-      for (final ts in dayTimestamps) {
-        activeZones.add(ts.hour ~/ settings.shiftZoneInterval);
-      }
-      if (activeZones.length == 2) {
-        dailyCount++;
-      } else if (activeZones.length >= 3) {
-        shiftDays.add(dayTimestamps);
-      }
-      // 1 active zone: discard
-    }
-
-    final shiftCount = shiftDays.length;
-
-    // Stage 3: employment type vote (>= 75% confidence)
-    final total = shiftCount + dailyCount;
-    if (total == 0) {
-      return _UndetectedResult('نوع التوظيف غير واضح');
-    }
-
-    final winning = shiftCount > dailyCount ? shiftCount : dailyCount;
-    if (winning / total < 0.75) {
-      return _UndetectedResult('نوع التوظيف غير واضح');
-    }
-
-    if (dailyCount > shiftCount) {
-      return _DailyResult();
-    }
-
-    // Confirmed shift — detect start time (Algorithm 2)
-    return _detectShiftStartTime(shiftDays, settings);
-  }
-
-  _DetectResult _detectShiftStartTime(
-    List<List<DateTime>> shiftDays,
-    AppSettings settings,
-  ) {
-    final buckets = <String, int>{
-      for (final st in settings.shiftStartTimes) st: 0,
-    };
-    var unmatchedCount = 0;
-
-    for (final dayTimestamps in shiftDays) {
-      var matched = false;
-      for (final startTime in settings.shiftStartTimes) {
-        if (_anyTimestampWithinTolerance(
-          dayTimestamps,
-          startTime,
-          settings.shiftTolerance,
-        )) {
-          buckets[startTime] = buckets[startTime]! + 1;
-          matched = true;
-          // intentionally no break — one day may match multiple start times
-        }
-      }
-      if (!matched) unmatchedCount++;
-    }
-
-    // Find start time bucket with the most days
-    String? winner;
-    var winnerCount = 0;
-    for (final entry in buckets.entries) {
-      if (entry.value > winnerCount) {
-        winnerCount = entry.value;
-        winner = entry.key;
-      }
-    }
-
-    // Denominator: all start time bucket days + unmatched
-    final totalBucketDays = buckets.values.fold(0, (a, b) => a + b);
-    final denominator = totalBucketDays + unmatchedCount;
-
-    if (winner == null ||
-        denominator == 0 ||
-        winnerCount / denominator < 0.60) {
-      return _UndetectedResult('وقت بداية المناوبة غير واضح');
-    }
-
-    return _ShiftResult(winner);
-  }
-
   Map<String, List<DateTime>> _groupByDay(List<DateTime> timestamps) {
     final map = <String, List<DateTime>>{};
     for (final ts in timestamps) {
@@ -602,20 +523,6 @@ class GenerationService {
       map.putIfAbsent(key, () => []).add(ts);
     }
     return map;
-  }
-
-  bool _anyTimestampWithinTolerance(
-    List<DateTime> dayTimestamps,
-    String startTimeStr,
-    int toleranceMinutes,
-  ) {
-    final parts = startTimeStr.split(':');
-    final startMinutes = int.parse(parts[0]) * 60 + int.parse(parts[1]);
-    for (final ts in dayTimestamps) {
-      final tsMinutes = ts.hour * 60 + ts.minute;
-      if ((tsMinutes - startMinutes).abs() <= toleranceMinutes) return true;
-    }
-    return false;
   }
 
   Future<void> _processFile(
@@ -750,12 +657,12 @@ class GenerationService {
   }
 }
 
-// Internal result types for schedule detection
 sealed class _DetectResult {}
 
 final class _ShiftResult extends _DetectResult {
-  _ShiftResult(this.startTime);
+  _ShiftResult(this.startTime, this.periods);
   final String startTime;
+  final List<ShiftPeriod> periods;
 }
 
 final class _DailyResult extends _DetectResult {}
