@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 class GenerationPhase {
   const GenerationPhase({
     required this.label,
-    this.duration = const Duration(seconds: 4),
+    this.duration = const Duration(seconds: 3),
   });
 
   final String label;

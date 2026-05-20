@@ -38,8 +38,10 @@ Every employee is assigned exactly one of three types as the output of this stag
 |---|---|---|
 |min_attendance_density|0.15|Cheap pre-filter — employee must have appeared on at least 15% of report days|
 |min_valid_periods|3|Winner must have at least 3 valid periods — hard to achieve by luck, absorbs mis-punches|
-|min_start_time_confidence|0.60|Applied only when multiple start times are configured. Winner's valid periods must be ≥ 60% of all valid periods across all start times.|
+|min_start_time_confidence|0.75|Applied only when multiple start times are configured. Winner's valid periods must be ≥ 75% of all valid periods across all start times.|
 |min_zones_satisfied|4|Minimum satisfied zones for a window to be counted as a valid period. Requires overnight zone presence — blocks daily employee collision where zones 1, 2, and 5 are accidentally satisfied by a normal morning/afternoon pattern.|
+|min_anchor_pairs|2|Phase 2 only. Minimum number of valid anchor pairs required to confirm an irregular shift employee. Lower than min_valid_periods because irregular employees have minimal stamps by nature.|
+|rest_gap_days|2|Phase 2 only. Minimum number of consecutive days with zero timestamps required after a closing stamp to confirm a rest gap.|
 
 ---
 
@@ -127,7 +129,7 @@ No meaningful shift pattern — employee is genuinely daily.
 
 ```
 if len(shift_start_times) > 1:
-  if tie OR winnerCount / totalValid < min_start_time_confidence (0.60):
+  if tie OR winnerCount / totalValid < min_start_time_confidence (0.75):
     → undetected: "وقت بداية المناوبة غير واضح"
 ```
 
@@ -143,31 +145,105 @@ periods = validPeriods[winnerStartTime]
 
 ---
 
+## Phase 2 — Irregular Shift Detection
+
+Runs only for employees who were **not** classified as shift in Phase 1 (failed Check 1 — winnerCount < 3). These employees are candidates for irregular shift classification before being defaulted to daily.
+
+Phase 2 runs independently per employee, iterating over all configured start times.
+
+### Definition — Anchor Pair
+
+For a configured start time S and calendar day D, an anchor pair exists when:
+
+- **Opening stamp:** at least one timestamp falls within `[D @ S − shift_tolerance, D @ S + shift_tolerance]`
+- **Closing stamp:** at least one timestamp falls within `[D+1 @ S − shift_tolerance, D+1 @ S + shift_tolerance]`
+- **Rest gap:** zero timestamps exist on D+2 AND zero timestamps exist on D+3
+
+All three conditions must be met. A pair that satisfies opening and closing but not the rest gap is discarded — it could be a daily employee stamping on consecutive days.
+
+### Step P1 — Count Anchor Pairs Per Start Time
+
+For each configured start time S, iterate over every calendar day D in the report range:
+
+```
+openingWindow = [D @ S − shift_tolerance,   D @ S + shift_tolerance]
+closingWindow = [D+1 @ S − shift_tolerance, D+1 @ S + shift_tolerance]
+
+hasOpening = any timestamp falls within openingWindow
+hasClosing = any timestamp falls within closingWindow
+hasRestGap = zero timestamps on D+2 AND zero timestamps on D+3
+
+if hasOpening AND hasClosing AND hasRestGap:
+  anchorPairs[S] += 1
+```
+
+### Step P2 — Find the Winning Start Time
+
+```
+winnerStartTime = S with max anchorPairs[S]
+winnerCount     = anchorPairs[winnerStartTime]
+totalPairs      = sum of anchorPairs[S] for all S
+```
+
+### Step P3 — Classify
+
+**Check 1 — Minimum anchor pairs:**
+
+```
+if winnerCount < min_anchor_pairs (2):
+  → daily
+```
+
+No irregular shift pattern — employee is daily.
+
+**Check 2 — Start time confidence (only when multiple start times configured):**
+
+```
+if len(shift_start_times) > 1:
+  if tie OR winnerCount / totalPairs < min_start_time_confidence (0.75):
+    → undetected: "وقت بداية المناوبة غير واضح"
+```
+
+**Result — irregular shift:**
+
+```
+detectedShiftStartTime = winnerStartTime
+periods = anchor pairs as ShiftPeriod objects (periodDate = D, allTimestamps = opening + closing stamps)
+→ shift
+```
+
+Anchor pairs are stored as `ShiftPeriod` objects with the same structure as Phase 1 periods. The shift overtime calculator (Stage 7) processes them identically — zone satisfaction is already known from the anchor pair check, so `isValid` and `hoursCounted` are set normally.
+
+---
+
 ## Classification Logic Summary
 
-|Condition|Result|Reason|
-|---|---|---|
-|attendance_days / reportDays < 0.15|undetected|Too little data to analyze|
-|winnerCount < 3|daily|No meaningful shift pattern|
-|Multiple start times AND (tie OR confidence < 0.60)|undetected|Ambiguous start time|
-|Otherwise|shift|Clear pattern confirmed|
+|Phase|Condition|Result|Reason|
+|---|---|---|---|
+|Pre-check|attendance_days / reportDays < 0.15|undetected|Too little data to analyze|
+|Phase 1|winnerCount ≥ 3 AND confidence passes|shift|Clear zone-based shift pattern|
+|Phase 1|winnerCount < 3|→ Phase 2|Insufficient zone signal, try anchor pair detection|
+|Phase 1|Multiple start times AND (tie OR confidence < 0.75)|undetected|Ambiguous start time|
+|Phase 2|anchorPairs ≥ 2 AND confidence passes|shift|Irregular shift pattern confirmed|
+|Phase 2|anchorPairs < 2|daily|No shift pattern of any kind|
+|Phase 2|Multiple start times AND (tie OR confidence < 0.75)|undetected|Ambiguous start time|
 
-An employee with weak signal is daily. An employee with strong but ambiguous signal is undetected — they need investigation, not a default classification.
+An employee with weak signal is daily. An employee with strong but ambiguous signal is undetected.
 
 ---
 
 ## Detection Failure Reasons
 
-|Reason|Arabic|
-|---|---|
-|Raw attendance days below 15% of period|أيام الحضور أقل من 15% من مدة الفترة|
-|Shift start time ambiguous|وقت بداية المناوبة غير واضح|
+|Reason|Arabic|Triggered by|
+|---|---|---|
+|Raw attendance days below 15% of period|أيام الحضور أقل من 15% من مدة الفترة|Pre-check|
+|Shift start time ambiguous|وقت بداية المناوبة غير واضح|Phase 1 or Phase 2 confidence check|
 
 ---
 
 ## Output — Three Buckets
 
-**Shift hash table:** `employeeName → { name, department, detectedShiftStartTime, [timestamps], [ShiftPeriod] }` Employees confirmed as shift, with periods already populated. Stage 8 calculator enriches these periods directly.
+**Shift hash table:** `employeeName → { name, department, detectedShiftStartTime, [timestamps], [ShiftPeriod] }` Employees confirmed as shift, with periods already populated. Stage 7 calculator enriches these periods directly.
 
 **Daily hash table:** `employeeName → { name, department, [timestamps] }` Employees confirmed as daily.
 
