@@ -182,10 +182,16 @@
   },
   "active": "ed0ac7944e4e27a1",
   "lastOpenFiles": [
-    "obelisk/history.md.tmp.11472.eb292a9190d0",
-    "lib/features/reports/services/generation_service.dart.tmp.11472.c6db12e51da3",
-    "lib/features/reports/services/generation_service.dart.tmp.11472.2b35cd69fb0e",
-    "lib/features/reports/services/generation_service.dart.tmp.11472.b87ed8c6ac7d",
-    "lib/features/reports/services/generation_service.dart.tmp.11472.561492f85964"
+    "obelisk/history.md.tmp.152.91d1165fcc07",
+    "build/windows/x64/flutter/x64/Debug/flutter_assemble/flutter_assemble.tlog/unsuccessfulbuild",
+    "build/windows/x64/x64/Debug/ZERO_CHECK/ZERO_CHECK.tlog/unsuccessfulbuild",
+    "build/windows/x64/CMakeCache.txt.tmpd6ef9",
+    "build/windows/x64/runner/runner.sln.tmpb7e51",
+    "build/windows/x64/plugins/jni/shared/INSTALL.vcxproj.filters.tmpa87ba",
+    "build/windows/x64/plugins/jni/shared/INSTALL.vcxproj.tmpae9be",
+    "build/windows/x64/plugins/jni/shared/ALL_BUILD.vcxproj.filters.tmp38294",
+    "build/windows/x64/plugins/jni/shared/ALL_BUILD.vcxproj.tmp404ad",
+    "build/windows/x64/plugins/jni/INSTALL.vcxproj.filters.tmpb337e",
+    "build/windows/x64/plugins/jni/INSTALL.vcxproj.tmp86733"
   ]
 }

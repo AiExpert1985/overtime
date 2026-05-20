@@ -266,3 +266,11 @@ The following tasks were agreed during discovery and must be implemented in orde
 **Rejected:** Hardcoding `min_zones_satisfied = 4` — kept the existing dynamic formula `(zoneCount − 1).clamp(2, zoneCount)` which is more correct for non-default zone configurations. Raising `min_start_time_confidence` from 0.60 to 0.75 — deferred to a future task.
 
 ---
+
+## 20260520-0900 | Schedule Detection Bug Fixes — Anchor Pair Integration | TASK
+
+**Task:** Fixed three bugs in the schedule detection stage that caused daily↔shift misclassifications. (1) The anchor pair activity check was too strict — it required a closing stamp near the shift start time on D+1, while the spec requires any stamp on D+1 at any time. Fixed to match the spec. (2) Anchor pairs were implemented as a separate Phase 2 that only ran when zone-based periods fell below the minimum threshold, meaning zone periods and anchor pair periods were never combined in the same bucket. Fixed by integrating the anchor pair check as a per-day fallback inside the zone-check loop — both types now contribute to the same period list and are counted against the single `min_valid_periods = 3` threshold. The separate Phase 2 and its `min_anchor_pairs = 2` threshold were removed. (3) Daily employees on a Sun-Thu schedule triggered the anchor pair check every week because the natural Fri-Sat weekend satisfied the rest gap condition. Fixed by rejecting any rest gap where both D+2 and D+3 fall on Friday-Saturday — a gap must include at least one regular working day to be meaningful.
+
+**Rejected:** Pre-computing off-days from the full dictionary to detect weekend gaps — unnecessary since the weekend is always Friday-Saturday in this app's context; a simple day-of-week check is sufficient and avoids any pipeline dependency.
+
+---

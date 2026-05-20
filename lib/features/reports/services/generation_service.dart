@@ -24,7 +24,6 @@ class GenerationService {
   static const _minAttendanceDensity = 0.15;
   static const _minValidPeriods = 3;
   static const _minStartTimeConfidence = 0.60;
-  static const _minAnchorPairs = 2;
   static const _restGapDays = 2;
 
   // Stage 3 — Dictionary Build
@@ -141,11 +140,9 @@ class GenerationService {
 
     // Step 4 — Classify
 
-    // Check 1: must have a minimum number of valid periods to be shift at all.
-    // Employees below this threshold have no meaningful zone-based shift pattern
-    // — try Phase 2 anchor pair detection before defaulting to daily.
+    // Check 1: combined period count (zone + anchor pair) below threshold → daily.
     if (winnerCount < _minValidPeriods) {
-      return _detectAnchorPairs(entry, startDate, endDate, settings);
+      return _DailyResult();
     }
 
     // Check 2: start time confidence — only required when multiple start times
@@ -163,146 +160,6 @@ class GenerationService {
     }
 
     return _ShiftResult(winnerStartTime, validPeriodsMap[winnerStartTime]!);
-  }
-
-  // Phase 2 — Irregular Shift Detection
-  // Runs only for employees who failed Phase 1 (winnerCount < _minValidPeriods).
-  // Looks for anchor pairs: opening stamp near S on day D, closing stamp near S
-  // on D+1, followed by a rest gap of _restGapDays consecutive empty days.
-  _DetectResult _detectAnchorPairs(
-    EmployeeEntry entry,
-    DateTime startDate,
-    DateTime endDate,
-    AppSettings settings,
-  ) {
-    final anchorPairsMap = <String, List<ShiftPeriod>>{
-      for (final st in settings.shiftStartTimes)
-        st: _buildAnchorPairs(entry.timestamps, st, startDate, endDate, settings),
-    };
-
-    var winnerStartTime = settings.shiftStartTimes.first;
-    var winnerCount = anchorPairsMap[winnerStartTime]!.length;
-
-    for (final st in settings.shiftStartTimes) {
-      final count = anchorPairsMap[st]!.length;
-      if (count > winnerCount) {
-        winnerCount = count;
-        winnerStartTime = st;
-      }
-    }
-
-    if (winnerCount < _minAnchorPairs) return _DailyResult();
-
-    if (settings.shiftStartTimes.length > 1) {
-      final totalPairs = anchorPairsMap.values.fold(
-        0,
-        (sum, list) => sum + list.length,
-      );
-      if (totalPairs == 0 ||
-          winnerCount / totalPairs < _minStartTimeConfidence) {
-        return _UndetectedResult('وقت بداية المناوبة غير واضح');
-      }
-    }
-
-    return _ShiftResult(winnerStartTime, anchorPairsMap[winnerStartTime]!);
-  }
-
-  List<ShiftPeriod> _buildAnchorPairs(
-    List<DateTime> timestamps,
-    String startTimeStr,
-    DateTime startDate,
-    DateTime endDate,
-    AppSettings settings,
-  ) {
-    final parts = startTimeStr.split(':');
-    final startHour = int.parse(parts[0]);
-    final startMinute = int.parse(parts[1]);
-    final toleranceMinutes = settings.shiftTolerance;
-    final zoneIntervalHours = settings.shiftZoneInterval;
-    final shiftDurationHours = settings.shiftDuration;
-    final zoneCount = settings.zoneCount;
-
-    final dayMap = _groupByDay(timestamps);
-    final pairs = <ShiftPeriod>[];
-    var pairIndex = 0;
-
-    var day = DateTime(startDate.year, startDate.month, startDate.day);
-    final lastDay = DateTime(endDate.year, endDate.month, endDate.day);
-
-    while (!day.isAfter(lastDay)) {
-      final startTimeOnDay = day.add(
-        Duration(hours: startHour, minutes: startMinute),
-      );
-      final openingLow = startTimeOnDay.subtract(
-        Duration(minutes: toleranceMinutes),
-      );
-      final openingHigh = startTimeOnDay.add(
-        Duration(minutes: toleranceMinutes),
-      );
-
-      final dayPlus1 = day.add(const Duration(days: 1));
-      final closingCenter = dayPlus1.add(
-        Duration(hours: startHour, minutes: startMinute),
-      );
-      final closingLow = closingCenter.subtract(
-        Duration(minutes: toleranceMinutes),
-      );
-      final closingHigh = closingCenter.add(Duration(minutes: toleranceMinutes));
-
-      final openingStamps = timestamps
-          .where((ts) => !ts.isBefore(openingLow) && !ts.isAfter(openingHigh))
-          .toList();
-      final closingStamps = timestamps
-          .where((ts) => !ts.isBefore(closingLow) && !ts.isAfter(closingHigh))
-          .toList();
-
-      if (openingStamps.isNotEmpty && closingStamps.isNotEmpty) {
-        var hasRestGap = true;
-        for (var gap = 2; gap < 2 + _restGapDays; gap++) {
-          if (dayMap.containsKey(_dayKey(day.add(Duration(days: gap))))) {
-            hasRestGap = false;
-            break;
-          }
-        }
-
-        final hasReturn = dayMap.containsKey(
-              _dayKey(day.add(const Duration(days: 4))),
-            ) ||
-            dayMap.containsKey(_dayKey(day.add(const Duration(days: 5))));
-
-        if (hasRestGap && hasReturn) {
-          final windowStart = startTimeOnDay.subtract(
-            Duration(minutes: toleranceMinutes),
-          );
-          final windowEnd = startTimeOnDay.add(
-            Duration(hours: shiftDurationHours, minutes: toleranceMinutes),
-          );
-          final anchorTimestamps = [...openingStamps, ...closingStamps]..sort();
-
-          pairs.add(
-            ShiftPeriod(
-              periodIndex: pairIndex,
-              periodDate: _dayKey(day),
-              allTimestamps: anchorTimestamps,
-              zoneResults: _buildZoneResults(
-                anchorTimestamps,
-                windowStart,
-                windowEnd,
-                startTimeOnDay,
-                zoneCount,
-                zoneIntervalHours,
-                toleranceMinutes,
-              ),
-            ),
-          );
-          pairIndex++;
-        }
-      }
-
-      day = day.add(const Duration(days: 1));
-    }
-
-    return pairs;
   }
 
   String _dayKey(DateTime d) =>
@@ -325,6 +182,7 @@ class GenerationService {
     final zoneCount = settings.zoneCount;
     final minZones = (zoneCount - 1).clamp(2, zoneCount);
 
+    final dayMap = _groupByDay(timestamps);
     final periods = <ShiftPeriod>[];
     var periodIndex = 0;
 
@@ -359,17 +217,29 @@ class GenerationService {
 
         final satisfiedCount = zoneResults.where((z) => z.isSatisfied).length;
         if (satisfiedCount >= minZones) {
-          final dateStr =
-              '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
           periods.add(
             ShiftPeriod(
               periodIndex: periodIndex,
-              periodDate: dateStr,
+              periodDate: _dayKey(day),
               allTimestamps: windowTimestamps,
               zoneResults: zoneResults,
             ),
           );
           periodIndex++;
+        } else {
+          // Zone check failed — try anchor pair fallback for this day.
+          final anchor = _tryAnchorPair(
+            dayMap,
+            day,
+            startTimeOnDay,
+            zoneResults,
+            periodIndex,
+            toleranceMinutes,
+          );
+          if (anchor != null) {
+            periods.add(anchor);
+            periodIndex++;
+          }
         }
       }
 
@@ -377,6 +247,69 @@ class GenerationService {
     }
 
     return periods;
+  }
+
+  // Anchor pair fallback: runs per-day when the zone check fails.
+  // Detects irregular shift employees who open near S on D, have any activity
+  // on D+1, rest for _restGapDays days, and return on D+4 or D+5.
+  // A rest gap that is exactly the natural Fri-Sat weekend is rejected to
+  // prevent daily employees on a Sun-Thu schedule from triggering this check.
+  ShiftPeriod? _tryAnchorPair(
+    Map<String, List<DateTime>> dayMap,
+    DateTime day,
+    DateTime startTimeOnDay,
+    List<ZoneResult> zoneResults,
+    int periodIndex,
+    int toleranceMinutes,
+  ) {
+    // hasOpening: stamp within shift start window on D
+    final openingLow = startTimeOnDay.subtract(Duration(minutes: toleranceMinutes));
+    final openingHigh = startTimeOnDay.add(Duration(minutes: toleranceMinutes));
+    final dStamps = dayMap[_dayKey(day)] ?? [];
+    final hasOpening = dStamps.any(
+      (ts) => !ts.isBefore(openingLow) && !ts.isAfter(openingHigh),
+    );
+    if (!hasOpening) return null;
+
+    // hasActivity: any stamp on D+1 at any time
+    final dayPlus1 = day.add(const Duration(days: 1));
+    if (!dayMap.containsKey(_dayKey(dayPlus1))) return null;
+
+    // hasRestGap: no stamps for the next _restGapDays days after D+1,
+    // and not both gap days are the natural Fri-Sat weekend.
+    var gapClear = true;
+    for (var i = 2; i < 2 + _restGapDays; i++) {
+      if (dayMap.containsKey(_dayKey(day.add(Duration(days: i))))) {
+        gapClear = false;
+        break;
+      }
+    }
+    if (!gapClear) return null;
+
+    final dayPlus2 = day.add(const Duration(days: 2));
+    final dayPlus3 = day.add(const Duration(days: 3));
+    if (dayPlus2.weekday == DateTime.friday &&
+        dayPlus3.weekday == DateTime.saturday) {
+      return null;
+    }
+
+    // hasReturn: any stamp on D+4 or D+5
+    final hasReturn =
+        dayMap.containsKey(_dayKey(day.add(const Duration(days: 4)))) ||
+        dayMap.containsKey(_dayKey(day.add(const Duration(days: 5))));
+    if (!hasReturn) return null;
+
+    final anchorTimestamps = [
+      ...(dayMap[_dayKey(day)] ?? []),
+      ...(dayMap[_dayKey(dayPlus1)] ?? []),
+    ]..sort();
+
+    return ShiftPeriod(
+      periodIndex: periodIndex,
+      periodDate: _dayKey(day),
+      allTimestamps: anchorTimestamps,
+      zoneResults: zoneResults,
+    );
   }
 
   // Stage 5 — Off-Day Detection
