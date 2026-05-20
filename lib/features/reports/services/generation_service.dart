@@ -21,6 +21,7 @@ class GenerationException implements Exception {
 class GenerationService {
   static const _requiredKeys = ['employee_name', 'department', 'datetime'];
   static const _offDayThreshold = 0.25;
+  static const _promoteToDailyThresholdDays = 10;
 
   // Stage 3 — Dictionary Build
   Future<Map<String, EmployeeEntry>> buildDictionary(
@@ -43,6 +44,35 @@ class GenerationService {
     return dictionary;
   }
 
+  // Stage 4.5 — Undetected-to-Daily Promotion
+  ScheduleDetectionResult promoteUndetectedToDaily(
+    ScheduleDetectionResult schedules,
+  ) {
+    final promoted = <String, EmployeeEntry>{};
+    final remaining = <UndetectedEntry>[];
+
+    for (final entry in schedules.undetectedList) {
+      final dayCount = _groupByDay(entry.timestamps).length;
+      if (dayCount >= _promoteToDailyThresholdDays) {
+        final dailyEntry = EmployeeEntry(
+          name: entry.name,
+          department: entry.department,
+        )..timestamps.addAll(entry.timestamps);
+        promoted[entry.name] = dailyEntry;
+      } else {
+        remaining.add(entry);
+      }
+    }
+
+    if (promoted.isEmpty) return schedules;
+
+    return ScheduleDetectionResult(
+      shiftTable: schedules.shiftTable,
+      dailyTable: {...schedules.dailyTable, ...promoted},
+      undetectedList: remaining,
+    );
+  }
+
   // Stage 5 — Off-Day Detection
   Set<DateTime> detectOffDays(
     Map<String, EmployeeEntry> dailyTable,
@@ -52,8 +82,9 @@ class GenerationService {
     if (dailyTable.isEmpty) return {};
 
     final totalEmployees = dailyTable.length;
-    final employeeDayMaps =
-        dailyTable.values.map((e) => _groupByDay(e.timestamps)).toList();
+    final employeeDayMaps = dailyTable.values
+        .map((e) => _groupByDay(e.timestamps))
+        .toList();
     final offDays = <DateTime>{};
 
     var current = DateTime(startDate.year, startDate.month, startDate.day);
@@ -92,13 +123,15 @@ class GenerationService {
         final timestamps = dayMap[dateStr]!;
         final date = DateTime.parse(dateStr);
         final dayType = offDays.contains(date) ? 'off' : 'regular';
-        periods.add(DailyPeriod(
-          periodIndex: periodIndex,
-          date: dateStr,
-          weekday: _arabicWeekday(date.weekday),
-          dayType: dayType,
-          allTimestamps: timestamps,
-        ));
+        periods.add(
+          DailyPeriod(
+            periodIndex: periodIndex,
+            date: dateStr,
+            weekday: _arabicWeekday(date.weekday),
+            dayType: dayType,
+            allTimestamps: timestamps,
+          ),
+        );
         periodIndex++;
       }
 
@@ -135,7 +168,12 @@ class GenerationService {
     AppSettings settings,
   ) {
     for (final entry in shiftTable.values) {
-      entry.periods = _extractPeriodsForEmployee(entry, startDate, endDate, settings);
+      entry.periods = _extractPeriodsForEmployee(
+        entry,
+        startDate,
+        endDate,
+        settings,
+      );
     }
     return shiftTable;
   }
@@ -162,9 +200,15 @@ class GenerationService {
     final lastDay = DateTime(endDate.year, endDate.month, endDate.day);
 
     while (!day.isAfter(lastDay)) {
-      final startTimeOnDay = day.add(Duration(hours: startHour, minutes: startMinute));
-      final windowStart = startTimeOnDay.subtract(Duration(minutes: toleranceMinutes));
-      final windowEnd = startTimeOnDay.add(Duration(hours: shiftDurationHours, minutes: toleranceMinutes));
+      final startTimeOnDay = day.add(
+        Duration(hours: startHour, minutes: startMinute),
+      );
+      final windowStart = startTimeOnDay.subtract(
+        Duration(minutes: toleranceMinutes),
+      );
+      final windowEnd = startTimeOnDay.add(
+        Duration(hours: shiftDurationHours, minutes: toleranceMinutes),
+      );
 
       final windowTimestamps = entry.timestamps
           .where((ts) => !ts.isBefore(windowStart) && !ts.isAfter(windowEnd))
@@ -185,12 +229,14 @@ class GenerationService {
         if (satisfiedCount >= 2) {
           final dateStr =
               '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
-          periods.add(ShiftPeriod(
-            periodIndex: periodIndex,
-            periodDate: dateStr,
-            allTimestamps: windowTimestamps,
-            zoneResults: zoneResults,
-          ));
+          periods.add(
+            ShiftPeriod(
+              periodIndex: periodIndex,
+              periodDate: dateStr,
+              allTimestamps: windowTimestamps,
+              zoneResults: zoneResults,
+            ),
+          );
           periodIndex++;
         }
       }
@@ -214,8 +260,10 @@ class GenerationService {
         totalHoursCounted += period.hoursCounted!;
       }
 
-      final cappedHours =
-          totalHoursCounted.clamp(0, settings.shiftCeilingHours);
+      final cappedHours = totalHoursCounted.clamp(
+        0,
+        settings.shiftCeilingHours,
+      );
       final overtime = cappedHours - settings.shiftBaselineHours;
       entry.overtimeMinutes = overtime > 0 ? overtime * 60 : 0;
     }
@@ -239,7 +287,12 @@ class GenerationService {
       var regular = 0;
       var off = 0;
       for (final period in entry.periods) {
-        _enrichDailyPeriod(period, endTimeMinutes, deadlineMinutes, maxOvertimeMinutes);
+        _enrichDailyPeriod(
+          period,
+          endTimeMinutes,
+          deadlineMinutes,
+          maxOvertimeMinutes,
+        );
         final mins = period.overtimeMinutes!;
         total += mins;
         if (period.dayType == 'regular') {
@@ -268,7 +321,12 @@ class GenerationService {
         : 0;
 
     if (period.dayType == 'regular') {
-      _enrichRegularDay(period, endTimeMinutes, deadlineMinutes, maxOvertimeMinutes);
+      _enrichRegularDay(
+        period,
+        endTimeMinutes,
+        deadlineMinutes,
+        maxOvertimeMinutes,
+      );
     } else {
       _enrichOffDay(period, maxOvertimeMinutes);
     }
@@ -299,14 +357,14 @@ class GenerationService {
 
     final lastMinutes = timestamps.last.hour * 60 + timestamps.last.minute;
     period.isValid = true;
-    period.overtimeMinutes = (lastMinutes - endTimeMinutes).clamp(0, maxOvertimeMinutes);
+    period.overtimeMinutes = (lastMinutes - endTimeMinutes).clamp(
+      0,
+      maxOvertimeMinutes,
+    );
     period.notes = null;
   }
 
-  void _enrichOffDay(
-    DailyPeriod period,
-    int maxOvertimeMinutes,
-  ) {
+  void _enrichOffDay(DailyPeriod period, int maxOvertimeMinutes) {
     final timestamps = period.allTimestamps;
 
     if (timestamps.length < 2) {
@@ -353,8 +411,12 @@ class GenerationService {
           : windowEnd;
 
       // Center for zone i: startTime + i * zoneInterval (works for all zones including last)
-      final zoneCenter = startTimeOnDay.add(Duration(hours: i * zoneIntervalHours));
-      final centerLow = zoneCenter.subtract(Duration(minutes: toleranceMinutes));
+      final zoneCenter = startTimeOnDay.add(
+        Duration(hours: i * zoneIntervalHours),
+      );
+      final centerLow = zoneCenter.subtract(
+        Duration(minutes: toleranceMinutes),
+      );
       final centerHigh = zoneCenter.add(Duration(minutes: toleranceMinutes));
 
       // Non-last zones: [zoneStart, zoneEnd) — exclusive end avoids double-counting
@@ -367,16 +429,19 @@ class GenerationService {
         }
       }).toList();
 
-      final isSatisfied = zoneTimestamps
-          .any((ts) => !ts.isBefore(centerLow) && !ts.isAfter(centerHigh));
+      final isSatisfied = zoneTimestamps.any(
+        (ts) => !ts.isBefore(centerLow) && !ts.isAfter(centerHigh),
+      );
 
-      zones.add(ZoneResult(
-        zoneIndex: i,
-        startTime: zoneStart,
-        endTime: zoneEnd,
-        timestamps: zoneTimestamps,
-        isSatisfied: isSatisfied,
-      ));
+      zones.add(
+        ZoneResult(
+          zoneIndex: i,
+          startTime: zoneStart,
+          endTime: zoneEnd,
+          timestamps: zoneTimestamps,
+          isSatisfied: isSatisfied,
+        ),
+      );
     }
 
     return zones;
@@ -407,12 +472,14 @@ class GenerationService {
         case _DailyResult():
           dailyTable[entry.name] = entry;
         case _UndetectedResult(:final reason):
-          undetectedList.add(UndetectedEntry(
-            name: entry.name,
-            department: entry.department,
-            failureReason: reason,
-            timestamps: entry.timestamps,
-          ));
+          undetectedList.add(
+            UndetectedEntry(
+              name: entry.name,
+              department: entry.department,
+              failureReason: reason,
+              timestamps: entry.timestamps,
+            ),
+          );
       }
     }
 
@@ -436,8 +503,7 @@ class GenerationService {
     }
 
     // Stage 1: usable days (>= 2 timestamps) >= 20% of period
-    final usableDays =
-        dayMap.values.where((ts) => ts.length >= 2).toList();
+    final usableDays = dayMap.values.where((ts) => ts.length >= 2).toList();
     if (usableDays.length / periodDays < 0.20) {
       return _UndetectedResult('أيام الحضور الصالحة أقل من 20% من مدة الفترة');
     }
@@ -519,7 +585,9 @@ class GenerationService {
     final totalBucketDays = buckets.values.fold(0, (a, b) => a + b);
     final denominator = totalBucketDays + unmatchedCount;
 
-    if (winner == null || denominator == 0 || winnerCount / denominator < 0.60) {
+    if (winner == null ||
+        denominator == 0 ||
+        winnerCount / denominator < 0.60) {
       return _UndetectedResult('وقت بداية المناوبة غير واضح');
     }
 

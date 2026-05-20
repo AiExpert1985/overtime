@@ -169,21 +169,23 @@ class ReportGenerateNotifier extends Notifier<ReportGenerateState> {
         settings,
       );
 
+      final promoted = service.promoteUndetectedToDaily(schedules);
+
       final offDays = service.detectOffDays(
-        schedules.dailyTable,
+        promoted.dailyTable,
         saved.startDate!,
         saved.endDate!,
       );
 
       final shiftEntries = service.extractShiftPeriods(
-        schedules.shiftTable,
+        promoted.shiftTable,
         saved.startDate!,
         saved.endDate!,
         settings,
       );
 
       final dailyEntries = service.extractDailyPeriods(
-        schedules.dailyTable,
+        promoted.dailyTable,
         offDays,
       );
 
@@ -195,7 +197,7 @@ class ReportGenerateNotifier extends Notifier<ReportGenerateState> {
         rangeEnd: saved.endDate!,
         shiftEntries: shiftEntries,
         dailyEntries: dailyEntries,
-        undetectedList: schedules.undetectedList,
+        undetectedList: promoted.undetectedList,
       );
 
       ref.invalidate(reportsProvider);

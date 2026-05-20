@@ -238,3 +238,9 @@ The following tasks were agreed during discovery and must be implemented in orde
 **Task:** Split the single timestamps column in the shift employee detail screen's zone widget into two separate sub-columns — one for timestamps within the allowed window (center ± tolerance) and one for timestamps within the zone boundary but outside that window. A sub-header row ("النافذة" / "داخل النافذة" / "خارج النافذة") is prepended once per period's zone group. Both sub-columns show a red ✗ when empty. Zone invalidity (red background) is still determined by the stored isSatisfied flag. The split is computed at render time from existing ZoneRow data — no data model, DB, or pipeline changes.
 
 ---
+
+## 20260520-0500 | Undetected-to-Daily Promotion Stage | TASK
+
+**Task:** Added Stage 4.5 — a post-processing step that runs after schedule detection and before off-day detection. Undetected employees with raw attendance days (calendar days with ≥1 timestamp) at or above a configurable threshold are promoted into the daily bucket and flow through Stages 5, 7, and 9 as regular daily employees. Employees below the threshold remain in the undetected list. The threshold is a private constant on the generation service. No DB schema changes, no UI changes, no new domain models — promoted employees are indistinguishable from naturally detected daily employees.
+
+---
