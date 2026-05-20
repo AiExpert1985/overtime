@@ -6,7 +6,9 @@
 
 ## Purpose
 
-Defines the algorithm for detecting each employee's employment type (shift or daily) and, for shift employees, their shift start time and shift periods. 
+Defines the algorithm for detecting each employee's employment type (shift or daily) and, for shift employees, their shift start time and shift periods. Runs inline as Stage 4 of the report generation pipeline. Operates entirely on the working dictionary built in Stage 3. No database reads or writes during detection. No user interaction — runs silently to completion.
+
+Detection and shift period extraction are combined in a single pass — valid shift periods are built during detection and carried directly into the shift hash table.
 
 ---
 
@@ -38,8 +40,8 @@ Every employee is assigned exactly one of three types as the output of this stag
 |min_valid_periods|3|Winner must have at least 3 valid periods — hard to achieve by luck, absorbs mis-punches|
 |min_start_time_confidence|0.60|Applied only when multiple start times are configured. Winner's valid periods must be ≥ 60% of all valid periods across all start times.|
 |min_zones_satisfied|`zoneCount − 1`|Derived from zone count at runtime — not hardcoded. Requires all zones except one to be satisfied, forcing overnight zone presence while tolerating exactly one mis-punch. With default 5 zones: 4. With 4 zones: 3. With 3 zones: 2. Blocks daily employee collision regardless of zone configuration.|
-|min_anchor_pairs|2|Phase 2 only. Minimum number of valid anchor pairs required to confirm an irregular shift employee. Lower than min_valid_periods because irregular employees have minimal stamps by nature.|
-|rest_gap_days|2|Phase 2 only. Minimum number of consecutive days with zero timestamps required after a closing stamp to confirm a rest gap.|
+|min_anchor_pairs|2|Minimum number of valid anchor pairs required when counting periods via the anchor pair fallback. Lower than min_valid_periods because irregular employees have minimal stamps by nature.|
+|rest_gap_days|2|Minimum number of consecutive days with zero timestamps required after a shift period to confirm a rest gap in the anchor pair check.|
 
 ---
 
@@ -63,10 +65,9 @@ Last zone end is always inclusive. All other zone ends are exclusive.
 
 ## Algorithm
 
-Runs independently for each employee. 
+Runs independently for each employee. For each day and each configured start time, a zone check runs first. If the zone check fails, an anchor pair check runs immediately as a fallback. Both checks contribute to the same `validPeriods[S]` buckets. A single classification step at the end decides the employee's type based on the total period count — regardless of how each period was found.
 
-### Phase 1 — Preparation
-#### Step 1 — Attendance Pre-Check
+### Step 1 — Attendance Pre-Check
 
 Count all calendar days where the employee has at least 1 timestamp.
 
@@ -74,7 +75,7 @@ Count all calendar days where the employee has at least 1 timestamp.
 
 If fails → mark employee as `undetected`, reason: **أيام الحضور أقل من 15% من مدة الفترة**, skip to next employee.
 
-#### Step 2 — Build Valid Periods Per Start Time
+### Step 2 — Build Valid Periods Per Start Time
 
 For each configured start time S in `shift_start_times`, build `validPeriods[S] = []`:
 
@@ -88,13 +89,9 @@ windowTimestamps = all employee timestamps where windowStart ≤ ts ≤ windowEn
 
 If `windowTimestamps` is empty → skip this day, no period created.
 
-### Phase 2 — Zone-Based Shift Detection
+Otherwise, compute zone results using the Zone Layout above. Count `satisfiedZones`.
 
-#### Step 1  — Compute zone results
-
-compute zone results using the Zone Layout above. Count `satisfiedZones`.
-
-If `satisfiedZones ≥ min_zones_satisfied (zoneCount − 1)` → append a `ShiftPeriod` to `validPeriods[S]`:
+**Zone check:** If `satisfiedZones ≥ min_zones_satisfied (zoneCount − 1)` → append a `ShiftPeriod` to `validPeriods[S]`:
 
 |Field|Value|
 |---|---|
@@ -103,44 +100,30 @@ If `satisfiedZones ≥ min_zones_satisfied (zoneCount − 1)` → append a `Shif
 |allTimestamps|windowTimestamps, sorted ascending|
 |zoneResults|list of `{ zoneIndex, startTime, endTime, timestamps[], isSatisfied }`|
 
-
 Calculated fields (`endDate`, `totalAttendanceDuration`, `hoursCounted`, `isValid`, `notes`) are left unset — the calculator fills them in Stage 7.
 
-if failed this step, directly check the employee with below irregular check
-
-Irregular Shift Detection
-
-Runs only for employees who failed Phase 1 Classification. These employees have insufficient zone signal to confirm as shift — Phase 2 checks for a minimal but valid shift pattern before defaulting to daily.
-
-#### Definition — Anchor Pair
-
-For a configured start time S and calendar day D, an anchor pair exists when all three conditions are met:
-
-- **Opening stamp:** at least one timestamp falls within `[D @ S − shift_tolerance, D @ S + shift_tolerance]`
-- **Closing stamp:** at least one timestamp falls within `[D+1 @ S − shift_tolerance, D+1 @ S + shift_tolerance]`
-- **Rest gap:** zero timestamps exist on D+2 AND zero timestamps exist on D+3
-- **Next Return**: at least one timestamp exist on D+4 or D+5
-
-A pair that satisfies opening and closing but not the rest gap is discarded — it could be a daily employee stamping on consecutive days.
-
-#### Step 1 — Count Anchor Pairs Per Start Time
-
-For each configured start time S, iterate over every calendar day D in the report range:
+**Anchor pair check (fallback):** If the zone check failed, run the anchor pair check for this day D and start time S:
 
 ```
-openingWindow = [D @ S − shift_tolerance,   D @ S + shift_tolerance]
-closingWindow = [D+1 @ S − shift_tolerance, D+1 @ S + shift_tolerance]
+openingWindow = [D @ S − shift_tolerance, D @ S + shift_tolerance]
 
-hasOpening = any timestamp falls within openingWindow
-hasClosing = any timestamp falls within closingWindow
-hasRestGap = zero timestamps on D+2 AND zero timestamps on D+3
-hasReturn = any timestamp falls within D+4 or D+5
+hasOpening  = any timestamp falls within openingWindow
+hasActivity = any timestamp exists on D+1 (any time)
+hasRestGap  = zero timestamps on D+2 AND zero timestamps on D+3
+hasReturn   = any timestamp exists on D+4
 
-if hasOpening AND hasClosing AND hasRestGap AND hasReturn:
-  anchorPairs[S] += 1
+if hasOpening AND hasActivity AND hasRestGap AND hasReturn:
+  append a ShiftPeriod to validPeriods[S] with:
+    periodDate    = D
+    allTimestamps = all timestamps from D and D+1, sorted ascending
+    zoneResults   = zone results computed above (most zones unsatisfied — stored for audit)
 ```
 
-#### Step 2 — Find the Winning Start Time
+The opening stamp confirms shift start. Activity on D+1 confirms presence during the shift body without requiring an exact closing time. The rest gap confirms genuine days off. The return stamp on D+4 confirms the repeating cycle — ruling out a one-off isolated period.
+
+Anchor pair periods are appended to the same `validPeriods[S]` bucket as zone-check periods. The classification step treats them identically. Because most interior zones are unsatisfied, the shift overtime calculator (Stage 7) will mark these periods as `isValid = false` and `hoursCounted = 0` — they appear in the detail screen for audit but do not contribute to overtime totals.
+
+### Step 3 — Find the Winning Start Time
 
 ```
 winnerStartTime = S with max len(validPeriods[S])
@@ -150,7 +133,7 @@ totalValid      = sum of len(validPeriods[S]) for all S
 
 If two or more start times share the same `winnerCount`, a tie exists. The confidence check in Step 4 handles this.
 
-#### Step 3 — Classify
+### Step 4 — Classify
 
 **Check 1 — Minimum valid periods:**
 
@@ -179,21 +162,18 @@ periods = validPeriods[winnerStartTime]
 → shift
 ```
 
-Anchor pair periods are stored as `ShiftPeriod` objects. Because these periods have only 2 timestamps (opening and closing), most interior zones will be unsatisfied. The shift overtime calculator (Stage 7) will mark these periods as `isValid = false` and `hoursCounted = 0` by its standard rules. This is correct — irregular shift periods are visible in the detail screen for audit purposes but do not contribute to overtime totals.
-
 ---
 
 ## Classification Logic Summary
 
-|Phase|Condition|Result|Reason|
+|Step|Condition|Result|Reason|
 |---|---|---|---|
 |Pre-check|attendance_days / reportDays < 0.15|undetected|Too little data to analyze|
-|Phase 1|winnerCount ≥ 3 AND confidence passes|shift|Clear zone-based shift pattern|
-|Phase 1|winnerCount < 3|→ Phase 2|Insufficient zone signal, try anchor pair detection|
-|Phase 1|Multiple start times AND (tie OR confidence < 0.60)|undetected|Ambiguous start time|
-|Phase 2|anchorPairs ≥ 2 AND confidence passes|shift|Irregular shift pattern confirmed|
-|Phase 2|anchorPairs < 2|daily|No shift pattern of any kind|
-|Phase 2|Multiple start times AND (tie OR confidence < 0.60)|undetected|Ambiguous start time|
+|Step 2 (per day)|satisfiedZones ≥ zoneCount − 1|period added to validPeriods[S]|Full zone signal confirmed|
+|Step 2 (per day)|zone check failed AND anchor pair conditions met|period added to validPeriods[S]|Irregular shift pattern for this day|
+|Step 4|winnerCount < 3|daily|No meaningful shift pattern|
+|Step 4|Multiple start times AND (tie OR confidence < 0.60)|undetected|Ambiguous start time|
+|Step 4|Otherwise|shift|Pattern confirmed|
 
 An employee with weak signal is daily. An employee with strong but ambiguous signal is undetected.
 
@@ -204,7 +184,7 @@ An employee with weak signal is daily. An employee with strong but ambiguous sig
 |Reason|Arabic|Triggered by|
 |---|---|---|
 |Raw attendance days below 15% of period|أيام الحضور أقل من 15% من مدة الفترة|Pre-check|
-|Shift start time ambiguous|وقت بداية المناوبة غير واضح|Phase 1 or Phase 2 confidence check|
+|Shift start time ambiguous|وقت بداية المناوبة غير واضح|Step 4 confidence check|
 
 ---
 
@@ -216,7 +196,7 @@ An employee with weak signal is daily. An employee with strong but ambiguous sig
 
 **Undetected list:** `[ { name, department, failureReason } ]` Employees who failed the pre-check or the confidence check. Carried directly to storage in Stage 9.
 
-All three are in-memory only. None is persisted until Stage 10.
+All three are in-memory only. None is persisted until Stage 9.
 
 ---
 
