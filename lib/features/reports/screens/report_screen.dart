@@ -245,7 +245,6 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
       final path = await ReportExportService().exportShift(
         report: rs.report,
         includedRows: included,
-        repo: ref.read(reportsRepositoryProvider),
         roundingMode: _roundingMode,
       );
       if (!mounted) return;
@@ -272,7 +271,6 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
       final path = await ReportExportService().exportDaily(
         report: rs.report,
         includedRows: included,
-        repo: ref.read(reportsRepositoryProvider),
         roundingMode: _roundingMode,
       );
       if (!mounted) return;
@@ -1064,7 +1062,11 @@ class _ShiftRow extends StatelessWidget {
             Expanded(flex: 2, child: Text(row.department)),
             Expanded(
               flex: 2,
-              child: Text(_fmt(row.overtimeMinutes, roundingMode)),
+              child: Text(
+                row.overtimeMinutes > 0
+                    ? _fmt(row.overtimeMinutes, roundingMode)
+                    : '---',
+              ),
             ),
             Expanded(
               flex: 2,
@@ -1120,21 +1122,24 @@ class _DailyRow extends StatelessWidget {
             Expanded(flex: 2, child: Text(row.department)),
             Expanded(
               flex: 2,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (row.offOvertimeMinutes > 0)
-                    Text('عطلة: ${_fmt(row.offOvertimeMinutes, roundingMode)}'),
-                  if (row.regularOvertimeMinutes > 0)
-                    Text(
-                        'دوام: ${_fmt(row.regularOvertimeMinutes, roundingMode)}'),
-                  if (row.offOvertimeMinutes > 0 &&
-                      row.regularOvertimeMinutes > 0)
-                    Text(
-                        'الكلي: ${_fmt(row.totalOvertimeMinutes, roundingMode)}'),
-                ],
-              ),
+              child: row.totalOvertimeMinutes == 0
+                  ? const Text('---')
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (row.offOvertimeMinutes > 0)
+                          Text(
+                              'عطلة: ${_fmt(row.offOvertimeMinutes, roundingMode)}'),
+                        if (row.regularOvertimeMinutes > 0)
+                          Text(
+                              'دوام: ${_fmt(row.regularOvertimeMinutes, roundingMode)}'),
+                        if (row.offOvertimeMinutes > 0 &&
+                            row.regularOvertimeMinutes > 0)
+                          Text(
+                              'الكلي: ${_fmt(row.totalOvertimeMinutes, roundingMode)}'),
+                      ],
+                    ),
             ),
             Expanded(
               flex: 2,

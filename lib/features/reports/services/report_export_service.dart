@@ -1,19 +1,22 @@
-import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 
-import '../data/reports_repository.dart';
 import '../domain/daily_employee_row.dart';
 import '../domain/report.dart';
 import '../domain/shift_employee_row.dart';
+import '../providers/detail_provider.dart';
 
 class ReportExportService {
+  // -------------------------------------------------------------------------
+  // Main screen: list-only exports (all included employees, no period details)
+  // -------------------------------------------------------------------------
+
   Future<String?> exportShift({
     required Report report,
     required List<ShiftEmployeeRow> includedRows,
-    required ReportsRepository repo,
     required String roundingMode,
   }) async {
     final start = _isoLabel(report.rangeStart);
@@ -33,11 +36,11 @@ class ReportExportService {
     excel.rename('Sheet1', 'المناوبة');
     final sheet = excel['المناوبة'];
 
-    // Summary section
     sheet.appendRow([TextCellValue('تقرير المناوبة')]);
     sheet.appendRow([
       TextCellValue('نطاق التاريخ:'),
-      TextCellValue('${_fmtDate(report.rangeStart)} - ${_fmtDate(report.rangeEnd)}'),
+      TextCellValue(
+          '${_fmtDate(report.rangeStart)} - ${_fmtDate(report.rangeEnd)}'),
     ]);
     sheet.appendRow([
       TextCellValue('الموظفون المحتسبون:'),
@@ -52,7 +55,6 @@ class ReportExportService {
     ]);
     sheet.appendRow([TextCellValue('')]);
 
-    // Employee table header
     sheet.appendRow([
       TextCellValue('اسم الموظف'),
       TextCellValue('القسم'),
@@ -65,43 +67,6 @@ class ReportExportService {
         TextCellValue(_fmt(row.overtimeMinutes, roundingMode)),
       ]);
     }
-    sheet.appendRow([TextCellValue('')]);
-
-    // Period details
-    sheet.appendRow([TextCellValue('تفاصيل الفترات')]);
-    for (final row in includedRows) {
-      sheet.appendRow([TextCellValue('')]);
-      sheet.appendRow([TextCellValue('الموظف:'), TextCellValue(row.employeeName)]);
-      sheet.appendRow([
-        TextCellValue('تاريخ البداية'),
-        TextCellValue('تاريخ النهاية'),
-        TextCellValue('ساعات الحضور'),
-        TextCellValue('الساعات المحتسبة'),
-        TextCellValue('المناطق'),
-        TextCellValue('ملاحظات'),
-      ]);
-      final periods = await repo.loadShiftPeriods(row.id);
-      for (final p in periods) {
-        final zoneData = jsonDecode(p['zone_data'] as String) as List;
-        final zoneSummary = zoneData
-            .map((z) {
-              final satisfied = z['isSatisfied'] as bool;
-              final idx = (z['zoneIndex'] as int) + 1;
-              return 'نقطة $idx: ${satisfied ? "✓" : "✗"}';
-            })
-            .join(' | ');
-        final duration = p['total_attendance_duration'] as int;
-        final counted = p['hours_counted'] as int;
-        sheet.appendRow([
-          TextCellValue(p['period_date'] as String),
-          TextCellValue(p['end_date'] as String),
-          TextCellValue(_fmtDuration(duration)),
-          IntCellValue(counted),
-          TextCellValue(zoneSummary),
-          TextCellValue((p['notes'] as String?) ?? ''),
-        ]);
-      }
-    }
 
     await File(path).writeAsBytes(excel.encode()!);
     return path;
@@ -110,7 +75,6 @@ class ReportExportService {
   Future<String?> exportDaily({
     required Report report,
     required List<DailyEmployeeRow> includedRows,
-    required ReportsRepository repo,
     required String roundingMode,
   }) async {
     final start = _isoLabel(report.rangeStart);
@@ -130,11 +94,11 @@ class ReportExportService {
     excel.rename('Sheet1', 'الصباحي');
     final sheet = excel['الصباحي'];
 
-    // Summary section
     sheet.appendRow([TextCellValue('تقرير الدوام الصباحي')]);
     sheet.appendRow([
       TextCellValue('نطاق التاريخ:'),
-      TextCellValue('${_fmtDate(report.rangeStart)} - ${_fmtDate(report.rangeEnd)}'),
+      TextCellValue(
+          '${_fmtDate(report.rangeStart)} - ${_fmtDate(report.rangeEnd)}'),
     ]);
     sheet.appendRow([
       TextCellValue('الموظفون المحتسبون:'),
@@ -149,55 +113,235 @@ class ReportExportService {
     ]);
     sheet.appendRow([TextCellValue('')]);
 
-    // Employee table header
     sheet.appendRow([
       TextCellValue('اسم الموظف'),
       TextCellValue('القسم'),
-      TextCellValue('المجموع'),
+      TextCellValue('وقت إضافي عطلة'),
+      TextCellValue('وقت إضافي دوام'),
+      TextCellValue('الإجمالي'),
     ]);
     for (final row in includedRows) {
       sheet.appendRow([
         TextCellValue(row.employeeName),
         TextCellValue(row.department),
+        TextCellValue(row.offOvertimeMinutes > 0
+            ? _fmt(row.offOvertimeMinutes, roundingMode)
+            : '---'),
+        TextCellValue(row.regularOvertimeMinutes > 0
+            ? _fmt(row.regularOvertimeMinutes, roundingMode)
+            : '---'),
         TextCellValue(_fmt(row.totalOvertimeMinutes, roundingMode)),
       ]);
     }
+
+    await File(path).writeAsBytes(excel.encode()!);
+    return path;
+  }
+
+  // -------------------------------------------------------------------------
+  // Detail screen: single-employee exports (full period breakdown)
+  // -------------------------------------------------------------------------
+
+  Future<String?> exportShiftEmployee({
+    required DetailState state,
+    required int baselineHours,
+    required int ceilingHours,
+  }) async {
+    final name = state.employeeName;
+    final start = _isoLabel(state.reportRangeStart);
+    final end = _isoLabel(state.reportRangeEnd);
+    final fileName = 'تفاصيل_مناوبة_${name}_${start}_$end.xlsx';
+
+    final path = await FilePicker.saveFile(
+      dialogTitle: 'حفظ تفاصيل موظف المناوبة',
+      fileName: fileName,
+      type: FileType.custom,
+      allowedExtensions: ['xlsx'],
+      lockParentWindow: true,
+    );
+    if (path == null) return null;
+
+    final periods = state.shiftPeriods;
+    final totalAttendanceMin =
+        periods.fold(0, (s, p) => s + p.totalAttendanceDuration);
+    final totalHoursCounted = periods.fold(0, (s, p) => s + p.hoursCounted);
+    final validDays = periods.where((p) => p.isValid).length;
+    final overtime =
+        max(0, min(totalHoursCounted, ceilingHours) - baselineHours);
+
+    final excel = Excel.createExcel();
+    excel.rename('Sheet1', 'تفاصيل المناوبة');
+    final sheet = excel['تفاصيل المناوبة'];
+
+    sheet.appendRow([TextCellValue('تفاصيل موظف المناوبة')]);
+    sheet.appendRow([TextCellValue('الموظف:'), TextCellValue(name)]);
+    sheet.appendRow(
+        [TextCellValue('القسم:'), TextCellValue(state.department)]);
+    sheet.appendRow([
+      TextCellValue('الفترة:'),
+      TextCellValue(
+          '${_fmtDate(state.reportRangeStart)} — ${_fmtDate(state.reportRangeEnd)}'),
+    ]);
+    sheet.appendRow(
+        [TextCellValue('أيام المناوبة الصالحة:'), IntCellValue(validDays)]);
+    sheet.appendRow([
+      TextCellValue('إجمالي ساعات الحضور:'),
+      TextCellValue(_fmtDuration(totalAttendanceMin)),
+    ]);
+    sheet.appendRow([
+      TextCellValue('الساعات المحتسبة:'),
+      TextCellValue('$totalHoursCounted ساعة'),
+    ]);
+    sheet.appendRow([
+      TextCellValue('الساعات الإضافية:'),
+      TextCellValue('$overtime ساعة'),
+    ]);
     sheet.appendRow([TextCellValue('')]);
 
-    // Period details
-    sheet.appendRow([TextCellValue('تفاصيل الفترات')]);
-    for (final row in includedRows) {
-      sheet.appendRow([TextCellValue('')]);
-      sheet.appendRow([TextCellValue('الموظف:'), TextCellValue(row.employeeName)]);
+    sheet.appendRow([
+      TextCellValue('تاريخ البداية'),
+      TextCellValue('تاريخ النهاية'),
+      TextCellValue('النقاط'),
+      TextCellValue('ساعات الحضور'),
+      TextCellValue('الساعات المحتسبة'),
+      TextCellValue('ملاحظات'),
+    ]);
+    for (final p in periods) {
+      final zoneSummary = p.zoneResults
+          .map((z) => 'نقطة ${z.zoneIndex + 1}: ${z.isSatisfied ? "✓" : "✗"}')
+          .join(' | ');
       sheet.appendRow([
-        TextCellValue('التاريخ'),
-        TextCellValue('اليوم'),
-        TextCellValue('نوع اليوم'),
-        TextCellValue('الدخول'),
-        TextCellValue('الخروج'),
-        TextCellValue('ساعات الحضور'),
-        TextCellValue('الوقت الإضافي'),
-        TextCellValue('ملاحظات'),
+        TextCellValue(p.periodDate),
+        TextCellValue(p.endDate),
+        TextCellValue(zoneSummary),
+        TextCellValue(_fmtDuration(p.totalAttendanceDuration)),
+        IntCellValue(p.hoursCounted),
+        TextCellValue(p.notes ?? ''),
       ]);
-      final periods = await repo.loadDailyPeriods(row.id);
-      for (final p in periods) {
-        final timestamps =
-            (jsonDecode(p['all_timestamps'] as String) as List).cast<String>();
-        final first = timestamps.isNotEmpty ? _timeOnly(DateTime.parse(timestamps.first)) : '';
-        final last =
-            timestamps.length > 1 ? _timeOnly(DateTime.parse(timestamps.last)) : '';
-        final dayType = p['day_type'] as String == 'off' ? 'عطلة' : 'دوام';
-        sheet.appendRow([
-          TextCellValue(p['date'] as String),
-          TextCellValue(p['weekday'] as String),
-          TextCellValue(dayType),
-          TextCellValue(first),
-          TextCellValue(last),
-          TextCellValue(_fmtDuration(p['total_attendance_duration'] as int)),
-          TextCellValue(_fmt(p['overtime_minutes'] as int, roundingMode)),
-          TextCellValue((p['notes'] as String?) ?? ''),
-        ]);
-      }
+    }
+
+    await File(path).writeAsBytes(excel.encode()!);
+    return path;
+  }
+
+  Future<String?> exportDailyEmployee({
+    required DetailState state,
+    required String roundingMode,
+  }) async {
+    final name = state.employeeName;
+    final start = _isoLabel(state.reportRangeStart);
+    final end = _isoLabel(state.reportRangeEnd);
+    final fileName = 'تفاصيل_صباحي_${name}_${start}_$end.xlsx';
+
+    final path = await FilePicker.saveFile(
+      dialogTitle: 'حفظ تفاصيل موظف الدوام الصباحي',
+      fileName: fileName,
+      type: FileType.custom,
+      allowedExtensions: ['xlsx'],
+      lockParentWindow: true,
+    );
+    if (path == null) return null;
+
+    final periods = state.dailyPeriods;
+
+    final excel = Excel.createExcel();
+    excel.rename('Sheet1', 'تفاصيل الدوام الصباحي');
+    final sheet = excel['تفاصيل الدوام الصباحي'];
+
+    sheet.appendRow([TextCellValue('تفاصيل موظف الدوام الصباحي')]);
+    sheet.appendRow([TextCellValue('الموظف:'), TextCellValue(name)]);
+    sheet.appendRow(
+        [TextCellValue('القسم:'), TextCellValue(state.department)]);
+    sheet.appendRow([
+      TextCellValue('الفترة:'),
+      TextCellValue(
+          '${_fmtDate(state.reportRangeStart)} — ${_fmtDate(state.reportRangeEnd)}'),
+    ]);
+    sheet.appendRow([
+      TextCellValue('الوقت الإضافي الإجمالي:'),
+      TextCellValue(_fmt(state.totalOvertimeMinutes, roundingMode)),
+    ]);
+    sheet.appendRow([TextCellValue('')]);
+
+    sheet.appendRow([
+      TextCellValue('التاريخ'),
+      TextCellValue('اليوم'),
+      TextCellValue('نوع اليوم'),
+      TextCellValue('الدخول'),
+      TextCellValue('الخروج'),
+      TextCellValue('ساعات الحضور'),
+      TextCellValue('الوقت الإضافي'),
+      TextCellValue('ملاحظات'),
+    ]);
+    for (final p in periods) {
+      final ts = p.timestamps;
+      final entry = ts.isNotEmpty ? _timeOnly(ts.first) : '';
+      final exit = ts.length > 1 ? _timeOnly(ts.last) : '';
+      final dayTypeLabel = p.dayType == 'off' ? 'عطلة' : 'دوام';
+      sheet.appendRow([
+        TextCellValue(p.date),
+        TextCellValue(p.weekday),
+        TextCellValue(dayTypeLabel),
+        TextCellValue(entry),
+        TextCellValue(exit),
+        TextCellValue(_fmtDuration(p.totalAttendanceDuration)),
+        TextCellValue(_fmt(p.overtimeMinutes, roundingMode)),
+        TextCellValue(p.notes ?? ''),
+      ]);
+    }
+
+    await File(path).writeAsBytes(excel.encode()!);
+    return path;
+  }
+
+  Future<String?> exportUndetectedEmployee({
+    required DetailState state,
+  }) async {
+    final name = state.employeeName;
+    final start = _isoLabel(state.reportRangeStart);
+    final end = _isoLabel(state.reportRangeEnd);
+    final fileName = 'تفاصيل_غير_محدد_${name}_${start}_$end.xlsx';
+
+    final path = await FilePicker.saveFile(
+      dialogTitle: 'حفظ تفاصيل الموظف غير المحدد',
+      fileName: fileName,
+      type: FileType.custom,
+      allowedExtensions: ['xlsx'],
+      lockParentWindow: true,
+    );
+    if (path == null) return null;
+
+    final periods = state.undetectedPeriods;
+
+    final excel = Excel.createExcel();
+    excel.rename('Sheet1', 'تفاصيل غير محدد');
+    final sheet = excel['تفاصيل غير محدد'];
+
+    sheet.appendRow([TextCellValue('تفاصيل الموظف غير المحدد')]);
+    sheet.appendRow([TextCellValue('الموظف:'), TextCellValue(name)]);
+    sheet.appendRow(
+        [TextCellValue('القسم:'), TextCellValue(state.department)]);
+    sheet.appendRow([
+      TextCellValue('الفترة:'),
+      TextCellValue(
+          '${_fmtDate(state.reportRangeStart)} — ${_fmtDate(state.reportRangeEnd)}'),
+    ]);
+    sheet.appendRow(
+        [TextCellValue('سبب عدم الكشف:'), TextCellValue(state.failureReason)]);
+    sheet.appendRow([TextCellValue('')]);
+
+    sheet.appendRow([
+      TextCellValue('التاريخ'),
+      TextCellValue('اليوم'),
+      TextCellValue('البصمات'),
+    ]);
+    for (final p in periods) {
+      final stamps = p.timestamps.map(_timeOnly).join(' | ');
+      sheet.appendRow([
+        TextCellValue(p.date),
+        TextCellValue(p.weekday),
+        TextCellValue(stamps),
+      ]);
     }
 
     await File(path).writeAsBytes(excel.encode()!);

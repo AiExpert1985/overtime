@@ -204,3 +204,15 @@ The following tasks were agreed during discovery and must be implemented in orde
 **Task:** Seven improvements to the Report Screen. (1) Summary cards expanded to 4 per tab with tab-specific Arabic labels: total employees (المناوبة / الدوام الصباحي suffix), included employees, gross total overtime (all employees regardless of inclusion toggle), and deserved overtime (included employees only). (2) Daily employee table overtime column split into three sub-columns: دوام (regular-day), عطلة (off-day), كلي (total). Required adding regular_overtime_minutes and off_overtime_minutes to the daily_employee_results DB table (schema v3 migration via two ALTER TABLE statements) and carrying the split through Stage 9, Stage 10, and the display row model. (3) Export button moved from the bottom footer into the AppBar actions. (4) AppBar title changed to include the report date range. (5) Bottom bar simplified to generation date only, centered, with a Divider separator above it. (6) Segment buttons (مناوبة / صباحي) made larger and bolder. (7) DB migration bug fix: schema version bumped 2→3 so the ALTER TABLE statements run on existing databases — without this the generation insert failed silently in the UI.
 
 ---
+
+## 20260520-0000 | Report Filters Fix, Export Restructure & Detail Export | TASK
+
+**Task:** Three improvements to the Report Screen. (1) Filter checkbox logic corrected: both checkboxes unchecked in a pair now shows zero employees, not all employees. Applies to both the overtime pair and the inclusion pair on both the shift and daily tabs. (2) Main screen Excel exports (shift and daily) simplified to list-only — period details removed, repo dependency removed. (3) Detail screen gained a download button in the AppBar that exports the currently viewed employee's full period breakdown to Excel: shift employees get a period table with zone results, daily employees get a per-day table, undetected employees get a per-day timestamp table. Detail screen converted to ConsumerStatefulWidget to hold exporting state.
+
+---
+
+## 20260520-0100 | Overtime Zero Display & Daily Export Column Split | TASK
+
+**Task:** Two improvements to the Report Screen. (1) Overtime cells in the employee list now show "---" instead of empty or "0 ساعة" when an employee has no overtime — applies to both shift rows (which previously showed "0 ساعة") and daily rows (which rendered an empty Column). (2) Daily employee Excel export employee table split from one total overtime column into three columns: off-day overtime, regular-day overtime, and total overtime. Off-day and regular columns show "---" when zero; total always shows the formatted value.
+
+---

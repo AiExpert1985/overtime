@@ -10,6 +10,7 @@ import '../domain/shift_period_row.dart';
 import '../domain/undetected_period_row.dart';
 import '../domain/zone_row.dart';
 import '../providers/detail_provider.dart';
+import '../services/report_export_service.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -51,7 +52,7 @@ String _fmtOvertimeMinutes(int minutes, String mode) {
 // Screen
 // ---------------------------------------------------------------------------
 
-class ReportDetailScreen extends ConsumerWidget {
+class ReportDetailScreen extends ConsumerStatefulWidget {
   final int reportId;
   final String employeeType;
   final int employeeResultId;
@@ -64,16 +65,78 @@ class ReportDetailScreen extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ReportDetailScreen> createState() => _ReportDetailScreenState();
+}
+
+class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
+  bool _exporting = false;
+
+  Future<void> _doExport(DetailState data) async {
+    if (_exporting) return;
+    setState(() => _exporting = true);
+    try {
+      final settings = ref.read(settingsProvider).whenOrNull(data: (s) => s);
+      final roundingMode = settings?.roundingMode ?? 'quarter';
+      String? path;
+      if (data.employeeType == 'shift') {
+        path = await ReportExportService().exportShiftEmployee(
+          state: data,
+          baselineHours: settings?.shiftBaselineHours ?? 0,
+          ceilingHours: settings?.shiftCeilingHours ?? 0,
+        );
+      } else if (data.employeeType == 'daily') {
+        path = await ReportExportService().exportDailyEmployee(
+          state: data,
+          roundingMode: roundingMode,
+        );
+      } else {
+        path = await ReportExportService().exportUndetectedEmployee(state: data);
+      }
+      if (!mounted) return;
+      if (path != null) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('تم الحفظ: $path')));
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('حدث خطأ أثناء التصدير')),
+      );
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final args = (
-      reportId: reportId,
-      employeeResultId: employeeResultId,
-      employeeType: employeeType,
+      reportId: widget.reportId,
+      employeeResultId: widget.employeeResultId,
+      employeeType: widget.employeeType,
     );
     final state = ref.watch(detailProvider(args));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('تفاصيل الموظف')),
+      appBar: AppBar(
+        title: const Text('تفاصيل الموظف'),
+        actions: [
+          if (state case AsyncData(:final value))
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+              child: _exporting
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : IconButton(
+                      icon: const Icon(Icons.download_rounded),
+                      tooltip: 'تصدير Excel',
+                      onPressed: () => _doExport(value),
+                    ),
+            ),
+        ],
+      ),
       body: state.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('حدث خطأ أثناء التحميل: $e')),

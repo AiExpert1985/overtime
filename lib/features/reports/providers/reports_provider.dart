@@ -60,8 +60,8 @@ class ReportState {
   final String shiftDeptSearch;
   final String dailyDeptSearch;
 
-  // Paired booleans: both true or both false → show all;
-  // only one true → filter to that category.
+  // Paired booleans: both true → show all; one true → filter to that category;
+  // both false → show none.
   final bool shiftShowIncluded;
   final bool shiftShowExcluded;
   final bool dailyShowIncluded;
@@ -99,14 +99,20 @@ class ReportState {
   List<ShiftEmployeeRow> get visibleShiftRows {
     var list = List<ShiftEmployeeRow>.from(shiftRows);
 
-    if (shiftShowIncluded != shiftShowExcluded) {
-      list = list.where((r) => r.isIncluded == shiftShowIncluded).toList();
+    if (!shiftShowIncluded && !shiftShowExcluded) {
+      return [];
+    } else if (shiftShowIncluded && !shiftShowExcluded) {
+      list = list.where((r) => r.isIncluded).toList();
+    } else if (!shiftShowIncluded) {
+      list = list.where((r) => !r.isIncluded).toList();
     }
 
-    if (shiftHasOvertime != shiftNoOvertime) {
-      list = list
-          .where((r) => (r.overtimeMinutes > 0) == shiftHasOvertime)
-          .toList();
+    if (!shiftHasOvertime && !shiftNoOvertime) {
+      return [];
+    } else if (shiftHasOvertime && !shiftNoOvertime) {
+      list = list.where((r) => r.overtimeMinutes > 0).toList();
+    } else if (!shiftHasOvertime) {
+      list = list.where((r) => r.overtimeMinutes == 0).toList();
     }
 
     if (shiftSearch.isNotEmpty) {
@@ -126,14 +132,20 @@ class ReportState {
   List<DailyEmployeeRow> get visibleDailyRows {
     var list = List<DailyEmployeeRow>.from(dailyRows);
 
-    if (dailyShowIncluded != dailyShowExcluded) {
-      list = list.where((r) => r.isIncluded == dailyShowIncluded).toList();
+    if (!dailyShowIncluded && !dailyShowExcluded) {
+      return [];
+    } else if (dailyShowIncluded && !dailyShowExcluded) {
+      list = list.where((r) => r.isIncluded).toList();
+    } else if (!dailyShowIncluded) {
+      list = list.where((r) => !r.isIncluded).toList();
     }
 
-    if (dailyHasOvertime != dailyNoOvertime) {
-      list = list
-          .where((r) => (r.totalOvertimeMinutes > 0) == dailyHasOvertime)
-          .toList();
+    if (!dailyHasOvertime && !dailyNoOvertime) {
+      return [];
+    } else if (dailyHasOvertime && !dailyNoOvertime) {
+      list = list.where((r) => r.totalOvertimeMinutes > 0).toList();
+    } else if (!dailyHasOvertime) {
+      list = list.where((r) => r.totalOvertimeMinutes == 0).toList();
     }
 
     if (dailySearch.isNotEmpty) {
