@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "schedule_detection.md",
+                "file": "overtime_calculation_shift.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "schedule_detection"
+              "title": "overtime_calculation_shift"
             }
           }
         ]
@@ -185,24 +185,24 @@
   },
   "active": "1f3b2e308af9701c",
   "lastOpenFiles": [
-    "main_workflow.md",
+    "overtime_calculation_daily.md",
     "off_day_detection.md",
+    "main_workflow.md",
+    "file_processing.md",
+    "dictionary_build.md",
+    "database_schema.md",
+    "data_shared_models.md",
+    "config.md",
+    "architecture_overview.md",
+    "schedule_detection.md",
     "screen_report.md",
     "screen_history.md",
     "screen_detail.md",
     "report_calculation.md",
     "screen_configuration.md",
-    "schedule_detection.md",
     "router.md",
     "overtime_calculation_shift.md",
-    "overtime_calculation_daily.md",
-    "data_shared_models.md",
     "period_extractor_daily.md",
-    "period_extractor_shift.md",
-    "database_schema.md",
-    "dictionary_build.md",
-    "config.md",
-    "architecture_overview.md",
-    "file_processing.md"
+    "period_extractor_shift.md"
   ]
 }

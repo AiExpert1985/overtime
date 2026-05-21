@@ -275,8 +275,19 @@ The following tasks were agreed during discovery and must be implemented in orde
 
 ---
 
-## 20260521-0000 | Generation Pipeline CPU Offload to Background Isolate | TASK
+## 20260521-0300 | Generation Pipeline CPU Offload to Background Isolate | TASK
 
 **Task:** Fixed a UI freeze on the generate button tap caused by the five synchronous CPU-bound pipeline stages (schedule detection, off-day detection, daily period extraction, shift overtime calculator, daily overtime calculator) running on the main isolate and blocking Flutter from rendering any frames — including the generation overlay animation. All five stages are now run in a single background isolate via a new static method on the generation service. The file I/O stage (dictionary build) and the storage stage remain on the main isolate as they are already properly async.
+## 20260521-0000 | Daily Validation Gate — Schedule Detection | TASK
+
+**Task:** Added a daily validation gate in schedule detection that runs when an employee fails to produce enough valid shift periods. Before classifying the employee as daily, the gate verifies they follow a daily schedule using two sequential checks: (1) morningDays (days with a timestamp within the entry window) must be ≥ 50% of working days in the report range; (2) exitDays (subset of morningDays with a timestamp within the exit window) must be ≥ 50% of morningDays. Employees who fail either check become undetected with reason "لا ينتمي لنظام المناوبة أو الدوام الصباحي". Working days exclude Fridays and Saturdays. morningDays counts all calendar days (including weekends) to avoid penalising employees who work seven days. The gate uses the existing daily config already available in AppSettings — no signature changes were needed.
+
+---
+
+## 20260521-0100 | Daily Validation Gate — Simplified Threshold | TASK
+
+**Task:** Simplified the daily validation gate. The exit condition (requiring 50% of morning days to also have an exit stamp) was removed because entry-only employees are common by policy and the downstream calculator already handles missing exit stamps correctly. The entry threshold was changed from a pure 50% ratio to `max(10, workingDays × 0.50)` — the floor of 10 prevents the ratio from being too easy to satisfy on short reports, since a shift employee on a 3-day cycle produces at most ~10 opening stamps per month. The gate now has a single check only.
+
+**Rejected:** Exit stamp condition — wrongly classifies entry-only employees as undetected; downstream calculator handles the missing stamp correctly with an invalid period and zero overtime.
 
 ---

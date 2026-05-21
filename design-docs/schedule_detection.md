@@ -17,6 +17,7 @@ Detection and shift period extraction are combined in a single pass — valid sh
 - Working dictionary: `employeeName → { name, department, [timestamps] }` — timestamps sorted ascending, filtered to report date range
 - Report period duration — total calendar days between report start and end date (inclusive)
 - Config: `shift_start_times`, `shift_duration`, `shift_zone_interval`, `shift_tolerance`
+- Config: `daily_start_time`, `daily_delay_allowance`
 
 ---
 
@@ -140,10 +141,35 @@ If two or more start times share the same `winnerCount`, a tie exists. The confi
 
 ```
 if winnerCount < min_valid_periods (3):
-  → daily
+  → run daily validation gate (below)
 ```
 
-No meaningful shift pattern — employee is genuinely daily.
+**Daily Validation Gate**
+
+Reached when the employee failed to produce enough valid shift periods. Before classifying as daily, verify the employee actually follows a daily schedule. Uses config: `daily_start_time`, `daily_delay_allowance`.
+
+```
+entryWindow = [daily_start_time − daily_delay_allowance,
+               daily_start_time + daily_delay_allowance]
+
+workingDays = non-weekend (non-Friday, non-Saturday) days in report range
+morningDays = days where employee has at least one timestamp within entryWindow
+threshold   = max(10, workingDays × 0.50)
+
+if morningDays < threshold:
+  → undetected: "لا ينتمي لنظام المناوبة أو الدوام الصباحي"
+
+→ daily
+```
+
+The floor of 10 prevents the ratio from becoming too easy to pass on short reports — a shift employee on a 3-day cycle works at most ~10 shifts per month, so requiring at least 10 morning stamps keeps the threshold meaningful regardless of report length.
+
+**Design notes:**
+
+- An exit stamp condition was considered (requiring 50% of morning days to also have an exit stamp within the exit window) but was rejected — many employees are officially entry-only by policy, and requiring exit stamps would wrongly classify them as undetected.
+- A separate `entry_only` employee category was considered for employees who never punch out, but rejected — it would require changes across every layer (calculator, schema, report screen, export, detail screen). The current design already handles them correctly: they pass the gate, enter the daily bucket, and each period is marked invalid by the calculator with "بصمة واحدة فقط". No overtime is calculated, which is correct. The detail screen shows all red rows but the classification and totals are accurate.
+
+An employee who fails the gate has neither a convincing shift pattern nor a convincing daily pattern — they are undetected, not silently misclassified.
 
 **Check 2 — Start time confidence (only when multiple start times configured):**
 
@@ -172,11 +198,12 @@ periods = validPeriods[winnerStartTime]
 |Pre-check|attendance_days / reportDays < 0.15|undetected|Too little data to analyze|
 |Step 2 (per day)|satisfiedZones ≥ zoneCount − 1|period added to validPeriods[S]|Full zone signal confirmed|
 |Step 2 (per day)|zone check failed AND anchor pair conditions met|period added to validPeriods[S]|Irregular shift pattern for this day|
-|Step 4|winnerCount < 3|daily|No meaningful shift pattern|
+|Step 4|winnerCount ≥ 3 AND confidence passes|shift|Shift pattern confirmed|
+|Step 4|winnerCount < 3 → daily gate passes|daily|Confirmed daily schedule|
+|Step 4|winnerCount < 3 → daily gate fails|undetected|Neither shift nor daily pattern|
 |Step 4|Multiple start times AND (tie OR confidence < 0.60)|undetected|Ambiguous start time|
-|Step 4|Otherwise|shift|Pattern confirmed|
 
-An employee with weak signal is daily. An employee with strong but ambiguous signal is undetected.
+An employee with weak shift signal must pass the daily validation gate to be classified as daily — otherwise undetected. An employee with strong but ambiguous shift signal is undetected.
 
 ---
 
@@ -186,6 +213,7 @@ An employee with weak signal is daily. An employee with strong but ambiguous sig
 |---|---|---|
 |Raw attendance days below 15% of period|أيام الحضور أقل من 15% من مدة الفترة|Pre-check|
 |Shift start time ambiguous|وقت بداية المناوبة غير واضح|Step 4 confidence check|
+|Neither shift nor daily pattern|لا ينتمي لنظام المناوبة أو الدوام الصباحي|Step 4 daily validation gate|
 
 ---
 
@@ -198,22 +226,6 @@ An employee with weak signal is daily. An employee with strong but ambiguous sig
 **Undetected list:** `[ { name, department, failureReason } ]` Employees who failed the pre-check or the confidence check. Carried directly to storage in Stage 9.
 
 All three are in-memory only. None is persisted until Stage 9.
-
----
-
-## Pipeline Impact
-
-This stage now produces shift periods directly, making the old Stage 6 (`period_extractor_shift.md`) redundant. The pipeline stages are renumbered:
-
-|Old|New|Change|
-|---|---|---|
-|Stage 4 — Schedule Detection|Stage 4 — Schedule Detection|Replaced with this algorithm. Now also builds ShiftPeriod objects.|
-|Stage 5 — Off-Day Detection|Stage 5 — Off-Day Detection|No change|
-|Stage 6 — Shift Period Extraction|**Removed**|Merged into Stage 4|
-|Stage 7 — Daily Period Extraction|Stage 6 — Daily Period Extraction|Renumbered only|
-|Stage 8 — Shift Overtime Calculation|Stage 7 — Shift Overtime Calculation|Renumbered only|
-|Stage 9 — Daily Overtime Calculation|Stage 8 — Daily Overtime Calculation|Renumbered only|
-|Stage 10 — Store and Navigate|Stage 9 — Store and Navigate|Renumbered only|
 
 ---
 

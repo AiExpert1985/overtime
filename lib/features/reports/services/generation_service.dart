@@ -141,9 +141,15 @@ class GenerationService {
 
     // Step 4 — Classify
 
-    // Check 1: combined period count (zone + anchor pair) below threshold → daily.
+    // Check 1: combined period count (zone + anchor pair) below threshold.
+    // Run daily validation gate before classifying as daily.
     if (winnerCount < _minValidPeriods) {
-      return _DailyResult();
+      return _runDailyValidationGate(
+        entry.timestamps,
+        startDate,
+        endDate,
+        settings,
+      );
     }
 
     // Check 2: start time confidence — only required when multiple start times
@@ -161,6 +167,52 @@ class GenerationService {
     }
 
     return _ShiftResult(winnerStartTime, validPeriodsMap[winnerStartTime]!);
+  }
+
+  _DetectResult _runDailyValidationGate(
+    List<DateTime> timestamps,
+    DateTime startDate,
+    DateTime endDate,
+    AppSettings settings,
+  ) {
+    final parts = settings.dailyStartTime.split(':');
+    final startMins = int.parse(parts[0]) * 60 + int.parse(parts[1]);
+    final delay = settings.dailyDelayAllowance;
+    final entryLow = startMins - delay;
+    final entryHigh = startMins + delay;
+
+    var workingDays = 0;
+    var day = DateTime(startDate.year, startDate.month, startDate.day);
+    final lastDay = DateTime(endDate.year, endDate.month, endDate.day);
+    while (!day.isAfter(lastDay)) {
+      if (day.weekday != DateTime.friday && day.weekday != DateTime.saturday) {
+        workingDays++;
+      }
+      day = day.add(const Duration(days: 1));
+    }
+
+    if (workingDays == 0) return _DailyResult();
+
+    final dayMap = _groupByDay(timestamps);
+
+    var morningDays = 0;
+    for (final stamps in dayMap.values) {
+      final hasEntry = stamps.any((ts) {
+        final tsMin = ts.hour * 60 + ts.minute;
+        return tsMin >= entryLow && tsMin <= entryHigh;
+      });
+      if (hasEntry) morningDays++;
+    }
+
+    final ratioThreshold = workingDays * 0.50;
+    final threshold = ratioThreshold < 10.0 ? 10.0 : ratioThreshold;
+    if (morningDays < threshold) {
+      return _UndetectedResult(
+        'لا يتوافق مع تعليمات المناوبة أو الدوام الصباحي',
+      );
+    }
+
+    return _DailyResult();
   }
 
   String _dayKey(DateTime d) =>
@@ -264,7 +316,9 @@ class GenerationService {
     int toleranceMinutes,
   ) {
     // hasOpening: stamp within shift start window on D
-    final openingLow = startTimeOnDay.subtract(Duration(minutes: toleranceMinutes));
+    final openingLow = startTimeOnDay.subtract(
+      Duration(minutes: toleranceMinutes),
+    );
     final openingHigh = startTimeOnDay.add(Duration(minutes: toleranceMinutes));
     final dStamps = dayMap[_dayKey(day)] ?? [];
     final hasOpening = dStamps.any(
