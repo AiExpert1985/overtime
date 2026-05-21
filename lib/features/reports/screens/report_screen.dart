@@ -201,7 +201,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                                     setState(() => _selectedTab = 0),
                               ),
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 20),
                             Expanded(
                               child: _TabButton(
                                 label: 'دوام صباحي',
@@ -283,7 +283,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                                 accentColor: Colors.teal,
                               ),
                             ),
-                            const SizedBox(width: 14),
+                            const SizedBox(width: 22),
                             Expanded(
                               child: _SummaryCard(
                                 label: 'الوقت الإضافي المحتسب',
@@ -527,47 +527,52 @@ class _SummaryCard extends StatelessWidget {
           children: [
             // Leading accent bar (right edge in RTL)
             Container(width: 5, color: accentColor),
-            // Content: icon one side, value+label the other
+            // Content: icon + label on leading side, value on trailing side
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 14),
+                    horizontal: 14, vertical: 14),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Icon (first child = right side in RTL)
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: accentColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
+                    // Leading side (right in RTL): icon + label text
+                    Flexible(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(9),
+                            decoration: BoxDecoration(
+                              color: accentColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(icon, color: accentColor, size: 22),
+                          ),
+                          const SizedBox(width: 10),
+                          Flexible(
+                            child: Text(
+                              label,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.onSurface,
+                                fontSize: 15,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                            ),
+                          ),
+                        ],
                       ),
-                      child: Icon(icon, color: accentColor, size: 24),
                     ),
-                    // Value + label (left side in RTL)
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          value,
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          label,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            height: 1.3,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+                    const SizedBox(width: 12),
+                    // Trailing side (left in RTL): value number only
+                    Text(
+                      value,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: accentColor,
+                      ),
                     ),
                   ],
                 ),
@@ -825,6 +830,14 @@ class _InlineFilterHeader extends StatelessWidget {
           // Column label row
           Row(
             children: [
+              // # column header
+              Expanded(
+                flex: 1,
+                child: Center(
+                    child: Text('#',
+                        style: labelStyle,
+                        textAlign: TextAlign.center)),
+              ),
               Expanded(
                 flex: 3,
                 child: Center(
@@ -860,6 +873,8 @@ class _InlineFilterHeader extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // Empty spacer for # column
+              const Expanded(flex: 1, child: SizedBox()),
               // Name search — 2/3 of column
               Expanded(
                 flex: 3,
@@ -1200,6 +1215,34 @@ class _ShiftRow extends StatelessWidget {
                         horizontal: 14, vertical: 13),
                     child: Row(
                       children: [
+                        // Row number badge
+                        Expanded(
+                          flex: 1,
+                          child: Center(
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: isIncluded
+                                    ? Colors.teal.withValues(alpha: 0.15)
+                                    : theme.colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(7),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${index + 1}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: isIncluded
+                                        ? Colors.teal.shade700
+                                        : theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                         // Employee name — natural RTL start alignment
                         Expanded(
                           flex: 3,
@@ -1326,6 +1369,34 @@ class _DailyRow extends StatelessWidget {
                         horizontal: 14, vertical: 13),
                     child: Row(
                       children: [
+                        // Row number badge
+                        Expanded(
+                          flex: 1,
+                          child: Center(
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: isIncluded
+                                    ? Colors.teal.withValues(alpha: 0.15)
+                                    : theme.colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(7),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${index + 1}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: isIncluded
+                                        ? Colors.teal.shade700
+                                        : theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                         Expanded(
                           flex: 3,
                           child: Text(
