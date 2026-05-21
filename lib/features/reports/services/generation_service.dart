@@ -143,7 +143,12 @@ class GenerationService {
     // Check 1: combined period count (zone + anchor pair) below threshold.
     // Run daily validation gate before classifying as daily.
     if (winnerCount < _minValidPeriods) {
-      return _runDailyValidationGate(entry.timestamps, startDate, endDate, settings);
+      return _runDailyValidationGate(
+        entry.timestamps,
+        startDate,
+        endDate,
+        settings,
+      );
     }
 
     // Check 2: start time confidence — only required when multiple start times
@@ -174,9 +179,6 @@ class GenerationService {
     final delay = settings.dailyDelayAllowance;
     final entryLow = startMins - delay;
     final entryHigh = startMins + delay;
-    final exitBase = startMins + settings.dailyWorkDuration * 60;
-    final exitLow = exitBase - delay;
-    final exitHigh = exitBase + delay;
 
     var workingDays = 0;
     var day = DateTime(startDate.year, startDate.month, startDate.day);
@@ -192,31 +194,21 @@ class GenerationService {
 
     final dayMap = _groupByDay(timestamps);
 
-    final morningDayKeys = <String>{};
-    for (final e in dayMap.entries) {
-      final hasEntry = e.value.any((ts) {
+    var morningDays = 0;
+    for (final stamps in dayMap.values) {
+      final hasEntry = stamps.any((ts) {
         final tsMin = ts.hour * 60 + ts.minute;
         return tsMin >= entryLow && tsMin <= entryHigh;
       });
-      if (hasEntry) morningDayKeys.add(e.key);
+      if (hasEntry) morningDays++;
     }
 
-    final morningDays = morningDayKeys.length;
-    if (morningDays / workingDays < 0.50) {
-      return _UndetectedResult('لا ينتمي لنظام المناوبة أو الدوام الصباحي');
-    }
-
-    var exitDays = 0;
-    for (final key in morningDayKeys) {
-      final hasExit = dayMap[key]!.any((ts) {
-        final tsMin = ts.hour * 60 + ts.minute;
-        return tsMin >= exitLow && tsMin <= exitHigh;
-      });
-      if (hasExit) exitDays++;
-    }
-
-    if (exitDays / morningDays < 0.50) {
-      return _UndetectedResult('لا ينتمي لنظام المناوبة أو الدوام الصباحي');
+    final ratioThreshold = workingDays * 0.50;
+    final threshold = ratioThreshold < 10.0 ? 10.0 : ratioThreshold;
+    if (morningDays < threshold) {
+      return _UndetectedResult(
+        'لا يتوافق مع تعليمات المناوبة أو الدوام الصباحي',
+      );
     }
 
     return _DailyResult();
@@ -323,7 +315,9 @@ class GenerationService {
     int toleranceMinutes,
   ) {
     // hasOpening: stamp within shift start window on D
-    final openingLow = startTimeOnDay.subtract(Duration(minutes: toleranceMinutes));
+    final openingLow = startTimeOnDay.subtract(
+      Duration(minutes: toleranceMinutes),
+    );
     final openingHigh = startTimeOnDay.add(Duration(minutes: toleranceMinutes));
     final dStamps = dayMap[_dayKey(day)] ?? [];
     final hasOpening = dStamps.any(

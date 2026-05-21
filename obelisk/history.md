@@ -280,3 +280,11 @@ The following tasks were agreed during discovery and must be implemented in orde
 **Task:** Added a daily validation gate in schedule detection that runs when an employee fails to produce enough valid shift periods. Before classifying the employee as daily, the gate verifies they follow a daily schedule using two sequential checks: (1) morningDays (days with a timestamp within the entry window) must be ≥ 50% of working days in the report range; (2) exitDays (subset of morningDays with a timestamp within the exit window) must be ≥ 50% of morningDays. Employees who fail either check become undetected with reason "لا ينتمي لنظام المناوبة أو الدوام الصباحي". Working days exclude Fridays and Saturdays. morningDays counts all calendar days (including weekends) to avoid penalising employees who work seven days. The gate uses the existing daily config already available in AppSettings — no signature changes were needed.
 
 ---
+
+## 20260521-0100 | Daily Validation Gate — Simplified Threshold | TASK
+
+**Task:** Simplified the daily validation gate. The exit condition (requiring 50% of morning days to also have an exit stamp) was removed because entry-only employees are common by policy and the downstream calculator already handles missing exit stamps correctly. The entry threshold was changed from a pure 50% ratio to `max(10, workingDays × 0.50)` — the floor of 10 prevents the ratio from being too easy to satisfy on short reports, since a shift employee on a 3-day cycle produces at most ~10 opening stamps per month. The gate now has a single check only.
+
+**Rejected:** Exit stamp condition — wrongly classifies entry-only employees as undetected; downstream calculator handles the missing stamp correctly with an invalid period and zero overtime.
+
+---

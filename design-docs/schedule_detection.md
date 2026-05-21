@@ -17,7 +17,7 @@ Detection and shift period extraction are combined in a single pass — valid sh
 - Working dictionary: `employeeName → { name, department, [timestamps] }` — timestamps sorted ascending, filtered to report date range
 - Report period duration — total calendar days between report start and end date (inclusive)
 - Config: `shift_start_times`, `shift_duration`, `shift_zone_interval`, `shift_tolerance`
-- Config: `daily_start_time`, `daily_work_duration`, `daily_delay_allowance`
+- Config: `daily_start_time`, `daily_delay_allowance`
 
 ---
 
@@ -146,31 +146,30 @@ if winnerCount < min_valid_periods (3):
 
 **Daily Validation Gate**
 
-Reached when the employee failed to produce enough valid shift periods. Before classifying as daily, verify the employee actually follows a daily schedule. Uses config: `daily_start_time`, `daily_work_duration`, `daily_delay_allowance`.
+Reached when the employee failed to produce enough valid shift periods. Before classifying as daily, verify the employee actually follows a daily schedule. Uses config: `daily_start_time`, `daily_delay_allowance`.
 
 ```
-dailyEndTime  = daily_start_time + daily_work_duration
-entryWindow   = [daily_start_time − daily_delay_allowance,
-                 daily_start_time + daily_delay_allowance]
-exitWindow    = [dailyEndTime − daily_delay_allowance,
-                 dailyEndTime + daily_delay_allowance]
+entryWindow = [daily_start_time − daily_delay_allowance,
+               daily_start_time + daily_delay_allowance]
 
-workingDays   = non-weekend (non-Friday, non-Saturday) days in report range
-morningDays   = days where employee has at least one timestamp within entryWindow
+workingDays = non-weekend (non-Friday, non-Saturday) days in report range
+morningDays = days where employee has at least one timestamp within entryWindow
+threshold   = max(10, workingDays × 0.50)
 
-if morningDays / workingDays < 0.50:
-  → undetected: "لا ينتمي لنظام المناوبة أو الدوام الصباحي"
-
-exitDays      = days (within morningDays) where employee also has at least one
-                timestamp within exitWindow
-
-if exitDays / morningDays < 0.50:
+if morningDays < threshold:
   → undetected: "لا ينتمي لنظام المناوبة أو الدوام الصباحي"
 
 → daily
 ```
 
-An employee who fails either condition has neither a convincing shift pattern nor a convincing daily pattern — they are undetected, not silently misclassified.
+The floor of 10 prevents the ratio from becoming too easy to pass on short reports — a shift employee on a 3-day cycle works at most ~10 shifts per month, so requiring at least 10 morning stamps keeps the threshold meaningful regardless of report length.
+
+**Design notes:**
+
+- An exit stamp condition was considered (requiring 50% of morning days to also have an exit stamp within the exit window) but was rejected — many employees are officially entry-only by policy, and requiring exit stamps would wrongly classify them as undetected.
+- A separate `entry_only` employee category was considered for employees who never punch out, but rejected — it would require changes across every layer (calculator, schema, report screen, export, detail screen). The current design already handles them correctly: they pass the gate, enter the daily bucket, and each period is marked invalid by the calculator with "بصمة واحدة فقط". No overtime is calculated, which is correct. The detail screen shows all red rows but the classification and totals are accurate.
+
+An employee who fails the gate has neither a convincing shift pattern nor a convincing daily pattern — they are undetected, not silently misclassified.
 
 **Check 2 — Start time confidence (only when multiple start times configured):**
 
