@@ -128,15 +128,15 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
                   Text(
                     loadedData.employeeName,
                     style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 18),
+                        fontWeight: FontWeight.bold, fontSize: 22),
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     loadedData.department,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 15,
                       color: theme.colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.normal,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
@@ -150,21 +150,16 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
         backgroundColor: Colors.transparent,
         actions: [
           if (loadedData != null)
-            _exporting
-                ? const Padding(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+              child: _exporting
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
                       child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  )
-                : _AppBarAction(
-                    icon: Icons.download_rounded,
-                    label: 'تصدير',
-                    onTap: () => _doExport(loadedData),
-                  ),
+                    )
+                  : _ExportButton(onTap: () => _doExport(loadedData)),
+            ),
           const SizedBox(width: 4),
         ],
       ),
@@ -237,38 +232,44 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// AppBar action button — icon + label stacked
+// Export button — prominent outlined button with icon
 // ---------------------------------------------------------------------------
 
-class _AppBarAction extends StatelessWidget {
-  const _AppBarAction({
-    required this.icon,
-    required this.label,
-    this.onTap,
-  });
+class _ExportButton extends StatelessWidget {
+  const _ExportButton({required this.onTap});
 
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = theme.colorScheme.onSurfaceVariant;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        child: Column(
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        decoration: BoxDecoration(
+          border: Border.all(
+              color: theme.colorScheme.primary.withValues(alpha: 0.6),
+              width: 1.5),
+          borderRadius: BorderRadius.circular(10),
+          color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+        ),
+        child: Row(
           mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 22, color: color),
-            const SizedBox(height: 2),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 10, color: color, fontWeight: FontWeight.w500)),
+            Icon(Icons.download_rounded,
+                size: 22, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            Text(
+              'تصدير',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary,
+              ),
+            ),
           ],
         ),
       ),
@@ -316,7 +317,6 @@ class _SummaryCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Leading accent bar (right edge in RTL)
             Container(width: 5, color: accentColor),
             Expanded(
               child: Padding(
@@ -326,7 +326,6 @@ class _SummaryCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Icon + label
                     Flexible(
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -356,7 +355,6 @@ class _SummaryCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // Value
                     if (!compact)
                       Text(
                         value,
@@ -484,14 +482,19 @@ class _ShiftDetailBody extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Daily body
+// Daily body — stateful to hold filter state
 // ---------------------------------------------------------------------------
 
-class _DailyDetailBody extends ConsumerWidget {
+class _DailyDetailBody extends ConsumerStatefulWidget {
   const _DailyDetailBody({required this.state});
 
   final DetailState state;
 
+  @override
+  ConsumerState<_DailyDetailBody> createState() => _DailyDetailBodyState();
+}
+
+class _DailyDetailBodyState extends ConsumerState<_DailyDetailBody> {
   static const _columns = [
     'التاريخ',
     'اليوم',
@@ -505,12 +508,36 @@ class _DailyDetailBody extends ConsumerWidget {
   ];
   static const _flexes = [2, 2, 2, 2, 3, 2, 2, 2, 3];
 
+  // Day type filter
+  bool _showDaoam = true;
+  bool _showEtla = true;
+
+  // Overtime filter
+  bool _hasOvertime = true;
+  bool _noOvertime = true;
+
+  List<DailyPeriodRow> _applyFilters(List<DailyPeriodRow> periods) {
+    return periods.where((p) {
+      final isOff = p.dayType == 'off';
+      final dayTypeMatch =
+          (_showDaoam && !isOff) || (_showEtla && isOff);
+      if (!dayTypeMatch) return false;
+
+      final hasOt = p.overtimeMinutes > 0;
+      final otMatch =
+          (_hasOvertime && hasOt) || (_noOvertime && !hasOt);
+      if (!otMatch) return false;
+
+      return true;
+    }).toList();
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final roundingMode =
         ref.watch(settingsProvider).whenOrNull(data: (s) => s.roundingMode) ??
             'quarter';
-    final periods = state.dailyPeriods;
+    final periods = widget.state.dailyPeriods;
 
     final offOvertime = periods
         .where((p) => p.dayType == 'off')
@@ -518,6 +545,8 @@ class _DailyDetailBody extends ConsumerWidget {
     final regularOvertime = periods
         .where((p) => p.dayType != 'off')
         .fold(0, (s, p) => s + p.overtimeMinutes);
+
+    final visible = _applyFilters(periods);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -541,7 +570,8 @@ class _DailyDetailBody extends ConsumerWidget {
                   Expanded(
                     child: _SummaryCard(
                       label: 'إضافي الدوام',
-                      value: _fmtOvertimeMinutes(regularOvertime, roundingMode),
+                      value:
+                          _fmtOvertimeMinutes(regularOvertime, roundingMode),
                       icon: Icons.work_rounded,
                       accentColor: Colors.blue,
                     ),
@@ -551,7 +581,7 @@ class _DailyDetailBody extends ConsumerWidget {
                     child: _SummaryCard(
                       label: 'إجمالي الإضافي',
                       value: _fmtOvertimeMinutes(
-                          state.totalOvertimeMinutes, roundingMode),
+                          widget.state.totalOvertimeMinutes, roundingMode),
                       icon: Icons.verified_rounded,
                       accentColor: Colors.green,
                     ),
@@ -561,14 +591,25 @@ class _DailyDetailBody extends ConsumerWidget {
             ),
           ),
         ),
-        _DetailTableHeader(columns: _columns, flexes: _flexes),
+        _DailyFilterTableHeader(
+          columns: _columns,
+          flexes: _flexes,
+          showDaoam: _showDaoam,
+          showEtla: _showEtla,
+          hasOvertime: _hasOvertime,
+          noOvertime: _noOvertime,
+          onShowDaoamChanged: (v) => setState(() => _showDaoam = v),
+          onShowEtlaChanged: (v) => setState(() => _showEtla = v),
+          onHasOvertimeChanged: (v) => setState(() => _hasOvertime = v),
+          onNoOvertimeChanged: (v) => setState(() => _noOvertime = v),
+        ),
         Expanded(
-          child: periods.isEmpty
-              ? const _EmptyState(message: 'لا توجد أيام مسجلة')
+          child: visible.isEmpty
+              ? const _EmptyState(message: 'لا توجد أيام مطابقة للفلاتر')
               : ListView.builder(
-                  itemCount: periods.length,
+                  itemCount: visible.length,
                   itemBuilder: (_, i) => _DailyPeriodRowWidget(
-                    period: periods[i],
+                    period: visible[i],
                     flexes: _flexes,
                   ),
                 ),
@@ -684,7 +725,9 @@ class _ShiftPeriodRowWidget extends StatelessWidget {
         color: bg,
         border: Border(
           bottom: BorderSide(
-            color: Theme.of(context).colorScheme.outlineVariant
+            color: Theme.of(context)
+                .colorScheme
+                .outlineVariant
                 .withValues(alpha: 0.45),
             width: 0.5,
           ),
@@ -693,31 +736,44 @@ class _ShiftPeriodRowWidget extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Cell(flex: flexes[0], child: Text(_shortDate(period.periodDate))),
-          _Cell(flex: flexes[1], child: Text(_shortDate(period.endDate))),
+          _Cell(
+            flex: flexes[0],
+            child: Text(_shortDate(period.periodDate),
+                textAlign: TextAlign.center),
+          ),
+          _Cell(
+            flex: flexes[1],
+            child: Text(_shortDate(period.endDate),
+                textAlign: TextAlign.center),
+          ),
+          // Zones column: not centered — structured sub-table
           _Cell(
             flex: flexes[2],
+            centered: false,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const _ZoneSubHeader(),
                 ...zones.map(
-                  (z) => _ZoneWidget(zone: z, toleranceMinutes: toleranceMinutes),
+                  (z) =>
+                      _ZoneWidget(zone: z, toleranceMinutes: toleranceMinutes),
                 ),
               ],
             ),
           ),
           _Cell(
             flex: flexes[3],
-            child: Text(_fmtDuration(period.totalAttendanceDuration)),
+            child: Text(_fmtDuration(period.totalAttendanceDuration),
+                textAlign: TextAlign.center),
           ),
           _Cell(
             flex: flexes[4],
-            child: Text('${period.hoursCounted} ساعة'),
+            child: Text('${period.hoursCounted} ساعة',
+                textAlign: TextAlign.center),
           ),
           _Cell(
             flex: flexes[5],
-            child: Text(period.notes ?? ''),
+            child: Text(period.notes ?? '', textAlign: TextAlign.center),
           ),
         ],
       ),
@@ -749,7 +805,9 @@ class _DailyPeriodRowWidget extends StatelessWidget {
         color: bg,
         border: Border(
           bottom: BorderSide(
-            color: Theme.of(context).colorScheme.outlineVariant
+            color: Theme.of(context)
+                .colorScheme
+                .outlineVariant
                 .withValues(alpha: 0.45),
             width: 0.5,
           ),
@@ -758,27 +816,49 @@ class _DailyPeriodRowWidget extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Cell(flex: flexes[0], child: Text(_shortDate(period.date))),
-          _Cell(flex: flexes[1], child: Text(period.weekday)),
-          _Cell(flex: flexes[2], child: Text(dayTypeLabel)),
-          _Cell(flex: flexes[3], child: Text(entry)),
+          _Cell(
+            flex: flexes[0],
+            child: Text(_shortDate(period.date), textAlign: TextAlign.center),
+          ),
+          _Cell(
+            flex: flexes[1],
+            child: Text(period.weekday, textAlign: TextAlign.center),
+          ),
+          _Cell(
+            flex: flexes[2],
+            child: Text(dayTypeLabel, textAlign: TextAlign.center),
+          ),
+          _Cell(
+            flex: flexes[3],
+            child: Text(entry, textAlign: TextAlign.center),
+          ),
           _Cell(
             flex: flexes[4],
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: intermediates.map((ts) => Text(_fmtTime(ts))).toList(),
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: intermediates
+                  .map((ts) => Text(_fmtTime(ts), textAlign: TextAlign.center))
+                  .toList(),
             ),
           ),
-          _Cell(flex: flexes[5], child: Text(exit)),
+          _Cell(
+            flex: flexes[5],
+            child: Text(exit, textAlign: TextAlign.center),
+          ),
           _Cell(
             flex: flexes[6],
-            child: Text(_fmtDuration(period.totalAttendanceDuration)),
+            child: Text(_fmtDuration(period.totalAttendanceDuration),
+                textAlign: TextAlign.center),
           ),
           _Cell(
             flex: flexes[7],
-            child: Text(_fmtDuration(period.overtimeMinutes)),
+            child: Text(_fmtDuration(period.overtimeMinutes),
+                textAlign: TextAlign.center),
           ),
-          _Cell(flex: flexes[8], child: Text(period.notes ?? '')),
+          _Cell(
+            flex: flexes[8],
+            child: Text(period.notes ?? '', textAlign: TextAlign.center),
+          ),
         ],
       ),
     );
@@ -800,7 +880,9 @@ class _UndetectedPeriodRowWidget extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: Theme.of(context).colorScheme.outlineVariant
+            color: Theme.of(context)
+                .colorScheme
+                .outlineVariant
                 .withValues(alpha: 0.45),
             width: 0.5,
           ),
@@ -809,13 +891,21 @@ class _UndetectedPeriodRowWidget extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Cell(flex: flexes[0], child: Text(_shortDate(period.date))),
-          _Cell(flex: flexes[1], child: Text(period.weekday)),
+          _Cell(
+            flex: flexes[0],
+            child: Text(_shortDate(period.date), textAlign: TextAlign.center),
+          ),
+          _Cell(
+            flex: flexes[1],
+            child: Text(period.weekday, textAlign: TextAlign.center),
+          ),
           _Cell(
             flex: flexes[2],
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: period.timestamps.map((ts) => Text(_fmtTime(ts))).toList(),
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: period.timestamps
+                  .map((ts) => Text(_fmtTime(ts), textAlign: TextAlign.center))
+                  .toList(),
             ),
           ),
         ],
@@ -863,7 +953,8 @@ class _ZoneWidget extends StatelessWidget {
     final window = '${_fmtTime(zone.startTime)} - ${_fmtTime(windowEnd)}';
 
     final inWindow = zone.timestamps
-        .where((ts) => !ts.isBefore(zone.startTime) && !ts.isAfter(windowEnd))
+        .where(
+            (ts) => !ts.isBefore(zone.startTime) && !ts.isAfter(windowEnd))
         .toList();
     final outOfWindow = zone.timestamps
         .where((ts) => ts.isBefore(zone.startTime) || ts.isAfter(windowEnd))
@@ -879,8 +970,8 @@ class _ZoneWidget extends StatelessWidget {
             flex: 3,
             child: Text(
               window,
-              style:
-                  theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
           Expanded(
@@ -920,7 +1011,7 @@ class _ZoneWidget extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Shared small widgets
+// Table headers
 // ---------------------------------------------------------------------------
 
 class _DetailTableHeader extends StatelessWidget {
@@ -977,11 +1068,204 @@ class _DetailTableHeader extends StatelessWidget {
   }
 }
 
+// Daily table header with inline filters under نوع اليوم and الوقت الإضافي
+class _DailyFilterTableHeader extends StatelessWidget {
+  const _DailyFilterTableHeader({
+    required this.columns,
+    required this.flexes,
+    required this.showDaoam,
+    required this.showEtla,
+    required this.hasOvertime,
+    required this.noOvertime,
+    required this.onShowDaoamChanged,
+    required this.onShowEtlaChanged,
+    required this.onHasOvertimeChanged,
+    required this.onNoOvertimeChanged,
+  });
+
+  final List<String> columns;
+  final List<int> flexes;
+  final bool showDaoam;
+  final bool showEtla;
+  final bool hasOvertime;
+  final bool noOvertime;
+  final void Function(bool) onShowDaoamChanged;
+  final void Function(bool) onShowEtlaChanged;
+  final void Function(bool) onHasOvertimeChanged;
+  final void Function(bool) onNoOvertimeChanged;
+
+  // Column indices of filtered columns
+  static const int _dayTypeCol = 2;
+  static const int _overtimeCol = 7;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final labelStyle = theme.textTheme.labelLarge?.copyWith(
+      fontWeight: FontWeight.bold,
+      color: theme.colorScheme.primary,
+      letterSpacing: 0.3,
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        border: Border(
+          top: BorderSide(
+              color: theme.colorScheme.outlineVariant, width: 0.5),
+          bottom: BorderSide(
+              color: theme.colorScheme.primary.withValues(alpha: 0.6),
+              width: 2),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.09),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Label row
+          Row(
+            children: [
+              for (var i = 0; i < columns.length; i++)
+                Expanded(
+                  flex: flexes[i],
+                  child: Text(
+                    columns[i],
+                    style: labelStyle,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Filter row — only filtered columns show chips; others are empty spacers
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              for (var i = 0; i < columns.length; i++)
+                Expanded(
+                  flex: flexes[i],
+                  child: switch (i) {
+                    _dayTypeCol => Center(
+                        child: Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            _ToggleChip(
+                              label: 'دوام',
+                              selected: showDaoam,
+                              onSelected: onShowDaoamChanged,
+                            ),
+                            _ToggleChip(
+                              label: 'عطلة',
+                              selected: showEtla,
+                              onSelected: onShowEtlaChanged,
+                            ),
+                          ],
+                        ),
+                      ),
+                    _overtimeCol => Center(
+                        child: Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            _ToggleChip(
+                              label: 'لديه إضافي',
+                              selected: hasOvertime,
+                              onSelected: onHasOvertimeChanged,
+                            ),
+                            _ToggleChip(
+                              label: 'بدون إضافي',
+                              selected: noOvertime,
+                              onSelected: onNoOvertimeChanged,
+                            ),
+                          ],
+                        ),
+                      ),
+                    _ => const SizedBox(),
+                  },
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Toggle chip — same pattern as report screen
+// ---------------------------------------------------------------------------
+
+class _ToggleChip extends StatelessWidget {
+  const _ToggleChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final void Function(bool) onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onTap: () => onSelected(!selected),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        decoration: BoxDecoration(
+          color: selected
+              ? theme.colorScheme.primaryContainer
+              : Colors.transparent,
+          border: Border.all(
+            color: selected
+                ? theme.colorScheme.primary
+                : theme.colorScheme.outlineVariant,
+          ),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight:
+                selected ? FontWeight.bold : FontWeight.normal,
+            color: selected
+                ? theme.colorScheme.onPrimaryContainer
+                : theme.colorScheme.onSurfaceVariant,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Shared small widgets
+// ---------------------------------------------------------------------------
+
 class _Cell extends StatelessWidget {
-  const _Cell({required this.flex, required this.child});
+  const _Cell({
+    required this.flex,
+    required this.child,
+    this.centered = true,
+  });
 
   final int flex;
   final Widget child;
+  final bool centered;
 
   @override
   Widget build(BuildContext context) {
@@ -989,7 +1273,7 @@ class _Cell extends StatelessWidget {
       flex: flex,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        child: child,
+        child: centered ? Center(child: child) : child,
       ),
     );
   }
@@ -1010,7 +1294,8 @@ class _EmptyState extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+              color:
+                  theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
               shape: BoxShape.circle,
             ),
             child: Icon(Icons.inbox_rounded,
