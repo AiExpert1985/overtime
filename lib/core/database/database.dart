@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
-const _schemaVersion = 3;
+const _schemaVersion = 4;
 
 final dbProvider = Provider<Database>((ref) {
   throw UnimplementedError('dbProvider must be overridden in main');
@@ -45,6 +45,11 @@ class AppDatabase {
           );
           await db.execute(
             'ALTER TABLE daily_employee_results ADD COLUMN off_overtime_minutes INTEGER NOT NULL DEFAULT 0',
+          );
+        }
+        if (oldVersion < 4) {
+          await db.execute(
+            "UPDATE app_settings SET value = '90' WHERE key = 'shift_tolerance' AND value = '60'",
           );
         }
       },
@@ -203,7 +208,7 @@ class AppDatabase {
       'shift_start_times': jsonEncode(['08:00']),
       'shift_duration': '24',
       'shift_zone_interval': '6',
-      'shift_tolerance': '60',
+      'shift_tolerance': '90',
       'shift_baseline_hours': '154',
       'shift_ceiling_hours': '192',
       'rounding_mode': 'quarter',
