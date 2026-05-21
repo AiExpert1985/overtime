@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../domain/undetected_employee_row.dart';
 import '../providers/reports_provider.dart';
+import '../services/report_export_service.dart';
 
 class ReportUndetectedScreen extends ConsumerStatefulWidget {
   const ReportUndetectedScreen({super.key, required this.reportId});
@@ -22,11 +23,34 @@ class _ReportUndetectedScreenState
   String _nameQuery = '';
   String? _deptFilter;
   String? _reasonFilter;
+  bool _exporting = false;
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _doExport(ReportState rs) async {
+    if (_exporting) return;
+    setState(() => _exporting = true);
+    try {
+      final path = await ReportExportService().exportUndetectedList(
+        report: rs.report,
+        rows: rs.undetectedRows,
+      );
+      if (!mounted) return;
+      if (path != null) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('تم الحفظ: $path')));
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('حدث خطأ أثناء التصدير')));
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
   }
 
   List<UndetectedEmployeeRow> _filtered(List<UndetectedEmployeeRow> rows) {
@@ -63,6 +87,30 @@ class _ReportUndetectedScreenState
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.transparent,
+        actions: [
+          Builder(builder: (context) {
+            final rs = ref
+                .watch(reportProvider(widget.reportId))
+                .whenOrNull(data: (v) => v);
+            if (rs == null) return const SizedBox.shrink();
+            return _exporting
+                ? const Padding(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : _AppBarAction(
+                    icon: Icons.download_rounded,
+                    label: 'تصدير',
+                    onTap: () => _doExport(rs),
+                  );
+          }),
+          const SizedBox(width: 4),
+        ],
       ),
       body: Stack(
         children: [
@@ -74,7 +122,7 @@ class _ReportUndetectedScreenState
                 end: Alignment.bottomRight,
                 colors: [
                   theme.colorScheme.surface,
-                  Colors.orange.withValues(alpha: 0.08),
+                  Colors.orange.withValues(alpha: 0.04),
                   theme.colorScheme.surface,
                 ],
               ),
@@ -694,6 +742,48 @@ class _SummaryCard extends StatelessWidget {
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// AppBar action button — icon + label stacked (matches report_screen style)
+// ---------------------------------------------------------------------------
+
+class _AppBarAction extends StatelessWidget {
+  const _AppBarAction({
+    required this.icon,
+    required this.label,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.onSurfaceVariant;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 22, color: color),
+            const SizedBox(height: 2),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 10,
+                    color: color,
+                    fontWeight: FontWeight.w500)),
           ],
         ),
       ),

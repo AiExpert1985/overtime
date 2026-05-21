@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import '../domain/daily_employee_row.dart';
 import '../domain/report.dart';
 import '../domain/shift_employee_row.dart';
+import '../domain/undetected_employee_row.dart';
 import '../providers/detail_provider.dart';
 
 class ReportExportService {
@@ -287,6 +288,56 @@ class ReportExportService {
         TextCellValue(_fmtDuration(p.totalAttendanceDuration)),
         TextCellValue(_fmt(p.overtimeMinutes, roundingMode)),
         TextCellValue(p.notes ?? ''),
+      ]);
+    }
+
+    await File(path).writeAsBytes(excel.encode()!);
+    return path;
+  }
+
+  Future<String?> exportUndetectedList({
+    required Report report,
+    required List<UndetectedEmployeeRow> rows,
+  }) async {
+    final start = _isoLabel(report.rangeStart);
+    final end = _isoLabel(report.rangeEnd);
+    final fileName = 'تقرير_غير_محددين_${start}_$end.xlsx';
+
+    final path = await FilePicker.saveFile(
+      dialogTitle: 'حفظ قائمة الموظفين غير المحددين',
+      fileName: fileName,
+      type: FileType.custom,
+      allowedExtensions: ['xlsx'],
+      lockParentWindow: true,
+    );
+    if (path == null) return null;
+
+    final excel = Excel.createExcel();
+    excel.rename('Sheet1', 'غير محددين');
+    final sheet = excel['غير محددين'];
+
+    sheet.appendRow([TextCellValue('قائمة الموظفين غير المحددين')]);
+    sheet.appendRow([
+      TextCellValue('نطاق التاريخ:'),
+      TextCellValue(
+          '${_fmtDate(report.rangeStart)} - ${_fmtDate(report.rangeEnd)}'),
+    ]);
+    sheet.appendRow([
+      TextCellValue('إجمالي الموظفين:'),
+      IntCellValue(rows.length),
+    ]);
+    sheet.appendRow([TextCellValue('')]);
+
+    sheet.appendRow([
+      TextCellValue('اسم الموظف'),
+      TextCellValue('القسم'),
+      TextCellValue('سبب عدم الكشف'),
+    ]);
+    for (final row in rows) {
+      sheet.appendRow([
+        TextCellValue(row.employeeName),
+        TextCellValue(row.department),
+        TextCellValue(row.failureReason),
       ]);
     }
 

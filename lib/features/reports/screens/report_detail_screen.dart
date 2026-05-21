@@ -635,8 +635,6 @@ class _UndetectedDetailBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final periods = state.undetectedPeriods;
     final totalDays = periods.length;
-    final totalTimestamps =
-        periods.fold(0, (s, p) => s + p.timestamps.length);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -664,15 +662,6 @@ class _UndetectedDetailBody extends StatelessWidget {
                       value: '$totalDays يوم',
                       icon: Icons.calendar_today_rounded,
                       accentColor: Colors.orange,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: _SummaryCard(
-                      label: 'إجمالي البصمات',
-                      value: '$totalTimestamps',
-                      icon: Icons.fingerprint_rounded,
-                      accentColor: Colors.blue,
                     ),
                   ),
                 ],
