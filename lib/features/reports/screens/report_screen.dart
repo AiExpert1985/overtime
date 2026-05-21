@@ -1170,25 +1170,10 @@ class _ShiftRow extends StatelessWidget {
     final isIncluded = row.isIncluded;
     final hasOvertime = row.overtimeMinutes > 0;
 
-    // Three clearly distinct states
-    final Color bgColor = !isIncluded
-        ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.7)
-        : hasOvertime
-            ? Colors.teal.withValues(alpha: 0.12)
-            : theme.colorScheme.primaryContainer.withValues(alpha: 0.20);
-
-    // Subtle alternating tint layered under the state color
-    final Color altTint = index.isOdd
-        ? Colors.black.withValues(alpha: 0.018)
-        : Colors.transparent;
-
     return InkWell(
       onTap: onTap,
       child: Container(
-        color: altTint,
-        child: Container(
-          decoration: BoxDecoration(
-            color: bgColor,
+        decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
                 color: theme.colorScheme.outlineVariant
@@ -1303,7 +1288,6 @@ class _ShiftRow extends StatelessWidget {
             ),
           ),
         ),
-      ),
     );
   }
 }
@@ -1329,23 +1313,10 @@ class _DailyRow extends StatelessWidget {
     final isIncluded = row.isIncluded;
     final hasOvertime = row.totalOvertimeMinutes > 0;
 
-    final Color bgColor = !isIncluded
-        ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.7)
-        : hasOvertime
-            ? Colors.teal.withValues(alpha: 0.12)
-            : theme.colorScheme.primaryContainer.withValues(alpha: 0.20);
-
-    final Color altTint = index.isOdd
-        ? Colors.black.withValues(alpha: 0.018)
-        : Colors.transparent;
-
     return InkWell(
       onTap: onTap,
       child: Container(
-        color: altTint,
-        child: Container(
-          decoration: BoxDecoration(
-            color: bgColor,
+        decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
                 color: theme.colorScheme.outlineVariant
@@ -1486,7 +1457,6 @@ class _DailyRow extends StatelessWidget {
             ),
           ),
         ),
-      ),
     );
   }
 }
