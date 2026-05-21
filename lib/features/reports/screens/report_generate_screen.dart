@@ -67,7 +67,8 @@ class _ReportGenerateScreenState extends ConsumerState<ReportGenerateScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(reportGenerateProvider);
-    final maxRange = ref
+    final maxRange =
+        ref
             .watch(settingsProvider)
             .whenOrNull(data: (s) => s.maxReportDateRange) ??
         32;
@@ -85,13 +86,15 @@ class _ReportGenerateScreenState extends ConsumerState<ReportGenerateScreen> {
                 end: Alignment.bottomRight,
                 colors: [
                   Theme.of(context).colorScheme.surface,
-                  Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+                  Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer.withValues(alpha: 0.3),
                   Theme.of(context).colorScheme.surface,
                 ],
               ),
             ),
           ),
-          
+
           LayoutBuilder(
             builder: (context, constraints) => SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -111,29 +114,37 @@ class _ReportGenerateScreenState extends ConsumerState<ReportGenerateScreen> {
                           Icon(
                             Icons.dashboard_customize_rounded,
                             size: 64,
-                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.8),
                           ).animate().fade(duration: 500.ms).scale(),
                           const SizedBox(height: 16),
                           Text(
                             'نظام حساب الأوقات الإضافية',
                             textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            style: Theme.of(context).textTheme.headlineMedium
+                                ?.copyWith(
                                   fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.onSurface,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
                                 ),
                           ).animate().fade(delay: 100.ms).slideY(begin: 0.2),
                           const SizedBox(height: 8),
                           Text(
                             'قم بإضافة ملفات الحضور لاحتساب الأوقات وإصدار التقرير تلقائياً',
                             textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                 ),
                           ).animate().fade(delay: 200.ms).slideY(begin: 0.2),
                         ],
                       ),
                       const SizedBox(height: 40),
-                      
+
                       if (state.generationError != null)
                         _ErrorBanner(
                           message: state.generationError!,
@@ -141,51 +152,69 @@ class _ReportGenerateScreenState extends ConsumerState<ReportGenerateScreen> {
                               .read(reportGenerateProvider.notifier)
                               .dismissError(),
                         ).animate().fade().slideY(begin: -0.1),
-                        
-                      _buildFileDropzone(state).animate().fade(delay: 300.ms).slideY(begin: 0.1),
+
+                      _buildFileDropzone(
+                        state,
+                      ).animate().fade(delay: 300.ms).slideY(begin: 0.1),
                       const SizedBox(height: 24),
-                      
-                      _buildDateSection(state, maxRange).animate().fade(delay: 400.ms).slideY(begin: 0.1),
+
+                      _buildDateSection(
+                        state,
+                        maxRange,
+                      ).animate().fade(delay: 400.ms).slideY(begin: 0.1),
                       const SizedBox(height: 48),
-                      
+
                       // Enhanced Generate Button
                       Container(
-                        height: 64,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(32),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Theme.of(context).colorScheme.primary.withValues(alpha:
-                                  state.isGenerateEnabled && _generationFuture == null ? 0.3 : 0.0),
-                              blurRadius: 20,
-                              offset: const Offset(0, 8),
+                            height: 64,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(32),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Theme.of(context).colorScheme.primary
+                                      .withValues(
+                                        alpha:
+                                            state.isGenerateEnabled &&
+                                                _generationFuture == null
+                                            ? 0.3
+                                            : 0.0,
+                                      ),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                        child: FilledButton.icon(
-                          onPressed:
-                              state.isGenerateEnabled && _generationFuture == null
+                            child: FilledButton.icon(
+                              onPressed:
+                                  state.isGenerateEnabled &&
+                                      _generationFuture == null
                                   ? _onGenerateTapped
                                   : null,
-                          style: FilledButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(32),
+                              style: FilledButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(32),
+                                ),
+                              ),
+                              icon: const Icon(Icons.auto_awesome, size: 24),
+                              label: const Text(
+                                'توليد التقرير',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
-                          ),
-                          icon: const Icon(Icons.auto_awesome, size: 24),
-                          label: const Text(
-                            'توليد التقرير',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ).animate().fade(delay: 500.ms).scale(begin: const Offset(0.95, 0.95)),
+                          )
+                          .animate()
+                          .fade(delay: 500.ms)
+                          .scale(begin: const Offset(0.95, 0.95)),
                     ],
                   ),
                 ),
               ),
             ),
           ),
-          
+
           if (_generationFuture != null)
             Positioned.fill(
               child: GenerationOverlay(
@@ -214,13 +243,13 @@ class _ReportGenerateScreenState extends ConsumerState<ReportGenerateScreen> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         decoration: BoxDecoration(
-          color: _isHovering 
-              ? Theme.of(context).colorScheme.primaryContainer 
+          color: _isHovering
+              ? Theme.of(context).colorScheme.primaryContainer
               : Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: _isHovering 
-                ? Theme.of(context).colorScheme.primary 
+            color: _isHovering
+                ? Theme.of(context).colorScheme.primary
                 : Theme.of(context).colorScheme.outlineVariant,
             width: _isHovering ? 2 : 1,
           ),
@@ -238,13 +267,16 @@ class _ReportGenerateScreenState extends ConsumerState<ReportGenerateScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.file_present_rounded, color: Theme.of(context).colorScheme.primary),
+                Icon(
+                  Icons.file_present_rounded,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'ملفات الحضور',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
                 IconButton(
@@ -256,18 +288,29 @@ class _ReportGenerateScreenState extends ConsumerState<ReportGenerateScreen> {
               ],
             ),
             const SizedBox(height: 24),
-            
+
             if (state.files.isEmpty) ...[
               Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.cloud_upload_outlined,
-                      size: 72,
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
-                    ).animate(onPlay: (controller) => controller.repeat(reverse: true))
-                     .moveY(begin: -5, end: 5, duration: 2000.ms, curve: Curves.easeInOut),
+                          Icons.cloud_upload_outlined,
+                          size: 72,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.6),
+                        )
+                        .animate(
+                          onPlay: (controller) =>
+                              controller.repeat(reverse: true),
+                        )
+                        .moveY(
+                          begin: -5,
+                          end: 5,
+                          duration: 2000.ms,
+                          curve: Curves.easeInOut,
+                        ),
                     const SizedBox(height: 16),
                     Text(
                       'قم بسحب وإفلات ملفات Excel هنا',
@@ -284,14 +327,23 @@ class _ReportGenerateScreenState extends ConsumerState<ReportGenerateScreen> {
                     ),
                     const SizedBox(height: 8),
                     ElevatedButton.icon(
-                      onPressed: _generationFuture == null ? () => _pickFiles() : null,
+                      onPressed: _generationFuture == null
+                          ? () => _pickFiles()
+                          : null,
                       icon: const Icon(Icons.folder_open),
                       label: const Text('تصفح الملفات'),
                       style: ElevatedButton.styleFrom(
                         elevation: 0,
-                        backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-                        foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.secondaryContainer,
+                        foregroundColor: Theme.of(
+                          context,
+                        ).colorScheme.onSecondaryContainer,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 14,
+                        ),
                       ),
                     ),
                   ],
@@ -317,29 +369,43 @@ class _ReportGenerateScreenState extends ConsumerState<ReportGenerateScreen> {
                 const SizedBox(height: 16),
                 Center(
                   child: TextButton.icon(
-                    onPressed: _generationFuture == null ? () => _pickFiles() : null,
+                    onPressed: _generationFuture == null
+                        ? () => _pickFiles()
+                        : null,
                     icon: const Icon(Icons.add_circle_outline),
                     label: const Text('إضافة المزيد من الملفات'),
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                     ),
                   ),
                 ),
               ],
             ],
-            
+
             if (state.filesError != null) ...[
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.5),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.errorContainer.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Theme.of(context).colorScheme.error.withValues(alpha: 0.5)),
+                  border: Border.all(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.error.withValues(alpha: 0.5),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.error_outline, color: Theme.of(context).colorScheme.error),
+                    Icon(
+                      Icons.error_outline,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -380,13 +446,16 @@ class _ReportGenerateScreenState extends ConsumerState<ReportGenerateScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.calendar_month_rounded, color: Theme.of(context).colorScheme.primary),
+              Icon(
+                Icons.calendar_month_rounded,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               const SizedBox(width: 8),
               Text(
                 'الفترة الزمنية',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -417,7 +486,9 @@ class _ReportGenerateScreenState extends ConsumerState<ReportGenerateScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.3),
+                color: Theme.of(
+                  context,
+                ).colorScheme.errorContainer.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -526,18 +597,27 @@ class _AppDrawer extends ConsumerWidget {
                   Text(
                     'نظام الأوقات الإضافية',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
                 ],
               ),
             ),
             const Divider(height: 1),
             ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              leading: Icon(Icons.history, color: Theme.of(context).colorScheme.primary),
-              title: const Text('التقارير السابقة', style: TextStyle(fontWeight: FontWeight.w600)),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 8,
+              ),
+              leading: Icon(
+                Icons.history,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              title: const Text(
+                'التقارير السابقة',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
               onTap: () {
                 Navigator.of(context).pop();
                 ref.invalidate(reportsProvider);
@@ -545,9 +625,18 @@ class _AppDrawer extends ConsumerWidget {
               },
             ),
             ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              leading: Icon(Icons.settings_outlined, color: Theme.of(context).colorScheme.primary),
-              title: const Text('الإعدادات', style: TextStyle(fontWeight: FontWeight.w600)),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 8,
+              ),
+              leading: Icon(
+                Icons.settings_outlined,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              title: const Text(
+                'الإعدادات',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
               onTap: () {
                 Navigator.of(context).pop();
                 context.push('/settings');
@@ -561,20 +650,20 @@ class _AppDrawer extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'عن النظام',
+                    'حول النظام',
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     'نظام ذكي لاحتساب الأوقات الإضافية وإعداد التقارير، '
-                    'صُمِّم ونُفِّذ من قِبَل شعبة الاتصالات والحاسبات في فرع كهرباء نينوى المركز.',
+                    'تم التصميم و التنفيذ من قبل قسم الاتصالات الحاسبة الالكترونية في فرع توزيع كهرباء مركز نينوى 2026 .',
                     style: TextStyle(
-                      fontSize: 13, 
+                      fontSize: 13,
                       height: 1.6,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -610,7 +699,9 @@ class _ErrorBanner extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.onErrorContainer.withValues(alpha: 0.1),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onErrorContainer.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -655,18 +746,22 @@ class _FileRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        border: Border.all(
+          color: Theme.of(
+            context,
+          ).colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: file.isValidating 
-                  ? Theme.of(context).colorScheme.primaryContainer 
-                  : file.isValid 
-                      ? Colors.green.withValues(alpha: 0.1) 
-                      : Theme.of(context).colorScheme.errorContainer,
+              color: file.isValidating
+                  ? Theme.of(context).colorScheme.primaryContainer
+                  : file.isValid
+                  ? Colors.green.withValues(alpha: 0.1)
+                  : Theme.of(context).colorScheme.errorContainer,
               borderRadius: BorderRadius.circular(8),
             ),
             child: file.isValidating
@@ -674,13 +769,17 @@ class _FileRow extends StatelessWidget {
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
-                      strokeWidth: 2, 
+                      strokeWidth: 2,
                       color: Theme.of(context).colorScheme.primary,
                     ),
                   )
                 : Icon(
-                    file.isValid ? Icons.description_rounded : Icons.broken_image_rounded,
-                    color: file.isValid ? Colors.green : Theme.of(context).colorScheme.error,
+                    file.isValid
+                        ? Icons.description_rounded
+                        : Icons.broken_image_rounded,
+                    color: file.isValid
+                        ? Colors.green
+                        : Theme.of(context).colorScheme.error,
                     size: 20,
                   ),
           ),
@@ -690,7 +789,7 @@ class _FileRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  file.name, 
+                  file.name,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w500),
                 ),
@@ -736,7 +835,9 @@ class _DateField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+      color: Theme.of(
+        context,
+      ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: enabled ? onTap : null,
@@ -762,15 +863,17 @@ class _DateField extends StatelessWidget {
                       date != null ? _format(date!) : 'اختر التاريخ',
                       style: TextStyle(
                         fontSize: 16,
-                        fontWeight: date != null ? FontWeight.bold : FontWeight.normal,
-                        color: date != null 
-                            ? Theme.of(context).colorScheme.onSurface 
+                        fontWeight: date != null
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        color: date != null
+                            ? Theme.of(context).colorScheme.onSurface
                             : Theme.of(context).hintColor,
                       ),
                     ),
                   ),
                   Icon(
-                    Icons.date_range_rounded, 
+                    Icons.date_range_rounded,
                     color: Theme.of(context).colorScheme.primary,
                     size: 20,
                   ),
