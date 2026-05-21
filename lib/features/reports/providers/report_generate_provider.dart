@@ -162,33 +162,19 @@ class ReportGenerateNotifier extends Notifier<ReportGenerateState> {
         headers,
       );
 
-      final schedules = service.detectSchedules(
-        dictionary,
-        saved.startDate!,
-        saved.endDate!,
-        settings,
+      final pipeline = await GenerationService.runCpuPipeline(
+        dictionary: dictionary,
+        startDate: saved.startDate!,
+        endDate: saved.endDate!,
+        settings: settings,
       );
-
-      final offDays = service.detectOffDays(
-        schedules.dailyTable,
-        saved.startDate!,
-        saved.endDate!,
-      );
-
-      final dailyEntries = service.extractDailyPeriods(
-        schedules.dailyTable,
-        offDays,
-      );
-
-      service.calculateShiftOvertime(schedules.shiftTable, settings);
-      service.calculateDailyOvertime(dailyEntries, settings);
 
       final reportId = await repo.storeReport(
         rangeStart: saved.startDate!,
         rangeEnd: saved.endDate!,
-        shiftEntries: schedules.shiftTable,
-        dailyEntries: dailyEntries,
-        undetectedList: schedules.undetectedList,
+        shiftEntries: pipeline.shiftTable,
+        dailyEntries: pipeline.dailyEntries,
+        undetectedList: pipeline.undetectedList,
       );
 
       ref.invalidate(reportsProvider);

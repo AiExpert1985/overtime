@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:excel/excel.dart';
 
@@ -398,6 +399,32 @@ class GenerationService {
   ];
 
   String _arabicWeekday(int weekday) => _arabicWeekdays[weekday];
+
+  // Runs Stages 4–8 in a background isolate so the UI thread stays free.
+  static Future<({
+    Map<String, ShiftEmployeeEntry> shiftTable,
+    Map<String, DailyEmployeeEntry> dailyEntries,
+    List<UndetectedEntry> undetectedList,
+  })> runCpuPipeline({
+    required Map<String, EmployeeEntry> dictionary,
+    required DateTime startDate,
+    required DateTime endDate,
+    required AppSettings settings,
+  }) {
+    return Isolate.run(() {
+      final svc = GenerationService();
+      final schedules = svc.detectSchedules(dictionary, startDate, endDate, settings);
+      final offDays = svc.detectOffDays(schedules.dailyTable, startDate, endDate);
+      final dailyEntries = svc.extractDailyPeriods(schedules.dailyTable, offDays);
+      svc.calculateShiftOvertime(schedules.shiftTable, settings);
+      svc.calculateDailyOvertime(dailyEntries, settings);
+      return (
+        shiftTable: schedules.shiftTable,
+        dailyEntries: dailyEntries,
+        undetectedList: schedules.undetectedList,
+      );
+    });
+  }
 
   // Stage 7 — Shift Overtime Calculator
   Map<String, ShiftEmployeeEntry> calculateShiftOvertime(

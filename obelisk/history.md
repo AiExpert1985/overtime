@@ -274,3 +274,9 @@ The following tasks were agreed during discovery and must be implemented in orde
 **Rejected:** Pre-computing off-days from the full dictionary to detect weekend gaps — unnecessary since the weekend is always Friday-Saturday in this app's context; a simple day-of-week check is sufficient and avoids any pipeline dependency.
 
 ---
+
+## 20260521-0000 | Generation Pipeline CPU Offload to Background Isolate | TASK
+
+**Task:** Fixed a UI freeze on the generate button tap caused by the five synchronous CPU-bound pipeline stages (schedule detection, off-day detection, daily period extraction, shift overtime calculator, daily overtime calculator) running on the main isolate and blocking Flutter from rendering any frames — including the generation overlay animation. All five stages are now run in a single background isolate via a new static method on the generation service. The file I/O stage (dictionary build) and the storage stage remain on the main isolate as they are already properly async.
+
+---
