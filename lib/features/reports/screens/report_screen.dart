@@ -1232,7 +1232,7 @@ class _ShiftRow extends StatelessWidget {
                                 child: Text(
                                   '${index + 1}',
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.bold,
                                     color: isIncluded
                                         ? Colors.teal.shade700
@@ -1243,16 +1243,19 @@ class _ShiftRow extends StatelessWidget {
                             ),
                           ),
                         ),
-                        // Employee name — natural RTL start alignment
+                        // Employee name — centered
                         Expanded(
                           flex: 3,
-                          child: Text(
-                            row.employeeName,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: !isIncluded
-                                  ? theme.colorScheme.onSurfaceVariant
-                                  : theme.colorScheme.onSurface,
+                          child: Center(
+                            child: Text(
+                              row.employeeName,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: !isIncluded
+                                    ? theme.colorScheme.onSurfaceVariant
+                                    : theme.colorScheme.onSurface,
+                              ),
+                              textAlign: TextAlign.center,
                             ),
                           ),
                         ),
@@ -1386,7 +1389,7 @@ class _DailyRow extends StatelessWidget {
                                 child: Text(
                                   '${index + 1}',
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.bold,
                                     color: isIncluded
                                         ? Colors.teal.shade700
@@ -1399,13 +1402,16 @@ class _DailyRow extends StatelessWidget {
                         ),
                         Expanded(
                           flex: 3,
-                          child: Text(
-                            row.employeeName,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: !isIncluded
-                                  ? theme.colorScheme.onSurfaceVariant
-                                  : theme.colorScheme.onSurface,
+                          child: Center(
+                            child: Text(
+                              row.employeeName,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: !isIncluded
+                                    ? theme.colorScheme.onSurfaceVariant
+                                    : theme.colorScheme.onSurface,
+                              ),
+                              textAlign: TextAlign.center,
                             ),
                           ),
                         ),
