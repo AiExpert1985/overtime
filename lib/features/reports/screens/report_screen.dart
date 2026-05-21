@@ -184,91 +184,9 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
               ),
               data: (rs) => Column(
                 children: [
-                  // Tab buttons — 2/3 width, centered
+                  // Top summary cards — 2/3 width, centered
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(0, 14, 0, 0),
-                    child: Center(
-                      child: FractionallySizedBox(
-                        widthFactor: 0.67,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _TabButton(
-                                label: 'مناوبة',
-                                icon: Icons.swap_horiz_rounded,
-                                selected: _selectedTab == 0,
-                                onTap: () =>
-                                    setState(() => _selectedTab = 0),
-                              ),
-                            ),
-                            const SizedBox(width: 20),
-                            Expanded(
-                              child: _TabButton(
-                                label: 'دوام صباحي',
-                                icon: Icons.wb_sunny_rounded,
-                                selected: _selectedTab == 1,
-                                onTap: () =>
-                                    setState(() => _selectedTab = 1),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  Expanded(
-                    child: IndexedStack(
-                      index: _selectedTab,
-                      children: [
-                        _ShiftTab(
-                          state: rs,
-                          roundingMode: _roundingMode,
-                          nameController: _shiftSearch,
-                          onSearch: (q) => _notifier.setShiftSearch(q),
-                          onDeptChanged: (v) =>
-                              _notifier.setShiftDeptFilter(v),
-                          onHasOvertimeChanged: (v) =>
-                              _notifier.setShiftHasOvertime(v),
-                          onNoOvertimeChanged: (v) =>
-                              _notifier.setShiftNoOvertime(v),
-                          onShowIncludedChanged: (v) =>
-                              _notifier.setShiftShowIncluded(v),
-                          onShowExcludedChanged: (v) =>
-                              _notifier.setShiftShowExcluded(v),
-                          onToggle: (id, v) =>
-                              _notifier.toggleShiftIncluded(id, v),
-                          onRowTap: (id) => context.push(
-                              '/report/${widget.reportId}/detail/shift/$id'),
-                        ),
-                        _DailyTab(
-                          state: rs,
-                          roundingMode: _roundingMode,
-                          nameController: _dailySearch,
-                          onSearch: (q) => _notifier.setDailySearch(q),
-                          onDeptChanged: (v) =>
-                              _notifier.setDailyDeptFilter(v),
-                          onHasOvertimeChanged: (v) =>
-                              _notifier.setDailyHasOvertime(v),
-                          onNoOvertimeChanged: (v) =>
-                              _notifier.setDailyNoOvertime(v),
-                          onShowIncludedChanged: (v) =>
-                              _notifier.setDailyShowIncluded(v),
-                          onShowExcludedChanged: (v) =>
-                              _notifier.setDailyShowExcluded(v),
-                          onToggle: (id, v) =>
-                              _notifier.toggleDailyIncluded(id, v),
-                          onRowTap: (id) => context.push(
-                              '/report/${widget.reportId}/detail/daily/$id'),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Bottom summary cards — 2/3 width, centered, icon ↔ text layout
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(0, 18, 0, 16),
+                    padding: const EdgeInsets.fromLTRB(0, 14, 0, 14),
                     child: Center(
                       child: FractionallySizedBox(
                         widthFactor: 0.67,
@@ -333,6 +251,93 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                                   ),
                                 ],
                               ),
+                      ),
+                    ),
+                  ),
+
+                  Expanded(
+                    child: IndexedStack(
+                      index: _selectedTab,
+                      children: [
+                        _ShiftTab(
+                          state: rs,
+                          roundingMode: _roundingMode,
+                          nameController: _shiftSearch,
+                          onSearch: (q) => _notifier.setShiftSearch(q),
+                          onDeptChanged: (v) =>
+                              _notifier.setShiftDeptFilter(v),
+                          onHasOvertimeChanged: (v) =>
+                              _notifier.setShiftHasOvertime(v),
+                          onNoOvertimeChanged: (v) =>
+                              _notifier.setShiftNoOvertime(v),
+                          onShowIncludedChanged: (v) =>
+                              _notifier.setShiftShowIncluded(v),
+                          onShowExcludedChanged: (v) =>
+                              _notifier.setShiftShowExcluded(v),
+                          onToggle: (id, v) =>
+                              _notifier.toggleShiftIncluded(id, v),
+                          onRowTap: (id) => context.push(
+                              '/report/${widget.reportId}/detail/shift/$id'),
+                        ),
+                        _DailyTab(
+                          state: rs,
+                          roundingMode: _roundingMode,
+                          nameController: _dailySearch,
+                          onSearch: (q) => _notifier.setDailySearch(q),
+                          onDeptChanged: (v) =>
+                              _notifier.setDailyDeptFilter(v),
+                          onHasOvertimeChanged: (v) =>
+                              _notifier.setDailyHasOvertime(v),
+                          onNoOvertimeChanged: (v) =>
+                              _notifier.setDailyNoOvertime(v),
+                          onShowIncludedChanged: (v) =>
+                              _notifier.setDailyShowIncluded(v),
+                          onShowExcludedChanged: (v) =>
+                              _notifier.setDailyShowExcluded(v),
+                          onToggle: (id, v) =>
+                              _notifier.toggleDailyIncluded(id, v),
+                          onRowTap: (id) => context.push(
+                              '/report/${widget.reportId}/detail/daily/$id'),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Sticky bottom type selector
+                  const SizedBox(height: 20),
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(0, 18, 0, 18),
+                    child: Center(
+                      child: FractionallySizedBox(
+                        widthFactor: 0.67,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _TabButton(
+                                label: 'مناوبة',
+                                icon: Icons.swap_horiz_rounded,
+                                selected: _selectedTab == 0,
+                                onTap: () =>
+                                    setState(() => _selectedTab = 0),
+                              ),
+                            ),
+                            const SizedBox(width: 20),
+                            Expanded(
+                              child: _TabButton(
+                                label: 'دوام صباحي',
+                                icon: Icons.wb_sunny_rounded,
+                                selected: _selectedTab == 1,
+                                onTap: () =>
+                                    setState(() => _selectedTab = 1),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
