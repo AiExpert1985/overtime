@@ -1,4 +1,7 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 /// A single labeled phase shown during report generation.
 class GenerationPhase {
@@ -32,12 +35,7 @@ class GenerationOverlay extends StatefulWidget {
   State<GenerationOverlay> createState() => _GenerationOverlayState();
 }
 
-class _GenerationOverlayState extends State<GenerationOverlay>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _pulseController;
-  late final Animation<double> _scaleAnimation;
-  late final Animation<double> _rotationAnimation;
-
+class _GenerationOverlayState extends State<GenerationOverlay> {
   int _currentPhaseIndex = 0;
   bool _cancelled = false;
   bool _phasesComplete = false;
@@ -46,20 +44,6 @@ class _GenerationOverlayState extends State<GenerationOverlay>
   @override
   void initState() {
     super.initState();
-
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
-
-    _scaleAnimation = Tween<double>(begin: 0.88, end: 1.12).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-
-    _rotationAnimation = Tween<double>(begin: -0.06, end: 0.06).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-
     _startPhaseSequence();
     _awaitGeneration();
   }
@@ -99,103 +83,205 @@ class _GenerationOverlayState extends State<GenerationOverlay>
   @override
   void dispose() {
     _cancelled = true;
-    _pulseController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final phase = widget.phases[_currentPhaseIndex];
-
     return AbsorbPointer(
-      child: Container(
-        color: Colors.black54,
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedBuilder(
-                animation: _pulseController,
-                builder: (_, child) => Transform.scale(
-                  scale: _scaleAnimation.value,
-                  child: Transform.rotate(
-                    angle: _rotationAnimation.value,
-                    child: child,
-                  ),
-                ),
-                child: const Icon(
-                  Icons.auto_fix_high,
-                  size: 100,
-                  color: Color(0xFFFFD700),
-                ),
-              ),
-              const SizedBox(height: 36),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 500),
-                transitionBuilder: (child, animation) => FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0, 0.3),
-                      end: Offset.zero,
-                    ).animate(
-                      CurvedAnimation(
-                        parent: animation,
-                        curve: Curves.easeOut,
-                      ),
-                    ),
-                    child: child,
-                  ),
-                ),
-                child: Text(
-                  phase.label,
-                  key: ValueKey(_currentPhaseIndex),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
-              _PhaseDots(
-                count: widget.phases.length,
-                current: _currentPhaseIndex,
-              ),
-            ],
+      child: Stack(
+        children: [
+          // 1. Immersive Glassmorphism Background
+          BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
+            child: Container(
+              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
+            ),
           ),
-        ),
+          
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 2. The Processing Orb (Intelligence Visual)
+                _buildProcessingOrb(context),
+                const SizedBox(height: 64),
+                // 3. Dynamic Processing Log
+                _buildDynamicLog(context),
+              ],
+            ),
+          ),
+        ],
+      ).animate().fade(duration: 500.ms, curve: Curves.easeOut),
+    );
+  }
+
+  Widget _buildProcessingOrb(BuildContext context) {
+    return SizedBox(
+      width: 240,
+      height: 240,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Outer scanning ring
+          Container(
+            width: 240,
+            height: 240,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                width: 1,
+              ),
+            ),
+          ).animate(onPlay: (c) => c.repeat())
+           .rotate(duration: 12.seconds, curve: Curves.linear),
+           
+          // Middle spinning gear-like ring
+          Container(
+            width: 190,
+            height: 190,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                width: 6,
+              ),
+            ),
+          ).animate(onPlay: (c) => c.repeat())
+           .rotate(begin: 1, end: 0, duration: 8.seconds, curve: Curves.linear),
+
+          // Pulsing accent ring
+          Container(
+            width: 140,
+            height: 140,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.5),
+                width: 2,
+              ),
+            ),
+          ).animate(onPlay: (c) => c.repeat(reverse: true))
+           .scale(begin: const Offset(0.9, 0.9), end: const Offset(1.1, 1.1), duration: 2.seconds, curve: Curves.easeInOutSine),
+
+          // Central glowing intelligence core
+          Container(
+            width: 110,
+            height: 110,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  Theme.of(context).colorScheme.primary,
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
+                ],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
+                  blurRadius: 40,
+                  spreadRadius: 10,
+                ),
+              ],
+            ),
+            child: const Center(
+              child: Icon(
+                Icons.memory_rounded, // Symbolizes intelligence / AI / algorithm crunching
+                size: 52,
+                color: Colors.white,
+              ),
+            ),
+          ).animate(onPlay: (c) => c.repeat(reverse: true))
+           .scale(begin: const Offset(0.95, 0.95), end: const Offset(1.05, 1.05), duration: 1.seconds, curve: Curves.easeInOut)
+           .shimmer(duration: 2.seconds, color: Colors.white.withValues(alpha: 0.5)),
+        ],
       ),
     );
   }
-}
 
-class _PhaseDots extends StatelessWidget {
-  const _PhaseDots({required this.count, required this.current});
-
-  final int count;
-  final int current;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(count, (i) {
-        final isActiveOrDone = i <= current;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          margin: const EdgeInsets.symmetric(horizontal: 6),
-          width: isActiveOrDone ? 12 : 8,
-          height: isActiveOrDone ? 12 : 8,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isActiveOrDone
-                ? const Color(0xFFFFD700)
-                : Colors.white38,
+  Widget _buildDynamicLog(BuildContext context) {
+    return Container(
+      width: 480,
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 40),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
-        );
-      }),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: List.generate(widget.phases.length, (index) {
+          final isCompleted = index < _currentPhaseIndex;
+          final isActive = index == _currentPhaseIndex;
+          final phase = widget.phases[index];
+
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeOutCubic,
+            margin: EdgeInsets.only(bottom: isActive ? 24 : 16),
+            child: Row(
+              children: [
+                // Left Icon Indicator
+                SizedBox(
+                  width: 36,
+                  child: isCompleted
+                      ? Icon(
+                          Icons.check_circle_rounded, 
+                          color: const Color(0xFF22C55E), // Emerald Green
+                          size: 28,
+                        ).animate().scale(curve: Curves.elasticOut, duration: 600.ms)
+                      : isActive
+                          ? SizedBox(
+                              width: 24, 
+                              height: 24, 
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3, 
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            )
+                          : Icon(
+                              Icons.radio_button_unchecked, 
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.15), 
+                              size: 22,
+                            ),
+                ),
+                const SizedBox(width: 16),
+                
+                // Phase Text
+                Expanded(
+                  child: AnimatedDefaultTextStyle(
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.easeOut,
+                    style: TextStyle(
+                      fontFamily: Theme.of(context).textTheme.bodyLarge?.fontFamily,
+                      fontSize: isActive ? 24 : 18,
+                      fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
+                      color: isCompleted
+                          ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)
+                          : isActive
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
+                    ),
+                    child: Text(phase.label),
+                  ).animate(target: isActive ? 1 : 0)
+                   .shimmer(duration: 2.seconds, blendMode: BlendMode.srcATop, color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
+                ),
+              ],
+            ),
+          );
+        }),
+      ),
     );
   }
 }
