@@ -103,6 +103,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.transparent,
+        toolbarHeight: 68,
         actions: [
           if (rs != null) ...[
             _isExporting
