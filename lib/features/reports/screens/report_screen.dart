@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -96,16 +97,23 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
     final state = ref.watch(reportProvider(widget.reportId));
     final rs = state.whenOrNull(data: (v) => v);
     final undetectedCount = rs?.totalUndetected ?? 0;
+    final theme = Theme.of(context);
 
     final appBarTitle = rs != null
-        ? 'تقرير الوقت الاضافي للفترة من ${_fmtDate(rs.report.rangeStart)} الى ${_fmtDate(rs.report.rangeEnd)}'
+        ? 'تقرير ${_fmtDate(rs.report.rangeStart)} — ${_fmtDate(rs.report.rangeEnd)}'
         : 'التقرير';
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text(appBarTitle),
+        title: Text(
+          appBarTitle,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
         actions: [
-          // Export button — leftmost in RTL (last in actions list)
           if (rs != null)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
@@ -121,7 +129,6 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                       onPressed: () => _doExport(rs),
                     ),
             ),
-          // Undetected employees warning button
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
             child: Badge(
@@ -133,7 +140,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                   Icons.warning_amber_rounded,
                   color: undetectedCount > 0
                       ? Colors.orange.shade700
-                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                      : theme.colorScheme.onSurfaceVariant,
                 ),
                 tooltip: 'الموظفون غير المحدَّدون',
                 onPressed: rs != null ? _showUndetected : null,
@@ -142,79 +149,140 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
           ),
         ],
       ),
-      body: state.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('حدث خطأ أثناء التحميل: $e')),
-        data: (rs) => Column(
-          children: [
-            // Segment buttons — larger and more dominant
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-              child: SegmentedButton<int>(
-                showSelectedIcon: false,
-                style: SegmentedButton.styleFrom(
-                  textStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 32, vertical: 14),
+      body: Stack(
+        children: [
+          // Background gradient — matches home / settings / history screens
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  theme.colorScheme.surface,
+                  theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                  theme.colorScheme.surface,
+                ],
+              ),
+            ),
+          ),
+
+          SafeArea(
+            child: state.when(
+              loading: () => Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
+                    Text(
+                      'جارٍ تحميل التقرير...',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ).animate().fade().scale(begin: const Offset(0.9, 0.9)),
+              ),
+              error: (e, _) => Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.error_outline_rounded,
+                        size: 48, color: theme.colorScheme.error),
+                    const SizedBox(height: 12),
+                    Text(
+                      'حدث خطأ أثناء التحميل',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                          color: theme.colorScheme.error),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$e',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                  ],
                 ),
-                segments: const [
-                  ButtonSegment(value: 0, label: Text('مناوبة')),
-                  ButtonSegment(value: 1, label: Text('صباحي')),
-                ],
-                selected: {_selectedTab},
-                onSelectionChanged: (s) =>
-                    setState(() => _selectedTab = s.first),
               ),
-            ),
-            Expanded(
-              child: IndexedStack(
-                index: _selectedTab,
+              data: (rs) => Column(
                 children: [
-                  _ShiftTab(
-                    state: rs,
-                    roundingMode: _roundingMode,
-                    nameController: _shiftSearch,
-                    onSearch: (q) => _notifier.setShiftSearch(q),
-                    onDeptChanged: (v) => _notifier.setShiftDeptFilter(v),
-                    onHasOvertimeChanged: (v) =>
-                        _notifier.setShiftHasOvertime(v),
-                    onNoOvertimeChanged: (v) =>
-                        _notifier.setShiftNoOvertime(v),
-                    onShowIncludedChanged: (v) =>
-                        _notifier.setShiftShowIncluded(v),
-                    onShowExcludedChanged: (v) =>
-                        _notifier.setShiftShowExcluded(v),
-                    onToggle: (id, v) => _notifier.toggleShiftIncluded(id, v),
-                    onRowTap: (id) => context
-                        .push('/report/${widget.reportId}/detail/shift/$id'),
+                  // Segment toggle
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    child: SegmentedButton<int>(
+                      showSelectedIcon: false,
+                      style: SegmentedButton.styleFrom(
+                        textStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 32, vertical: 14),
+                      ),
+                      segments: const [
+                        ButtonSegment(value: 0, label: Text('مناوبة')),
+                        ButtonSegment(value: 1, label: Text('صباحي')),
+                      ],
+                      selected: {_selectedTab},
+                      onSelectionChanged: (s) =>
+                          setState(() => _selectedTab = s.first),
+                    ),
                   ),
-                  _DailyTab(
-                    state: rs,
-                    roundingMode: _roundingMode,
-                    nameController: _dailySearch,
-                    onSearch: (q) => _notifier.setDailySearch(q),
-                    onDeptChanged: (v) => _notifier.setDailyDeptFilter(v),
-                    onHasOvertimeChanged: (v) =>
-                        _notifier.setDailyHasOvertime(v),
-                    onNoOvertimeChanged: (v) =>
-                        _notifier.setDailyNoOvertime(v),
-                    onShowIncludedChanged: (v) =>
-                        _notifier.setDailyShowIncluded(v),
-                    onShowExcludedChanged: (v) =>
-                        _notifier.setDailyShowExcluded(v),
-                    onToggle: (id, v) => _notifier.toggleDailyIncluded(id, v),
-                    onRowTap: (id) => context
-                        .push('/report/${widget.reportId}/detail/daily/$id'),
+
+                  Expanded(
+                    child: IndexedStack(
+                      index: _selectedTab,
+                      children: [
+                        _ShiftTab(
+                          state: rs,
+                          roundingMode: _roundingMode,
+                          nameController: _shiftSearch,
+                          onSearch: (q) => _notifier.setShiftSearch(q),
+                          onDeptChanged: (v) =>
+                              _notifier.setShiftDeptFilter(v),
+                          onHasOvertimeChanged: (v) =>
+                              _notifier.setShiftHasOvertime(v),
+                          onNoOvertimeChanged: (v) =>
+                              _notifier.setShiftNoOvertime(v),
+                          onShowIncludedChanged: (v) =>
+                              _notifier.setShiftShowIncluded(v),
+                          onShowExcludedChanged: (v) =>
+                              _notifier.setShiftShowExcluded(v),
+                          onToggle: (id, v) =>
+                              _notifier.toggleShiftIncluded(id, v),
+                          onRowTap: (id) => context.push(
+                              '/report/${widget.reportId}/detail/shift/$id'),
+                        ),
+                        _DailyTab(
+                          state: rs,
+                          roundingMode: _roundingMode,
+                          nameController: _dailySearch,
+                          onSearch: (q) => _notifier.setDailySearch(q),
+                          onDeptChanged: (v) =>
+                              _notifier.setDailyDeptFilter(v),
+                          onHasOvertimeChanged: (v) =>
+                              _notifier.setDailyHasOvertime(v),
+                          onNoOvertimeChanged: (v) =>
+                              _notifier.setDailyNoOvertime(v),
+                          onShowIncludedChanged: (v) =>
+                              _notifier.setDailyShowIncluded(v),
+                          onShowExcludedChanged: (v) =>
+                              _notifier.setDailyShowExcluded(v),
+                          onToggle: (id, v) =>
+                              _notifier.toggleDailyIncluded(id, v),
+                          onRowTap: (id) => context.push(
+                              '/report/${widget.reportId}/detail/daily/$id'),
+                        ),
+                      ],
+                    ),
                   ),
+
+                  _ReportFooter(report: rs.report),
                 ],
               ),
             ),
-            _ReportFooter(report: rs.report),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -273,7 +341,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// Report footer — generation date only
+// Report footer
 // ---------------------------------------------------------------------------
 
 class _ReportFooter extends StatelessWidget {
@@ -284,21 +352,36 @@ class _ReportFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Divider(height: 1, thickness: 1),
-        Container(
-          width: double.infinity,
-          color: theme.colorScheme.surfaceContainerHighest,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Text(
-            'تاريخ التوليد: ${_fmtDateTime(report.generationDatetime)}',
-            style: theme.textTheme.bodySmall,
-            textAlign: TextAlign.center,
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
+        border: Border(
+          top: BorderSide(
+            color: theme.colorScheme.outlineVariant,
+            width: 1,
           ),
         ),
-      ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.calendar_today_rounded,
+            size: 13,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'تاريخ التوليد: ${_fmtDateTime(report.generationDatetime)}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -336,28 +419,38 @@ class _ShiftTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final rows = state.visibleShiftRows;
     final depts = ({...state.shiftRows.map((r) => r.department)}.toList()
           ..sort())
         .cast<String>();
+
     return Column(
       children: [
         _SummaryBar(children: [
           _SummaryCard(
             label: 'إجمالي موظفي المناوبة',
             value: '${state.totalShift}',
+            icon: Icons.people_outline_rounded,
+            accentColor: theme.colorScheme.primary,
           ),
           _SummaryCard(
-            label: 'عدد الموظفين المشمولين',
+            label: 'الموظفون المشمولون',
             value: '${state.includedShift}',
+            icon: Icons.how_to_reg_rounded,
+            accentColor: Colors.teal,
           ),
           _SummaryCard(
-            label: 'الوقت الاضافي الكلي للمناوبة',
+            label: 'الوقت الإضافي الكلي',
             value: _fmt(state.totalShiftOvertimeAllMinutes, roundingMode),
+            icon: Icons.schedule_rounded,
+            accentColor: Colors.orange,
           ),
           _SummaryCard(
-            label: 'الوقت الاضافي المحتسب للمناوبة',
+            label: 'الوقت الإضافي المحتسب',
             value: _fmt(state.totalShiftOvertimeMinutes, roundingMode),
+            icon: Icons.verified_rounded,
+            accentColor: Colors.green,
           ),
         ]),
         _InlineFilterHeader(
@@ -382,7 +475,10 @@ class _ShiftTab extends StatelessWidget {
               ? _EmptyState(
                   message: state.shiftRows.isEmpty
                       ? 'لا يوجد موظفون بنظام المناوبة'
-                      : 'لا توجد نتائج مطابقة',
+                      : 'لا توجد نتائج مطابقة للفلاتر المختارة',
+                  icon: state.shiftRows.isEmpty
+                      ? Icons.people_outline_rounded
+                      : Icons.search_off_rounded,
                 )
               : ListView.builder(
                   itemCount: rows.length,
@@ -432,28 +528,38 @@ class _DailyTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final rows = state.visibleDailyRows;
     final depts = ({...state.dailyRows.map((r) => r.department)}.toList()
           ..sort())
         .cast<String>();
+
     return Column(
       children: [
         _SummaryBar(children: [
           _SummaryCard(
-            label: 'إجمالي موظفي الدوام الصباحي',
+            label: 'إجمالي موظفي الصباحي',
             value: '${state.totalDaily}',
+            icon: Icons.people_outline_rounded,
+            accentColor: theme.colorScheme.primary,
           ),
           _SummaryCard(
-            label: 'عدد الموظفين المشمولين',
+            label: 'الموظفون المشمولون',
             value: '${state.includedDaily}',
+            icon: Icons.how_to_reg_rounded,
+            accentColor: Colors.teal,
           ),
           _SummaryCard(
-            label: 'الوقت الاضافي الكلي للدوام الصباحي',
+            label: 'الوقت الإضافي الكلي',
             value: _fmt(state.totalDailyOvertimeAllMinutes, roundingMode),
+            icon: Icons.schedule_rounded,
+            accentColor: Colors.orange,
           ),
           _SummaryCard(
-            label: 'الوقت الاضافي المحتسب للدوام الصباحي',
+            label: 'الوقت الإضافي المحتسب',
             value: _fmt(state.totalDailyOvertimeMinutes, roundingMode),
+            icon: Icons.verified_rounded,
+            accentColor: Colors.green,
           ),
         ]),
         _InlineFilterHeader(
@@ -478,7 +584,10 @@ class _DailyTab extends StatelessWidget {
               ? _EmptyState(
                   message: state.dailyRows.isEmpty
                       ? 'لا يوجد موظفون بنظام الدوام الصباحي'
-                      : 'لا توجد نتائج مطابقة',
+                      : 'لا توجد نتائج مطابقة للفلاتر المختارة',
+                  icon: state.dailyRows.isEmpty
+                      ? Icons.wb_sunny_outlined
+                      : Icons.search_off_rounded,
                 )
               : ListView.builder(
                   itemCount: rows.length,
@@ -496,7 +605,7 @@ class _DailyTab extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Shared widgets
+// Summary bar + card
 // ---------------------------------------------------------------------------
 
 class _SummaryBar extends StatelessWidget {
@@ -506,8 +615,8 @@ class _SummaryBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
       child: Row(
         children: children
             .map((c) => Expanded(
@@ -522,31 +631,93 @@ class _SummaryBar extends StatelessWidget {
 }
 
 class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.label, required this.value});
+  const _SummaryCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.accentColor,
+  });
 
   final String label;
   final String value;
+  final IconData icon;
+  final Color accentColor;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(label, style: theme.textTheme.labelSmall),
-            const SizedBox(height: 4),
-            Text(value,
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold)),
+            // Leading accent bar (first child = right/start in RTL)
+            Container(width: 4, color: accentColor),
+            Expanded(
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(icon, color: accentColor, size: 16),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            label,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              height: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            value,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Inline filter header
+// ---------------------------------------------------------------------------
 
 class _InlineFilterHeader extends StatelessWidget {
   const _InlineFilterHeader({
@@ -581,133 +752,51 @@ class _InlineFilterHeader extends StatelessWidget {
   final void Function(bool) onNoOvertimeChanged;
   final void Function(bool) onShowIncludedChanged;
   final void Function(bool) onShowExcludedChanged;
-  // When true, renders 3 overtime sub-columns (دوام / عطلة / كلي)
   final bool isDaily;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final labelStyle =
-        theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.bold);
-
-    if (isDaily) {
-      return _buildDailyHeader(context, labelStyle);
-    }
-    return _buildShiftHeader(context, labelStyle);
-  }
-
-  Widget _buildShiftHeader(BuildContext context, TextStyle? labelStyle) {
-    return Container(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(flex: 3, child: Text('اسم الموظف', style: labelStyle)),
-              Expanded(flex: 2, child: Text('القسم', style: labelStyle)),
-              Expanded(flex: 2, child: Text(overtimeLabel, style: labelStyle)),
-              Expanded(
-                flex: 2,
-                child: Text('المشمولون بالوقت الإضافي', style: labelStyle),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                flex: 3,
-                child: Padding(
-                  padding: const EdgeInsetsDirectional.only(end: 8),
-                  child: _FilterTextField(
-                    controller: nameController,
-                    onChanged: onNameSearch,
-                  ),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Padding(
-                  padding: const EdgeInsetsDirectional.only(end: 8),
-                  child: _FilterDropdown(
-                    hint: 'الكل',
-                    value: selectedDept,
-                    items: depts,
-                    onChanged: onDeptChanged,
-                  ),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _CheckRow(
-                      label: 'لديه اضافي',
-                      value: hasOvertime,
-                      onChanged: onHasOvertimeChanged,
-                    ),
-                    _CheckRow(
-                      label: 'بدون اضافي',
-                      value: noOvertime,
-                      onChanged: onNoOvertimeChanged,
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _CheckRow(
-                      label: 'مشمول',
-                      value: showIncluded,
-                      onChanged: onShowIncludedChanged,
-                    ),
-                    _CheckRow(
-                      label: 'غير مشمول',
-                      value: showExcluded,
-                      onChanged: onShowExcludedChanged,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+    final labelStyle = theme.textTheme.labelMedium?.copyWith(
+      fontWeight: FontWeight.bold,
+      color: theme.colorScheme.onSurfaceVariant,
+      letterSpacing: 0.2,
     );
-  }
+    final overtimeColumnLabel =
+        isDaily ? 'الساعات الإضافية' : overtimeLabel;
 
-  Widget _buildDailyHeader(BuildContext context, TextStyle? labelStyle) {
     return Container(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+        border: Border(
+          top: BorderSide(
+              color: theme.colorScheme.outlineVariant, width: 0.5),
+          bottom: BorderSide(
+              color: theme.colorScheme.outlineVariant, width: 0.5),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Column labels
           Row(
             children: [
-              Expanded(flex: 3, child: Text('اسم الموظف', style: labelStyle)),
+              Expanded(
+                  flex: 3, child: Text('اسم الموظف', style: labelStyle)),
               Expanded(flex: 2, child: Text('القسم', style: labelStyle)),
               Expanded(
                   flex: 2,
-                  child: Text('الساعات الاضافية', style: labelStyle)),
+                  child: Text(overtimeColumnLabel, style: labelStyle)),
               Expanded(
                 flex: 2,
                 child: Text('المشمولون بالوقت الإضافي', style: labelStyle),
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
+          // Filter controls
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -735,38 +824,38 @@ class _InlineFilterHeader extends StatelessWidget {
               ),
               Expanded(
                 flex: 2,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Wrap(
+                  spacing: 4,
+                  runSpacing: 2,
                   children: [
-                    _CheckRow(
+                    _ToggleChip(
                       label: 'لديه اضافي',
-                      value: hasOvertime,
-                      onChanged: onHasOvertimeChanged,
+                      selected: hasOvertime,
+                      onSelected: onHasOvertimeChanged,
                     ),
-                    _CheckRow(
+                    _ToggleChip(
                       label: 'بدون اضافي',
-                      value: noOvertime,
-                      onChanged: onNoOvertimeChanged,
+                      selected: noOvertime,
+                      onSelected: onNoOvertimeChanged,
                     ),
                   ],
                 ),
               ),
               Expanded(
                 flex: 2,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Wrap(
+                  spacing: 4,
+                  runSpacing: 2,
                   children: [
-                    _CheckRow(
+                    _ToggleChip(
                       label: 'مشمول',
-                      value: showIncluded,
-                      onChanged: onShowIncludedChanged,
+                      selected: showIncluded,
+                      onSelected: onShowIncludedChanged,
                     ),
-                    _CheckRow(
+                    _ToggleChip(
                       label: 'غير مشمول',
-                      value: showExcluded,
-                      onChanged: onShowExcludedChanged,
+                      selected: showExcluded,
+                      onSelected: onShowExcludedChanged,
                     ),
                   ],
                 ),
@@ -779,6 +868,10 @@ class _InlineFilterHeader extends StatelessWidget {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Filter widgets
+// ---------------------------------------------------------------------------
+
 class _FilterTextField extends StatelessWidget {
   const _FilterTextField({required this.controller, required this.onChanged});
 
@@ -787,15 +880,32 @@ class _FilterTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return SizedBox(
       height: 36,
       child: TextField(
         controller: controller,
-        decoration: const InputDecoration(
-          prefixIcon: Icon(Icons.search, size: 16),
+        decoration: InputDecoration(
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            size: 16,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
           isDense: true,
-          border: OutlineInputBorder(),
-          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          filled: true,
+          fillColor: theme.colorScheme.surface,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide:
+                BorderSide(color: theme.colorScheme.outlineVariant),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide:
+                BorderSide(color: theme.colorScheme.outlineVariant),
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         ),
         style: const TextStyle(fontSize: 13),
         onChanged: onChanged,
@@ -824,8 +934,9 @@ class _FilterDropdown extends StatelessWidget {
       height: 36,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          border: Border.all(color: theme.colorScheme.outline),
-          borderRadius: BorderRadius.circular(4),
+          color: theme.colorScheme.surface,
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: DropdownButton<String>(
           value: value,
@@ -833,10 +944,12 @@ class _FilterDropdown extends StatelessWidget {
           isDense: true,
           underline: const SizedBox(),
           padding: const EdgeInsets.symmetric(horizontal: 10),
-          style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface),
+          style:
+              TextStyle(fontSize: 13, color: theme.colorScheme.onSurface),
           hint: Text(hint,
               style: TextStyle(
-                  fontSize: 13, color: theme.colorScheme.onSurfaceVariant)),
+                  fontSize: 13,
+                  color: theme.colorScheme.onSurfaceVariant)),
           items: [
             DropdownMenuItem<String>(
               value: null,
@@ -856,56 +969,71 @@ class _FilterDropdown extends StatelessWidget {
   }
 }
 
-class _CheckRow extends StatelessWidget {
-  const _CheckRow({
+class _ToggleChip extends StatelessWidget {
+  const _ToggleChip({
     required this.label,
-    required this.value,
-    required this.onChanged,
+    required this.selected,
+    required this.onSelected,
   });
 
   final String label;
-  final bool value;
-  final void Function(bool) onChanged;
+  final bool selected;
+  final void Function(bool) onSelected;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          width: 20,
-          height: 20,
-          child: Checkbox(
-            value: value,
-            onChanged: (v) => onChanged(v ?? value),
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-          ),
-        ),
-        const SizedBox(width: 4),
-        GestureDetector(
-          onTap: () => onChanged(!value),
-          child: Text(label, style: Theme.of(context).textTheme.bodySmall),
-        ),
-      ],
+    return FilterChip(
+      label: Text(label, style: const TextStyle(fontSize: 11)),
+      selected: selected,
+      onSelected: onSelected,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      labelPadding: const EdgeInsets.symmetric(horizontal: 6),
     );
   }
 }
 
+// ---------------------------------------------------------------------------
+// Empty state
+// ---------------------------------------------------------------------------
+
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.message});
+  const _EmptyState({required this.message, required this.icon});
 
   final String message;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Center(
-      child: Text(
-        message,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primaryContainer
+                  .withValues(alpha: 0.5),
+              shape: BoxShape.circle,
             ),
-      ),
+            child: Icon(
+              icon,
+              size: 48,
+              color: theme.colorScheme.primary.withValues(alpha: 0.8),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ).animate().fade().scale(begin: const Offset(0.9, 0.9)),
     );
   }
 }
@@ -929,36 +1057,67 @@ class _ShiftRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = !row.isIncluded
-        ? Colors.grey.shade100
-        : row.overtimeMinutes > 0
-            ? Colors.amber.shade100
+    final theme = Theme.of(context);
+    final isExcluded = !row.isIncluded;
+    final hasOvertime = row.overtimeMinutes > 0;
+
+    final Color? bgColor = isExcluded
+        ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
+        : hasOvertime
+            ? Colors.amber.withValues(alpha: 0.07)
             : null;
 
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: bg,
+          color: bgColor,
           border: Border(
             bottom: BorderSide(
-              color: Theme.of(context).dividerColor,
+              color:
+                  theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
               width: 0.5,
             ),
           ),
         ),
         child: Row(
           children: [
-            Expanded(flex: 3, child: Text(row.employeeName)),
-            Expanded(flex: 2, child: Text(row.department)),
+            Expanded(
+              flex: 3,
+              child: Text(
+                row.employeeName,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: isExcluded
+                      ? theme.colorScheme.onSurfaceVariant
+                      : theme.colorScheme.onSurface,
+                ),
+              ),
+            ),
             Expanded(
               flex: 2,
               child: Text(
-                row.overtimeMinutes > 0
-                    ? _fmt(row.overtimeMinutes, roundingMode)
-                    : '---',
+                row.department,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
+            ),
+            Expanded(
+              flex: 2,
+              child: hasOvertime
+                  ? _OvertimeBadge(
+                      value: _fmt(row.overtimeMinutes, roundingMode),
+                      color: Colors.amber,
+                    )
+                  : Text(
+                      '---',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
             ),
             Expanded(
               flex: 2,
@@ -989,47 +1148,94 @@ class _DailyRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = !row.isIncluded
-        ? Colors.grey.shade100
-        : row.totalOvertimeMinutes > 0
-            ? Colors.amber.shade100
+    final theme = Theme.of(context);
+    final isExcluded = !row.isIncluded;
+    final hasOvertime = row.totalOvertimeMinutes > 0;
+
+    final Color? bgColor = isExcluded
+        ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
+        : hasOvertime
+            ? Colors.amber.withValues(alpha: 0.07)
             : null;
 
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: bg,
+          color: bgColor,
           border: Border(
             bottom: BorderSide(
-              color: Theme.of(context).dividerColor,
+              color:
+                  theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
               width: 0.5,
             ),
           ),
         ),
         child: Row(
           children: [
-            Expanded(flex: 3, child: Text(row.employeeName)),
-            Expanded(flex: 2, child: Text(row.department)),
+            Expanded(
+              flex: 3,
+              child: Text(
+                row.employeeName,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: isExcluded
+                      ? theme.colorScheme.onSurfaceVariant
+                      : theme.colorScheme.onSurface,
+                ),
+              ),
+            ),
             Expanded(
               flex: 2,
-              child: row.totalOvertimeMinutes == 0
-                  ? const Text('---')
+              child: Text(
+                row.department,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: !hasOvertime
+                  ? Text(
+                      '---',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    )
                   : Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (row.offOvertimeMinutes > 0)
-                          Text(
-                              'عطلة: ${_fmt(row.offOvertimeMinutes, roundingMode)}'),
-                        if (row.regularOvertimeMinutes > 0)
-                          Text(
-                              'دوام: ${_fmt(row.regularOvertimeMinutes, roundingMode)}'),
+                          _LabeledOvertime(
+                            label: 'عطلة',
+                            value: _fmt(
+                                row.offOvertimeMinutes, roundingMode),
+                            color: Colors.blue,
+                          ),
+                        if (row.regularOvertimeMinutes > 0) ...[
+                          if (row.offOvertimeMinutes > 0)
+                            const SizedBox(height: 3),
+                          _LabeledOvertime(
+                            label: 'دوام',
+                            value: _fmt(
+                                row.regularOvertimeMinutes, roundingMode),
+                            color: Colors.amber,
+                          ),
+                        ],
                         if (row.offOvertimeMinutes > 0 &&
-                            row.regularOvertimeMinutes > 0)
-                          Text(
-                              'الكلي: ${_fmt(row.totalOvertimeMinutes, roundingMode)}'),
+                            row.regularOvertimeMinutes > 0) ...[
+                          const SizedBox(height: 3),
+                          _LabeledOvertime(
+                            label: 'الكلي',
+                            value: _fmt(
+                                row.totalOvertimeMinutes, roundingMode),
+                            color: Colors.green,
+                          ),
+                        ],
                       ],
                     ),
             ),
@@ -1047,3 +1253,79 @@ class _DailyRow extends StatelessWidget {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Row sub-widgets
+// ---------------------------------------------------------------------------
+
+class _OvertimeBadge extends StatelessWidget {
+  const _OvertimeBadge({required this.value, required this.color});
+
+  final String value;
+  final MaterialColor color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        value,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: color.shade800,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+}
+
+class _LabeledOvertime extends StatelessWidget {
+  const _LabeledOvertime({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final MaterialColor color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: color.shade700,
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: color.shade800,
+          ),
+        ),
+      ],
+    );
+  }
+}
