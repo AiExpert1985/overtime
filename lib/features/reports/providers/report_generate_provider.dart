@@ -12,10 +12,6 @@ final fileValidationServiceProvider = Provider<FileValidationService>((ref) {
   return FileValidationService();
 });
 
-final generationServiceProvider = Provider<GenerationService>((ref) {
-  return GenerationService();
-});
-
 class ReportGenerateState {
   const ReportGenerateState({
     this.files = const [],
@@ -152,21 +148,14 @@ class ReportGenerateNotifier extends Notifier<ReportGenerateState> {
       final settings = await ref.read(settingsProvider.future);
       final headersMap = await ref.read(columnHeadersProvider.future);
       final headers = headersMap.values.expand((list) => list).toList();
-      final service = ref.read(generationServiceProvider);
       final repo = ReportsRepository(ref.read(dbProvider));
 
-      final dictionary = await service.buildDictionary(
-        validPaths,
-        saved.startDate!,
-        saved.endDate!,
-        headers,
-      );
-
-      final pipeline = await GenerationService.runCpuPipeline(
-        dictionary: dictionary,
+      final pipeline = await GenerationService.runFullPipeline(
+        validFilePaths: validPaths,
         startDate: saved.startDate!,
         endDate: saved.endDate!,
         settings: settings,
+        headers: headers,
       );
 
       final reportId = await repo.storeReport(

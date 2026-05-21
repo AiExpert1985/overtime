@@ -454,19 +454,29 @@ class GenerationService {
 
   String _arabicWeekday(int weekday) => _arabicWeekdays[weekday];
 
-  // Runs Stages 4–8 in a background isolate so the UI thread stays free.
+  // Runs the full pipeline (Stages 3–8) in a background isolate so the UI
+  // thread stays free from the moment the generate button is tapped. Excel
+  // decoding (Stage 3) is CPU-bound synchronous work even though the file
+  // read is async — running it here prevents any main-isolate freeze.
   static Future<({
     Map<String, ShiftEmployeeEntry> shiftTable,
     Map<String, DailyEmployeeEntry> dailyEntries,
     List<UndetectedEntry> undetectedList,
-  })> runCpuPipeline({
-    required Map<String, EmployeeEntry> dictionary,
+  })> runFullPipeline({
+    required List<String> validFilePaths,
     required DateTime startDate,
     required DateTime endDate,
     required AppSettings settings,
+    required List<ColumnHeader> headers,
   }) {
-    return Isolate.run(() {
+    return Isolate.run(() async {
       final svc = GenerationService();
+      final dictionary = await svc.buildDictionary(
+        validFilePaths,
+        startDate,
+        endDate,
+        headers,
+      );
       final schedules = svc.detectSchedules(dictionary, startDate, endDate, settings);
       final offDays = svc.detectOffDays(schedules.dailyTable, startDate, endDate);
       final dailyEntries = svc.extractDailyPeriods(schedules.dailyTable, offDays);

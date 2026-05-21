@@ -165,18 +165,12 @@ class _GenerationOverlayState extends State<GenerationOverlay> {
           ).animate(onPlay: (c) => c.repeat(reverse: true))
            .scale(begin: const Offset(0.9, 0.9), end: const Offset(1.1, 1.1), duration: 2.seconds, curve: Curves.easeInOutSine),
 
-          // Central glowing intelligence core
+          // Glow shadow — kept outside ClipOval so it isn't clipped.
           Container(
             width: 110,
             height: 110,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  Theme.of(context).colorScheme.primary,
-                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
-                ],
-              ),
               boxShadow: [
                 BoxShadow(
                   color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
@@ -185,16 +179,33 @@ class _GenerationOverlayState extends State<GenerationOverlay> {
                 ),
               ],
             ),
-            child: const Center(
-              child: Icon(
-                Icons.auto_awesome, // Symbolizes magic / intelligence
-                size: 52,
-                color: Colors.white,
+          ),
+          // Core orb — ClipOval ensures the shimmer sheen is clipped to the
+          // circle boundary and doesn't bleed into a visible rectangle.
+          ClipOval(
+            child: Container(
+              width: 110,
+              height: 110,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Theme.of(context).colorScheme.primary,
+                    Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
+                  ],
+                ),
               ),
-            ),
-          ).animate(onPlay: (c) => c.repeat(reverse: true))
-           .scale(begin: const Offset(0.95, 0.95), end: const Offset(1.05, 1.05), duration: 1.seconds, curve: Curves.easeInOut)
-           .shimmer(duration: 2.seconds, color: Colors.white.withValues(alpha: 0.5)),
+              child: const Center(
+                child: Icon(
+                  Icons.auto_awesome,
+                  size: 52,
+                  color: Colors.white,
+                ),
+              ),
+            ).animate(onPlay: (c) => c.repeat(reverse: true))
+             .scale(begin: const Offset(0.95, 0.95), end: const Offset(1.05, 1.05), duration: 1.seconds, curve: Curves.easeInOut)
+             .shimmer(duration: 2.seconds, color: Colors.white.withValues(alpha: 0.5)),
+          ),
         ],
       ),
     );
