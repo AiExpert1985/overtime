@@ -73,20 +73,14 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
       ref.read(settingsProvider).whenOrNull(data: (s) => s.roundingMode) ??
       'quarter';
 
-  void _showUndetected() {
-    context.push('/report/${widget.reportId}/undetected');
-  }
+  void _showUndetected() =>
+      context.push('/report/${widget.reportId}/undetected');
 
   bool get _isExporting =>
       _selectedTab == 0 ? _shiftExporting : _dailyExporting;
 
-  void _doExport(ReportState rs) {
-    if (_selectedTab == 0) {
-      _doExportShift(rs);
-    } else {
-      _doExportDaily(rs);
-    }
-  }
+  void _doExport(ReportState rs) =>
+      _selectedTab == 0 ? _doExportShift(rs) : _doExportDaily(rs);
 
   @override
   Widget build(BuildContext context) {
@@ -113,8 +107,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
           if (rs != null) ...[
             _isExporting
                 ? const Padding(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                     child: SizedBox(
                       width: 20,
                       height: 20,
@@ -130,8 +123,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
           _AppBarAction(
             icon: Icons.warning_amber_rounded,
             label: 'غير محددين',
-            iconColor:
-                undetectedCount > 0 ? Colors.orange.shade700 : null,
+            iconColor: undetectedCount > 0 ? Colors.orange.shade700 : null,
             badge: undetectedCount > 0 ? '$undetectedCount' : null,
             badgeColor: Colors.orange.shade700,
             onTap: rs != null ? _showUndetected : null,
@@ -180,47 +172,51 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                     Icon(Icons.error_outline_rounded,
                         size: 48, color: theme.colorScheme.error),
                     const SizedBox(height: 12),
-                    Text(
-                      'حدث خطأ أثناء التحميل',
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(color: theme.colorScheme.error),
-                    ),
+                    Text('حدث خطأ أثناء التحميل',
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(color: theme.colorScheme.error)),
                     const SizedBox(height: 4),
-                    Text(
-                      '$e',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant),
-                    ),
+                    Text('$e',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant)),
                   ],
                 ),
               ),
               data: (rs) => Column(
                 children: [
-                  // Tab selector
+                  // Tab buttons — 2/3 width, centered
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _TabButton(
-                            label: 'مناوبة',
-                            icon: Icons.swap_horiz_rounded,
-                            selected: _selectedTab == 0,
-                            onTap: () => setState(() => _selectedTab = 0),
-                          ),
+                    padding: const EdgeInsets.fromLTRB(0, 14, 0, 0),
+                    child: Center(
+                      child: FractionallySizedBox(
+                        widthFactor: 0.67,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _TabButton(
+                                label: 'مناوبة',
+                                icon: Icons.swap_horiz_rounded,
+                                selected: _selectedTab == 0,
+                                onTap: () =>
+                                    setState(() => _selectedTab = 0),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _TabButton(
+                                label: 'دوام صباحي',
+                                icon: Icons.wb_sunny_rounded,
+                                selected: _selectedTab == 1,
+                                onTap: () =>
+                                    setState(() => _selectedTab = 1),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _TabButton(
-                            label: 'دوام صباحي',
-                            icon: Icons.wb_sunny_rounded,
-                            selected: _selectedTab == 1,
-                            onTap: () => setState(() => _selectedTab = 1),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 14),
 
                   Expanded(
                     child: IndexedStack(
@@ -270,42 +266,40 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                     ),
                   ),
 
-                  // Bottom summary cards — replaces generation date footer
+                  // Bottom summary cards — 2/3 width, centered, icon ↔ text layout
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 6),
-                            child: _SummaryCard(
-                              label: 'الموظفون المشمولون',
-                              value:
-                                  '${_selectedTab == 0 ? rs.includedShift : rs.includedDaily}',
-                              icon: Icons.how_to_reg_rounded,
-                              accentColor: Colors.teal,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 6),
-                            child: _SummaryCard(
-                              label: 'الوقت الإضافي المحتسب',
-                              value: _fmt(
-                                _selectedTab == 0
-                                    ? rs.totalShiftOvertimeMinutes
-                                    : rs.totalDailyOvertimeMinutes,
-                                _roundingMode,
+                    padding: const EdgeInsets.fromLTRB(0, 18, 0, 16),
+                    child: Center(
+                      child: FractionallySizedBox(
+                        widthFactor: 0.67,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _SummaryCard(
+                                label: 'الموظفون المشمولون',
+                                value:
+                                    '${_selectedTab == 0 ? rs.includedShift : rs.includedDaily}',
+                                icon: Icons.how_to_reg_rounded,
+                                accentColor: Colors.teal,
                               ),
-                              icon: Icons.verified_rounded,
-                              accentColor: Colors.green,
                             ),
-                          ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: _SummaryCard(
+                                label: 'الوقت الإضافي المحتسب',
+                                value: _fmt(
+                                  _selectedTab == 0
+                                      ? rs.totalShiftOvertimeMinutes
+                                      : rs.totalDailyOvertimeMinutes,
+                                  _roundingMode,
+                                ),
+                                icon: Icons.verified_rounded,
+                                accentColor: Colors.green,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ],
@@ -330,14 +324,12 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
       if (!mounted) return;
       if (path != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تم الحفظ: $path')),
-        );
+            SnackBar(content: Text('تم الحفظ: $path')));
       }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('حدث خطأ أثناء التصدير')),
-      );
+          const SnackBar(content: Text('حدث خطأ أثناء التصدير')));
     } finally {
       if (mounted) setState(() => _shiftExporting = false);
     }
@@ -356,14 +348,12 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
       if (!mounted) return;
       if (path != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تم الحفظ: $path')),
-        );
+            SnackBar(content: Text('تم الحفظ: $path')));
       }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('حدث خطأ أثناء التصدير')),
-      );
+          const SnackBar(content: Text('حدث خطأ أثناء التصدير')));
     } finally {
       if (mounted) setState(() => _dailyExporting = false);
     }
@@ -395,7 +385,6 @@ class _AppBarAction extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = iconColor ?? theme.colorScheme.onSurfaceVariant;
-
     Widget iconWidget = Icon(icon, size: 22, color: color);
     if (badge != null) {
       iconWidget = Badge(
@@ -404,7 +393,6 @@ class _AppBarAction extends StatelessWidget {
         child: iconWidget,
       );
     }
-
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -416,14 +404,11 @@ class _AppBarAction extends StatelessWidget {
           children: [
             iconWidget,
             const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                color: color,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 10,
+                    color: color,
+                    fontWeight: FontWeight.w500)),
           ],
         ),
       ),
@@ -432,7 +417,7 @@ class _AppBarAction extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Tab button — large rectangle, clear selected state
+// Tab button — large rectangle, animated selected state
 // ---------------------------------------------------------------------------
 
 class _TabButton extends StatelessWidget {
@@ -453,9 +438,8 @@ class _TabButton extends StatelessWidget {
     final theme = Theme.of(context);
     final bgColor =
         selected ? theme.colorScheme.primary : theme.colorScheme.surface;
-    final fgColor = selected
-        ? theme.colorScheme.onPrimary
-        : theme.colorScheme.onSurface;
+    final fgColor =
+        selected ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface;
     final borderColor = selected
         ? theme.colorScheme.primary
         : theme.colorScheme.outlineVariant;
@@ -469,8 +453,7 @@ class _TabButton extends StatelessWidget {
         boxShadow: selected
             ? [
                 BoxShadow(
-                  color:
-                      theme.colorScheme.primary.withValues(alpha: 0.28),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.28),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -484,21 +467,17 @@ class _TabButton extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-                vertical: 16, horizontal: 20),
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(icon, size: 20, color: fgColor),
                 const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: fgColor,
-                  ),
-                ),
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: fgColor)),
               ],
             ),
           ),
@@ -509,7 +488,7 @@ class _TabButton extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Summary card — centered content, accent bar on start edge
+// Summary card — accent bar + icon one end, value+label other end
 // ---------------------------------------------------------------------------
 
 class _SummaryCard extends StatelessWidget {
@@ -537,8 +516,8 @@ class _SummaryCard extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.07),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -546,41 +525,49 @@ class _SummaryCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Leading accent bar (right = RTL start)
+            // Leading accent bar (right edge in RTL)
             Container(width: 5, color: accentColor),
+            // Content: icon one side, value+label the other
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 16),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                    horizontal: 16, vertical: 14),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
+                    // Icon (first child = right side in RTL)
                     Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: accentColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(icon, color: accentColor, size: 22),
+                      child: Icon(icon, color: accentColor, size: 24),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      value,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      label,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        height: 1.3,
-                      ),
-                      textAlign: TextAlign.center,
+                    // Value + label (left side in RTL)
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          value,
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          label,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            height: 1.3,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -664,6 +651,7 @@ class _ShiftTab extends StatelessWidget {
                   itemCount: rows.length,
                   itemBuilder: (_, i) => _ShiftRow(
                     row: rows[i],
+                    index: i,
                     roundingMode: roundingMode,
                     onTap: () => onRowTap(rows[i].id),
                     onToggle: (v) => onToggle(rows[i].id, v),
@@ -746,6 +734,7 @@ class _DailyTab extends StatelessWidget {
                   itemCount: rows.length,
                   itemBuilder: (_, i) => _DailyRow(
                     row: rows[i],
+                    index: i,
                     roundingMode: roundingMode,
                     onTap: () => onRowTap(rows[i].id),
                     onToggle: (v) => onToggle(rows[i].id, v),
@@ -758,7 +747,7 @@ class _DailyTab extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Inline filter header
+// Inline filter header — visually distinct from table rows
 // ---------------------------------------------------------------------------
 
 class _InlineFilterHeader extends StatelessWidget {
@@ -799,72 +788,79 @@ class _InlineFilterHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final labelStyle = theme.textTheme.labelMedium?.copyWith(
-      fontWeight: FontWeight.bold,
-      color: theme.colorScheme.onSurfaceVariant,
-      letterSpacing: 0.2,
-    );
     final overtimeColumnLabel =
         isDaily ? 'الساعات الإضافية' : overtimeLabel;
 
+    // Column header label style — bolder, larger, primary-tinted
+    final labelStyle = theme.textTheme.labelLarge?.copyWith(
+      fontWeight: FontWeight.bold,
+      color: theme.colorScheme.primary,
+      letterSpacing: 0.3,
+    );
+
     return Container(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest
-            .withValues(alpha: 0.6),
+        // Clearly distinct background — one step darker than surface
+        color: theme.colorScheme.surfaceContainerHigh,
         border: Border(
           top: BorderSide(
               color: theme.colorScheme.outlineVariant, width: 0.5),
+          // Primary-colored bottom line anchors the header above the list
           bottom: BorderSide(
-              color: theme.colorScheme.outlineVariant, width: 0.5),
+              color: theme.colorScheme.primary.withValues(alpha: 0.6),
+              width: 2),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.09),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+      padding: const EdgeInsets.fromLTRB(8, 10, 8, 12),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Centered column labels
+          // Column label row
           Row(
             children: [
               Expanded(
                 flex: 3,
                 child: Center(
-                  child: Text('اسم الموظف',
-                      style: labelStyle,
-                      textAlign: TextAlign.center),
-                ),
+                    child: Text('اسم الموظف',
+                        style: labelStyle,
+                        textAlign: TextAlign.center)),
               ),
               Expanded(
                 flex: 2,
                 child: Center(
-                  child: Text('القسم',
-                      style: labelStyle,
-                      textAlign: TextAlign.center),
-                ),
+                    child: Text('القسم',
+                        style: labelStyle,
+                        textAlign: TextAlign.center)),
               ),
               Expanded(
                 flex: 2,
                 child: Center(
-                  child: Text(overtimeColumnLabel,
-                      style: labelStyle,
-                      textAlign: TextAlign.center),
-                ),
+                    child: Text(overtimeColumnLabel,
+                        style: labelStyle,
+                        textAlign: TextAlign.center)),
               ),
               Expanded(
                 flex: 2,
                 child: Center(
-                  child: Text('المشمولون',
-                      style: labelStyle,
-                      textAlign: TextAlign.center),
-                ),
+                    child: Text('المشمولون',
+                        style: labelStyle,
+                        textAlign: TextAlign.center)),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          // Centered filter controls
+          const SizedBox(height: 10),
+          // Filter control row
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Name search — 2/3 of column width, centered
+              // Name search — 2/3 of column
               Expanded(
                 flex: 3,
                 child: Center(
@@ -877,7 +873,7 @@ class _InlineFilterHeader extends StatelessWidget {
                   ),
                 ),
               ),
-              // Dept dropdown — 2/3 of column width, centered
+              // Dept dropdown — 2/3 of column
               Expanded(
                 flex: 2,
                 child: Center(
@@ -892,6 +888,7 @@ class _InlineFilterHeader extends StatelessWidget {
                   ),
                 ),
               ),
+              // Overtime filter chips
               Expanded(
                 flex: 2,
                 child: Center(
@@ -914,6 +911,7 @@ class _InlineFilterHeader extends StatelessWidget {
                   ),
                 ),
               ),
+              // Inclusion filter chips
               Expanded(
                 flex: 2,
                 child: Center(
@@ -962,11 +960,8 @@ class _FilterTextField extends StatelessWidget {
       child: TextField(
         controller: controller,
         decoration: InputDecoration(
-          prefixIcon: Icon(
-            Icons.search_rounded,
-            size: 16,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+          prefixIcon: Icon(Icons.search_rounded,
+              size: 16, color: theme.colorScheme.onSurfaceVariant),
           isDense: true,
           filled: true,
           fillColor: theme.colorScheme.surface,
@@ -1113,15 +1108,13 @@ class _EmptyState extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer
-                  .withValues(alpha: 0.5),
+              color:
+                  theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              icon,
-              size: 48,
-              color: theme.colorScheme.primary.withValues(alpha: 0.8),
-            ),
+            child: Icon(icon,
+                size: 48,
+                color: theme.colorScheme.primary.withValues(alpha: 0.8)),
           ),
           const SizedBox(height: 16),
           Text(
@@ -1144,12 +1137,14 @@ class _EmptyState extends StatelessWidget {
 class _ShiftRow extends StatelessWidget {
   const _ShiftRow({
     required this.row,
+    required this.index,
     required this.roundingMode,
     required this.onTap,
     required this.onToggle,
   });
 
   final ShiftEmployeeRow row;
+  final int index;
   final String roundingMode;
   final VoidCallback onTap;
   final void Function(bool) onToggle;
@@ -1160,71 +1155,107 @@ class _ShiftRow extends StatelessWidget {
     final isIncluded = row.isIncluded;
     final hasOvertime = row.overtimeMinutes > 0;
 
-    // Clear three-state background:
-    //   included + overtime  → warm amber tint
-    //   included, no OT      → soft primary/teal tint
-    //   excluded             → muted grey
+    // Three clearly distinct states
     final Color bgColor = !isIncluded
         ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.7)
         : hasOvertime
-            ? Colors.amber.withValues(alpha: 0.18)
-            : theme.colorScheme.primaryContainer.withValues(alpha: 0.22);
+            ? Colors.teal.withValues(alpha: 0.12)
+            : theme.colorScheme.primaryContainer.withValues(alpha: 0.20);
+
+    // Subtle alternating tint layered under the state color
+    final Color altTint = index.isOdd
+        ? Colors.black.withValues(alpha: 0.018)
+        : Colors.transparent;
 
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: bgColor,
-          border: Border(
-            bottom: BorderSide(
-              color: theme.colorScheme.outlineVariant
-                  .withValues(alpha: 0.5),
-              width: 0.5,
+        color: altTint,
+        child: Container(
+          decoration: BoxDecoration(
+            color: bgColor,
+            border: Border(
+              bottom: BorderSide(
+                color: theme.colorScheme.outlineVariant
+                    .withValues(alpha: 0.45),
+                width: 0.5,
+              ),
             ),
           ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              flex: 3,
-              child: Text(
-                row.employeeName,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: !isIncluded
-                      ? theme.colorScheme.onSurfaceVariant
-                      : theme.colorScheme.onSurface,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Leading accent bar (right side in RTL = start edge)
+                Container(
+                  width: 3,
+                  color: isIncluded
+                      ? Colors.teal.withValues(alpha: 0.7)
+                      : Colors.transparent,
                 ),
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text(
-                row.department,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                // Main content
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 13),
+                    child: Row(
+                      children: [
+                        // Employee name — natural RTL start alignment
+                        Expanded(
+                          flex: 3,
+                          child: Text(
+                            row.employeeName,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: !isIncluded
+                                  ? theme.colorScheme.onSurfaceVariant
+                                  : theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        // Department — centered
+                        Expanded(
+                          flex: 2,
+                          child: Center(
+                            child: Text(
+                              row.department,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                        // Overtime — centered
+                        Expanded(
+                          flex: 2,
+                          child: Center(
+                            child: hasOvertime
+                                ? _OvertimeBadge(
+                                    value: _fmt(
+                                        row.overtimeMinutes, roundingMode),
+                                    color: Colors.teal,
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                        ),
+                        // Toggle — centered
+                        Expanded(
+                          flex: 2,
+                          child: Center(
+                            child: Switch(
+                              value: row.isIncluded,
+                              onChanged: onToggle,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-            Expanded(
-              flex: 2,
-              child: hasOvertime
-                  ? _OvertimeBadge(
-                      value: _fmt(row.overtimeMinutes, roundingMode),
-                      color: Colors.amber,
-                    )
-                  : const SizedBox.shrink(),
-            ),
-            Expanded(
-              flex: 2,
-              child: Switch(
-                value: row.isIncluded,
-                onChanged: onToggle,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -1234,12 +1265,14 @@ class _ShiftRow extends StatelessWidget {
 class _DailyRow extends StatelessWidget {
   const _DailyRow({
     required this.row,
+    required this.index,
     required this.roundingMode,
     required this.onTap,
     required this.onToggle,
   });
 
   final DailyEmployeeRow row;
+  final int index;
   final String roundingMode;
   final VoidCallback onTap;
   final void Function(bool) onToggle;
@@ -1253,93 +1286,128 @@ class _DailyRow extends StatelessWidget {
     final Color bgColor = !isIncluded
         ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.7)
         : hasOvertime
-            ? Colors.amber.withValues(alpha: 0.18)
-            : theme.colorScheme.primaryContainer.withValues(alpha: 0.22);
+            ? Colors.teal.withValues(alpha: 0.12)
+            : theme.colorScheme.primaryContainer.withValues(alpha: 0.20);
+
+    final Color altTint = index.isOdd
+        ? Colors.black.withValues(alpha: 0.018)
+        : Colors.transparent;
 
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: bgColor,
-          border: Border(
-            bottom: BorderSide(
-              color: theme.colorScheme.outlineVariant
-                  .withValues(alpha: 0.5),
-              width: 0.5,
+        color: altTint,
+        child: Container(
+          decoration: BoxDecoration(
+            color: bgColor,
+            border: Border(
+              bottom: BorderSide(
+                color: theme.colorScheme.outlineVariant
+                    .withValues(alpha: 0.45),
+                width: 0.5,
+              ),
             ),
           ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              flex: 3,
-              child: Text(
-                row.employeeName,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: !isIncluded
-                      ? theme.colorScheme.onSurfaceVariant
-                      : theme.colorScheme.onSurface,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Leading accent bar
+                Container(
+                  width: 3,
+                  color: isIncluded
+                      ? Colors.teal.withValues(alpha: 0.7)
+                      : Colors.transparent,
                 ),
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text(
-                row.department,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: !hasOvertime
-                  ? const SizedBox.shrink()
-                  : Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                // Main content
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 13),
+                    child: Row(
                       children: [
-                        if (row.offOvertimeMinutes > 0)
-                          _LabeledOvertime(
-                            label: 'عطلة',
-                            value: _fmt(
-                                row.offOvertimeMinutes, roundingMode),
-                            color: Colors.blue,
+                        Expanded(
+                          flex: 3,
+                          child: Text(
+                            row.employeeName,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: !isIncluded
+                                  ? theme.colorScheme.onSurfaceVariant
+                                  : theme.colorScheme.onSurface,
+                            ),
                           ),
-                        if (row.regularOvertimeMinutes > 0) ...[
-                          if (row.offOvertimeMinutes > 0)
-                            const SizedBox(height: 3),
-                          _LabeledOvertime(
-                            label: 'دوام',
-                            value: _fmt(row.regularOvertimeMinutes,
-                                roundingMode),
-                            color: Colors.amber,
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Center(
+                            child: Text(
+                              row.department,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
                           ),
-                        ],
-                        if (row.offOvertimeMinutes > 0 &&
-                            row.regularOvertimeMinutes > 0) ...[
-                          const SizedBox(height: 3),
-                          _LabeledOvertime(
-                            label: 'الكلي',
-                            value: _fmt(
-                                row.totalOvertimeMinutes, roundingMode),
-                            color: Colors.green,
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Center(
+                            child: !hasOvertime
+                                ? const SizedBox.shrink()
+                                : Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      if (row.offOvertimeMinutes > 0)
+                                        _LabeledOvertime(
+                                          label: 'عطلة',
+                                          value: _fmt(row.offOvertimeMinutes,
+                                              roundingMode),
+                                          color: Colors.blue,
+                                        ),
+                                      if (row.regularOvertimeMinutes > 0) ...[
+                                        if (row.offOvertimeMinutes > 0)
+                                          const SizedBox(height: 3),
+                                        _LabeledOvertime(
+                                          label: 'دوام',
+                                          value: _fmt(
+                                              row.regularOvertimeMinutes,
+                                              roundingMode),
+                                          color: Colors.amber,
+                                        ),
+                                      ],
+                                      if (row.offOvertimeMinutes > 0 &&
+                                          row.regularOvertimeMinutes > 0) ...[
+                                        const SizedBox(height: 3),
+                                        _LabeledOvertime(
+                                          label: 'الكلي',
+                                          value: _fmt(row.totalOvertimeMinutes,
+                                              roundingMode),
+                                          color: Colors.green,
+                                        ),
+                                      ],
+                                    ],
+                                  ),
                           ),
-                        ],
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Center(
+                            child: Switch(
+                              value: row.isIncluded,
+                              onChanged: onToggle,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
+                  ),
+                ),
+              ],
             ),
-            Expanded(
-              flex: 2,
-              child: Switch(
-                value: row.isIncluded,
-                onChanged: onToggle,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -1359,12 +1427,11 @@ class _OvertimeBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Text(
         value,
@@ -1396,30 +1463,23 @@ class _LabeledOvertime extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(4),
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: color.shade700,
-            ),
-          ),
+          child: Text(label,
+              style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: color.shade700)),
         ),
         const SizedBox(width: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: color.shade800,
-          ),
-        ),
+        Text(value,
+            style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: color.shade800)),
       ],
     );
   }
