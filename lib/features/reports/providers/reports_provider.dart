@@ -91,6 +91,10 @@ class ReportState {
   // Included employees only (deserved total)
   int get totalDailyOvertimeMinutes =>
       dailyRows.where((r) => r.isIncluded).fold(0, (s, r) => s + r.totalOvertimeMinutes);
+  int get includedDailyOffOvertimeMinutes =>
+      dailyRows.where((r) => r.isIncluded).fold(0, (s, r) => s + r.offOvertimeMinutes);
+  int get includedDailyRegularOvertimeMinutes =>
+      dailyRows.where((r) => r.isIncluded).fold(0, (s, r) => s + r.regularOvertimeMinutes);
 
   int get totalUndetected => undetectedRows.length;
 

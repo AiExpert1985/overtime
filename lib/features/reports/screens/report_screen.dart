@@ -272,33 +272,67 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                     child: Center(
                       child: FractionallySizedBox(
                         widthFactor: 0.67,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _SummaryCard(
-                                label: 'الموظفون المشمولون',
-                                value:
-                                    '${_selectedTab == 0 ? rs.includedShift : rs.includedDaily}',
-                                icon: Icons.how_to_reg_rounded,
-                                accentColor: Colors.teal,
+                        child: _selectedTab == 0
+                            ? Row(
+                                children: [
+                                  Expanded(
+                                    child: _SummaryCard(
+                                      label: 'الموظفون المشمولون',
+                                      value: '${rs.includedShift}',
+                                      icon: Icons.how_to_reg_rounded,
+                                      accentColor: Colors.teal,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 22),
+                                  Expanded(
+                                    child: _SummaryCard(
+                                      label: 'الوقت الإضافي المحتسب',
+                                      value: _fmt(rs.totalShiftOvertimeMinutes, _roundingMode),
+                                      icon: Icons.verified_rounded,
+                                      accentColor: Colors.green,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  Expanded(
+                                    child: _SummaryCard(
+                                      label: 'الموظفون المشمولون',
+                                      value: '${rs.includedDaily}',
+                                      icon: Icons.how_to_reg_rounded,
+                                      accentColor: Colors.teal,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: _SummaryCard(
+                                      label: 'إضافي العطل',
+                                      value: _fmt(rs.includedDailyOffOvertimeMinutes, _roundingMode),
+                                      icon: Icons.weekend_rounded,
+                                      accentColor: Colors.orange,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: _SummaryCard(
+                                      label: 'إضافي الدوام',
+                                      value: _fmt(rs.includedDailyRegularOvertimeMinutes, _roundingMode),
+                                      icon: Icons.work_rounded,
+                                      accentColor: Colors.blue,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: _SummaryCard(
+                                      label: 'إجمالي الإضافي',
+                                      value: _fmt(rs.totalDailyOvertimeMinutes, _roundingMode),
+                                      icon: Icons.verified_rounded,
+                                      accentColor: Colors.green,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(width: 22),
-                            Expanded(
-                              child: _SummaryCard(
-                                label: 'الوقت الإضافي المحتسب',
-                                value: _fmt(
-                                  _selectedTab == 0
-                                      ? rs.totalShiftOvertimeMinutes
-                                      : rs.totalDailyOvertimeMinutes,
-                                  _roundingMode,
-                                ),
-                                icon: Icons.verified_rounded,
-                                accentColor: Colors.green,
-                              ),
-                            ),
-                          ],
-                        ),
                       ),
                     ),
                   ),
