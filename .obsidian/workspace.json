@@ -182,6 +182,7 @@
   },
   "active": "ed0ac7944e4e27a1",
   "lastOpenFiles": [
+    "README.md.tmp.14368.dc0b2063a1a3",
     "obelisk/history.md.tmp.14552.85114323f81c",
     "lib/features/reports/providers/report_generate_provider.dart.tmp.14552.e69fe32b2408",
     "lib/features/reports/services/generation_service.dart.tmp.14552.a6a5cd817f68",
@@ -191,7 +192,6 @@
     "build/windows/x64/runner/Debug/data/flutter_assets/shaders/ink_sparkle.frag",
     "build/windows/x64/runner/Debug/data/flutter_assets/shaders",
     "build/windows/x64/runner/Debug/data/flutter_assets/packages/cupertino_icons/assets/CupertinoIcons.ttf",
-    "build/windows/x64/runner/Debug/data/flutter_assets/packages/cupertino_icons/assets",
-    "build/windows/x64/runner/Debug/data/flutter_assets/packages/cupertino_icons"
+    "build/windows/x64/runner/Debug/data/flutter_assets/packages/cupertino_icons/assets"
   ]
 }
