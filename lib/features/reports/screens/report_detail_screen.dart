@@ -70,10 +70,10 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
   bool _exporting = false;
 
   DetailArgs get _args => (
-        reportId: widget.reportId,
-        employeeResultId: widget.employeeResultId,
-        employeeType: widget.employeeType,
-      );
+    reportId: widget.reportId,
+    employeeResultId: widget.employeeResultId,
+    employeeType: widget.employeeType,
+  );
 
   Future<void> _doExport(DetailState data) async {
     if (_exporting) return;
@@ -94,18 +94,21 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
           roundingMode: roundingMode,
         );
       } else {
-        path = await ReportExportService().exportUndetectedEmployee(state: data);
+        path = await ReportExportService().exportUndetectedEmployee(
+          state: data,
+        );
       }
       if (!mounted) return;
       if (path != null) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('تم الحفظ: $path')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('تم الحفظ: $path')));
       }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('حدث خطأ أثناء التصدير')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('حدث خطأ أثناء التصدير')));
     } finally {
       if (mounted) setState(() => _exporting = false);
     }
@@ -128,7 +131,9 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
                   Text(
                     loadedData.employeeName,
                     style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 22),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
@@ -201,16 +206,25 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.error_outline_rounded,
-                        size: 48, color: theme.colorScheme.error),
+                    Icon(
+                      Icons.error_outline_rounded,
+                      size: 48,
+                      color: theme.colorScheme.error,
+                    ),
                     const SizedBox(height: 12),
-                    Text('حدث خطأ أثناء التحميل',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(color: theme.colorScheme.error)),
+                    Text(
+                      'حدث خطأ أثناء التحميل',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: theme.colorScheme.error,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text('$e',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant)),
+                    Text(
+                      '$e',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -247,20 +261,23 @@ class _ExportButton extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
         decoration: BoxDecoration(
           border: Border.all(
-              color: theme.colorScheme.primary.withValues(alpha: 0.6),
-              width: 1.5),
+            color: theme.colorScheme.primary.withValues(alpha: 0.6),
+            width: 1.5,
+          ),
           borderRadius: BorderRadius.circular(10),
           color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.download_rounded,
-                size: 22, color: theme.colorScheme.primary),
+            Icon(
+              Icons.download_rounded,
+              size: 22,
+              color: theme.colorScheme.primary,
+            ),
             const SizedBox(width: 8),
             Text(
               'تصدير',
@@ -321,7 +338,9 @@ class _SummaryCard extends StatelessWidget {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 14),
+                  horizontal: 14,
+                  vertical: 14,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -412,14 +431,14 @@ class _ShiftDetailBody extends ConsumerWidget {
     final periods = state.shiftPeriods;
 
     final validDays = periods.where((p) => p.isValid).length;
-    final totalAttendanceMin =
-        periods.fold(0, (s, p) => s + p.totalAttendanceDuration);
-    final totalHoursCounted =
-        periods.fold(0, (s, p) => s + p.hoursCounted);
+    final totalAttendanceMin = periods.fold(
+      0,
+      (s, p) => s + p.totalAttendanceDuration,
+    );
+    final totalHoursCounted = periods.fold(0, (s, p) => s + p.hoursCounted);
     final ot = max(
       0,
-      min(totalHoursCounted,
-              settings?.shiftCeilingHours ?? totalHoursCounted) -
+      min(totalHoursCounted, settings?.shiftCeilingHours ?? totalHoursCounted) -
           (settings?.shiftBaselineHours ?? 0),
     );
 
@@ -519,13 +538,11 @@ class _DailyDetailBodyState extends ConsumerState<_DailyDetailBody> {
   List<DailyPeriodRow> _applyFilters(List<DailyPeriodRow> periods) {
     return periods.where((p) {
       final isOff = p.dayType == 'off';
-      final dayTypeMatch =
-          (_showDaoam && !isOff) || (_showEtla && isOff);
+      final dayTypeMatch = (_showDaoam && !isOff) || (_showEtla && isOff);
       if (!dayTypeMatch) return false;
 
       final hasOt = p.overtimeMinutes > 0;
-      final otMatch =
-          (_hasOvertime && hasOt) || (_noOvertime && !hasOt);
+      final otMatch = (_hasOvertime && hasOt) || (_noOvertime && !hasOt);
       if (!otMatch) return false;
 
       return true;
@@ -536,7 +553,7 @@ class _DailyDetailBodyState extends ConsumerState<_DailyDetailBody> {
   Widget build(BuildContext context) {
     final roundingMode =
         ref.watch(settingsProvider).whenOrNull(data: (s) => s.roundingMode) ??
-            'quarter';
+        'quarter';
     final periods = widget.state.dailyPeriods;
 
     final offOvertime = periods
@@ -570,8 +587,7 @@ class _DailyDetailBodyState extends ConsumerState<_DailyDetailBody> {
                   Expanded(
                     child: _SummaryCard(
                       label: 'إضافي الدوام',
-                      value:
-                          _fmtOvertimeMinutes(regularOvertime, roundingMode),
+                      value: _fmtOvertimeMinutes(regularOvertime, roundingMode),
                       icon: Icons.work_rounded,
                       accentColor: Colors.blue,
                     ),
@@ -581,7 +597,9 @@ class _DailyDetailBodyState extends ConsumerState<_DailyDetailBody> {
                     child: _SummaryCard(
                       label: 'إجمالي الإضافي',
                       value: _fmtOvertimeMinutes(
-                          widget.state.totalOvertimeMinutes, roundingMode),
+                        widget.state.totalOvertimeMinutes,
+                        roundingMode,
+                      ),
                       icon: Icons.verified_rounded,
                       accentColor: Colors.green,
                     ),
@@ -673,7 +691,8 @@ class _UndetectedDetailBody extends StatelessWidget {
         Expanded(
           child: periods.isEmpty
               ? const _EmptyState(
-                  message: 'لا تتوفر بيانات للتصفح لهذا التقرير')
+                  message: 'لا تتوفر بيانات للتصفح لهذا التقرير',
+                )
               : ListView.builder(
                   itemCount: periods.length,
                   itemBuilder: (_, i) => _UndetectedPeriodRowWidget(
@@ -692,10 +711,7 @@ class _UndetectedDetailBody extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ShiftPeriodRowWidget extends StatelessWidget {
-  const _ShiftPeriodRowWidget({
-    required this.period,
-    required this.flexes,
-  });
+  const _ShiftPeriodRowWidget({required this.period, required this.flexes});
 
   final ShiftPeriodRow period;
   final List<int> flexes;
@@ -714,10 +730,9 @@ class _ShiftPeriodRowWidget extends StatelessWidget {
         color: bg,
         border: Border(
           bottom: BorderSide(
-            color: Theme.of(context)
-                .colorScheme
-                .outlineVariant
-                .withValues(alpha: 0.45),
+            color: Theme.of(
+              context,
+            ).colorScheme.outlineVariant.withValues(alpha: 0.45),
             width: 0.5,
           ),
         ),
@@ -727,13 +742,17 @@ class _ShiftPeriodRowWidget extends StatelessWidget {
         children: [
           _Cell(
             flex: flexes[0],
-            child: Text(_shortDate(period.periodDate),
-                textAlign: TextAlign.center),
+            child: Text(
+              _shortDate(period.periodDate),
+              textAlign: TextAlign.center,
+            ),
           ),
           _Cell(
             flex: flexes[1],
-            child: Text(_shortDate(period.endDate),
-                textAlign: TextAlign.center),
+            child: Text(
+              _shortDate(period.endDate),
+              textAlign: TextAlign.center,
+            ),
           ),
           // Zones column: not centered — structured sub-table
           _Cell(
@@ -752,13 +771,17 @@ class _ShiftPeriodRowWidget extends StatelessWidget {
           ),
           _Cell(
             flex: flexes[3],
-            child: Text(_fmtDuration(period.totalAttendanceDuration),
-                textAlign: TextAlign.center),
+            child: Text(
+              _fmtDuration(period.totalAttendanceDuration),
+              textAlign: TextAlign.center,
+            ),
           ),
           _Cell(
             flex: flexes[4],
-            child: Text('${period.hoursCounted} ساعة',
-                textAlign: TextAlign.center),
+            child: Text(
+              '${period.hoursCounted} ساعة',
+              textAlign: TextAlign.center,
+            ),
           ),
           _Cell(
             flex: flexes[5],
@@ -771,10 +794,7 @@ class _ShiftPeriodRowWidget extends StatelessWidget {
 }
 
 class _DailyPeriodRowWidget extends StatelessWidget {
-  const _DailyPeriodRowWidget({
-    required this.period,
-    required this.flexes,
-  });
+  const _DailyPeriodRowWidget({required this.period, required this.flexes});
 
   final DailyPeriodRow period;
   final List<int> flexes;
@@ -785,8 +805,9 @@ class _DailyPeriodRowWidget extends StatelessWidget {
     final ts = period.timestamps;
     final entry = ts.isNotEmpty ? _fmtTime(ts.first) : '—';
     final exit = ts.length > 1 ? _fmtTime(ts.last) : '—';
-    final intermediates =
-        ts.length > 2 ? ts.sublist(1, ts.length - 1) : <DateTime>[];
+    final intermediates = ts.length > 2
+        ? ts.sublist(1, ts.length - 1)
+        : <DateTime>[];
     final dayTypeLabel = period.dayType == 'off' ? 'عطلة' : 'دوام';
 
     return Container(
@@ -794,10 +815,9 @@ class _DailyPeriodRowWidget extends StatelessWidget {
         color: bg,
         border: Border(
           bottom: BorderSide(
-            color: Theme.of(context)
-                .colorScheme
-                .outlineVariant
-                .withValues(alpha: 0.45),
+            color: Theme.of(
+              context,
+            ).colorScheme.outlineVariant.withValues(alpha: 0.45),
             width: 0.5,
           ),
         ),
@@ -836,13 +856,17 @@ class _DailyPeriodRowWidget extends StatelessWidget {
           ),
           _Cell(
             flex: flexes[6],
-            child: Text(_fmtDuration(period.totalAttendanceDuration),
-                textAlign: TextAlign.center),
+            child: Text(
+              _fmtDuration(period.totalAttendanceDuration),
+              textAlign: TextAlign.center,
+            ),
           ),
           _Cell(
             flex: flexes[7],
-            child: Text(_fmtDuration(period.overtimeMinutes),
-                textAlign: TextAlign.center),
+            child: Text(
+              _fmtDuration(period.overtimeMinutes),
+              textAlign: TextAlign.center,
+            ),
           ),
           _Cell(
             flex: flexes[8],
@@ -869,10 +893,9 @@ class _UndetectedPeriodRowWidget extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: Theme.of(context)
-                .colorScheme
-                .outlineVariant
-                .withValues(alpha: 0.45),
+            color: Theme.of(
+              context,
+            ).colorScheme.outlineVariant.withValues(alpha: 0.45),
             width: 0.5,
           ),
         ),
@@ -913,8 +936,8 @@ class _ZoneSubHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        );
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
       child: Row(
@@ -937,13 +960,13 @@ class _ZoneWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final windowEnd =
-        zone.startTime.add(Duration(minutes: 2 * toleranceMinutes));
+    final windowEnd = zone.startTime.add(
+      Duration(minutes: 2 * toleranceMinutes),
+    );
     final window = '${_fmtTime(zone.startTime)} - ${_fmtTime(windowEnd)}';
 
     final inWindow = zone.timestamps
-        .where(
-            (ts) => !ts.isBefore(zone.startTime) && !ts.isAfter(windowEnd))
+        .where((ts) => !ts.isBefore(zone.startTime) && !ts.isAfter(windowEnd))
         .toList();
     final outOfWindow = zone.timestamps
         .where((ts) => ts.isBefore(zone.startTime) || ts.isAfter(windowEnd))
@@ -959,8 +982,9 @@ class _ZoneWidget extends StatelessWidget {
             flex: 3,
             child: Text(
               window,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(fontWeight: FontWeight.w600),
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           Expanded(
@@ -1004,10 +1028,7 @@ class _ZoneWidget extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _DetailTableHeader extends StatelessWidget {
-  const _DetailTableHeader({
-    required this.columns,
-    required this.flexes,
-  });
+  const _DetailTableHeader({required this.columns, required this.flexes});
 
   final List<String> columns;
   final List<int> flexes;
@@ -1025,11 +1046,11 @@ class _DetailTableHeader extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHigh,
         border: Border(
-          top: BorderSide(
-              color: theme.colorScheme.outlineVariant, width: 0.5),
+          top: BorderSide(color: theme.colorScheme.outlineVariant, width: 0.5),
           bottom: BorderSide(
-              color: theme.colorScheme.primary.withValues(alpha: 0.6),
-              width: 2),
+            color: theme.colorScheme.primary.withValues(alpha: 0.6),
+            width: 2,
+          ),
         ),
         boxShadow: [
           BoxShadow(
@@ -1100,11 +1121,11 @@ class _DailyFilterTableHeader extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHigh,
         border: Border(
-          top: BorderSide(
-              color: theme.colorScheme.outlineVariant, width: 0.5),
+          top: BorderSide(color: theme.colorScheme.outlineVariant, width: 0.5),
           bottom: BorderSide(
-              color: theme.colorScheme.primary.withValues(alpha: 0.6),
-              width: 2),
+            color: theme.colorScheme.primary.withValues(alpha: 0.6),
+            width: 2,
+          ),
         ),
         boxShadow: [
           BoxShadow(
@@ -1142,43 +1163,43 @@ class _DailyFilterTableHeader extends StatelessWidget {
                   flex: flexes[i],
                   child: switch (i) {
                     _dayTypeCol => Center(
-                        child: Wrap(
-                          spacing: 4,
-                          runSpacing: 4,
-                          alignment: WrapAlignment.center,
-                          children: [
-                            _ToggleChip(
-                              label: 'دوام',
-                              selected: showDaoam,
-                              onSelected: onShowDaoamChanged,
-                            ),
-                            _ToggleChip(
-                              label: 'عطلة',
-                              selected: showEtla,
-                              onSelected: onShowEtlaChanged,
-                            ),
-                          ],
-                        ),
+                      child: Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          _ToggleChip(
+                            label: 'دوام',
+                            selected: showDaoam,
+                            onSelected: onShowDaoamChanged,
+                          ),
+                          _ToggleChip(
+                            label: 'عطلة',
+                            selected: showEtla,
+                            onSelected: onShowEtlaChanged,
+                          ),
+                        ],
                       ),
+                    ),
                     _overtimeCol => Center(
-                        child: Wrap(
-                          spacing: 4,
-                          runSpacing: 4,
-                          alignment: WrapAlignment.center,
-                          children: [
-                            _ToggleChip(
-                              label: 'لديه إضافي',
-                              selected: hasOvertime,
-                              onSelected: onHasOvertimeChanged,
-                            ),
-                            _ToggleChip(
-                              label: 'بدون إضافي',
-                              selected: noOvertime,
-                              onSelected: onNoOvertimeChanged,
-                            ),
-                          ],
-                        ),
+                      child: Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          _ToggleChip(
+                            label: 'لديه وقت إضافي',
+                            selected: hasOvertime,
+                            onSelected: onHasOvertimeChanged,
+                          ),
+                          _ToggleChip(
+                            label: 'بدون وقت إضافي',
+                            selected: noOvertime,
+                            onSelected: onNoOvertimeChanged,
+                          ),
+                        ],
                       ),
+                    ),
                     _ => const SizedBox(),
                   },
                 ),
@@ -1228,8 +1249,7 @@ class _ToggleChip extends StatelessWidget {
           label,
           style: TextStyle(
             fontSize: 11,
-            fontWeight:
-                selected ? FontWeight.bold : FontWeight.normal,
+            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
             color: selected
                 ? theme.colorScheme.onPrimaryContainer
                 : theme.colorScheme.onSurfaceVariant,
@@ -1246,11 +1266,7 @@ class _ToggleChip extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _Cell extends StatelessWidget {
-  const _Cell({
-    required this.flex,
-    required this.child,
-    this.centered = true,
-  });
+  const _Cell({required this.flex, required this.child, this.centered = true});
 
   final int flex;
   final Widget child;
@@ -1283,13 +1299,14 @@ class _EmptyState extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color:
-                  theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+              color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.inbox_rounded,
-                size: 48,
-                color: theme.colorScheme.primary.withValues(alpha: 0.8)),
+            child: Icon(
+              Icons.inbox_rounded,
+              size: 48,
+              color: theme.colorScheme.primary.withValues(alpha: 0.8),
+            ),
           ),
           const SizedBox(height: 16),
           Text(
