@@ -101,60 +101,55 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Widget _buildContent(AppSettings settings, Map<String, List<ColumnHeader>> headers) {
+    final cs = Theme.of(context).colorScheme;
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1200),
+          constraints: const BoxConstraints(maxWidth: 1400),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Wrap(
-                spacing: 32,
-                runSpacing: 32,
-                alignment: WrapAlignment.center,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Daily
-                  SizedBox(
-                    width: 500,
+                  Expanded(
                     child: _SettingsCard(
                       title: 'الدوام اليومي',
                       icon: Icons.wb_sunny_outlined,
+                      accentColor: cs.primary,
                       child: _dailySection(settings),
                     ).animate().fade().slideY(begin: 0.1),
                   ),
-                  
-                  // Display
-                  SizedBox(
-                    width: 500,
-                    child: _SettingsCard(
-                      title: 'إعدادات العرض',
-                      icon: Icons.display_settings_outlined,
-                      child: _displaySection(settings),
-                    ).animate().fade(delay: 100.ms).slideY(begin: 0.1),
-                  ),
-
-                  // Shift
-                  SizedBox(
-                    width: 500,
+                  const SizedBox(width: 24),
+                  Expanded(
                     child: _SettingsCard(
                       title: 'الدوام بالمناوبة',
                       icon: Icons.change_circle_outlined,
+                      accentColor: cs.secondary,
                       child: _shiftSection(settings),
+                    ).animate().fade(delay: 100.ms).slideY(begin: 0.1),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: _SettingsCard(
+                      title: 'إعدادات العرض',
+                      icon: Icons.display_settings_outlined,
+                      accentColor: cs.tertiary,
+                      child: _displaySection(settings),
                     ).animate().fade(delay: 200.ms).slideY(begin: 0.1),
                   ),
                 ],
               ),
-              
-              const SizedBox(height: 48),
-              
-              // Column Headers Section
+
+              const SizedBox(height: 32),
+
               _SettingsCard(
                 title: 'عناوين الأعمدة (تعيين أعمدة ملفات الحضور)',
                 icon: Icons.view_column_outlined,
                 child: _columnHeadersSection(headers),
               ).animate().fade(delay: 300.ms).slideY(begin: 0.1),
-              
+
               const SizedBox(height: 64),
             ],
           ),
@@ -534,7 +529,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     CrossAxisAlignment crossAxisAlignment = CrossAxisAlignment.center,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         crossAxisAlignment: crossAxisAlignment,
         children: [
@@ -619,7 +614,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _readOnlyRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
           Text(label, style: Theme.of(context).textTheme.titleSmall?.copyWith(color: Theme.of(context).colorScheme.outline)),
@@ -780,19 +775,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 // ─── Settings Card Layout Container ──────────────────────────────────────
 
 class _SettingsCard extends StatelessWidget {
-  const _SettingsCard({required this.title, required this.icon, required this.child});
+  const _SettingsCard({required this.title, required this.icon, required this.child, this.accentColor});
 
   final String title;
   final IconData icon;
   final Widget child;
+  final Color? accentColor;
 
   @override
   Widget build(BuildContext context) {
+    final color = accentColor ?? Theme.of(context).colorScheme.primary;
+    final outline = Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3);
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3)),
+        border: Border.all(color: outline),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -801,32 +799,38 @@ class _SettingsCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-              border: Border(bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3))),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(23),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(height: 4, color: color),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.06),
+                border: Border(bottom: BorderSide(color: outline)),
+              ),
+              child: Row(
+                children: [
+                  Icon(icon, color: color, size: 26),
+                  const SizedBox(width: 14),
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: Row(
-              children: [
-                Icon(icon, color: Theme.of(context).colorScheme.primary, size: 28),
-                const SizedBox(width: 16),
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ],
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: child,
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: child,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

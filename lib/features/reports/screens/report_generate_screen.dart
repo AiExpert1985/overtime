@@ -130,17 +130,7 @@ class _ReportGenerateScreenState extends ConsumerState<ReportGenerateScreen> {
                                   ).colorScheme.onSurface,
                                 ),
                           ).animate().fade(delay: 100.ms).slideY(begin: 0.2),
-                          const SizedBox(height: 8),
-                          Text(
-                            'قم بإضافة ملفات الحضور لاحتساب الأوقات وإصدار التقرير تلقائياً',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyLarge
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                          ).animate().fade(delay: 200.ms).slideY(begin: 0.2),
+                          const SizedBox(height: 22),
                         ],
                       ),
                       const SizedBox(height: 40),
