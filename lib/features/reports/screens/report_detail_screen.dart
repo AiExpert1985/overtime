@@ -153,18 +153,48 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.transparent,
+        toolbarHeight: 68,
         actions: [
           if (loadedData != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-              child: _exporting
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
+            _exporting
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : _ExportButton(onTap: () => _doExport(loadedData)),
-            ),
+                    ),
+                  )
+                : InkWell(
+                    onTap: () => _doExport(loadedData),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.download_rounded,
+                            size: 26,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'تصدير',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
           const SizedBox(width: 4),
         ],
       ),
@@ -240,55 +270,6 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Export button — prominent outlined button with icon
-// ---------------------------------------------------------------------------
-
-class _ExportButton extends StatelessWidget {
-  const _ExportButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: theme.colorScheme.primary.withValues(alpha: 0.6),
-            width: 1.5,
-          ),
-          borderRadius: BorderRadius.circular(10),
-          color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.download_rounded,
-              size: 22,
-              color: theme.colorScheme.primary,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'تصدير',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1188,12 +1169,12 @@ class _DailyFilterTableHeader extends StatelessWidget {
                         alignment: WrapAlignment.center,
                         children: [
                           _ToggleChip(
-                            label: 'لديه وقت إضافي',
+                            label: 'لديه إضافي',
                             selected: hasOvertime,
                             onSelected: onHasOvertimeChanged,
                           ),
                           _ToggleChip(
-                            label: 'بدون وقت إضافي',
+                            label: 'بدون إضافي',
                             selected: noOvertime,
                             onSelected: onNoOvertimeChanged,
                           ),
