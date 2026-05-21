@@ -41,13 +41,15 @@ class _ReportUndetectedScreenState
       );
       if (!mounted) return;
       if (path != null) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('تم الحفظ: $path')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('تم الحفظ: $path')));
       }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('حدث خطأ أثناء التصدير')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('حدث خطأ أثناء التصدير')));
     } finally {
       if (mounted) setState(() => _exporting = false);
     }
@@ -57,7 +59,9 @@ class _ReportUndetectedScreenState
     var list = List<UndetectedEmployeeRow>.from(rows);
     if (_nameQuery.isNotEmpty) {
       final q = _nameQuery.toLowerCase();
-      list = list.where((r) => r.employeeName.toLowerCase().contains(q)).toList();
+      list = list
+          .where((r) => r.employeeName.toLowerCase().contains(q))
+          .toList();
     }
     if (_deptFilter != null) {
       list = list.where((r) => r.department == _deptFilter).toList();
@@ -87,28 +91,33 @@ class _ReportUndetectedScreenState
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.transparent,
+        toolbarHeight: 68,
         actions: [
-          Builder(builder: (context) {
-            final rs = ref
-                .watch(reportProvider(widget.reportId))
-                .whenOrNull(data: (v) => v);
-            if (rs == null) return const SizedBox.shrink();
-            return _exporting
-                ? const Padding(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  )
-                : _AppBarAction(
-                    icon: Icons.download_rounded,
-                    label: 'تصدير',
-                    onTap: () => _doExport(rs),
-                  );
-          }),
+          Builder(
+            builder: (context) {
+              final rs = ref
+                  .watch(reportProvider(widget.reportId))
+                  .whenOrNull(data: (v) => v);
+              if (rs == null) return const SizedBox.shrink();
+              return _exporting
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 16,
+                      ),
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : _AppBarAction(
+                      icon: Icons.download_rounded,
+                      label: 'تصدير',
+                      onTap: () => _doExport(rs),
+                    );
+            },
+          ),
           const SizedBox(width: 4),
         ],
       ),
@@ -122,7 +131,7 @@ class _ReportUndetectedScreenState
                 end: Alignment.bottomRight,
                 colors: [
                   theme.colorScheme.surface,
-                  Colors.orange.withValues(alpha: 0.04),
+                  theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
                   theme.colorScheme.surface,
                 ],
               ),
@@ -150,16 +159,25 @@ class _ReportUndetectedScreenState
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.error_outline_rounded,
-                        size: 48, color: theme.colorScheme.error),
+                    Icon(
+                      Icons.error_outline_rounded,
+                      size: 48,
+                      color: theme.colorScheme.error,
+                    ),
                     const SizedBox(height: 12),
-                    Text('حدث خطأ أثناء التحميل',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(color: theme.colorScheme.error)),
+                    Text(
+                      'حدث خطأ أثناء التحميل',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: theme.colorScheme.error,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text('$e',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant)),
+                    Text(
+                      '$e',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -167,12 +185,12 @@ class _ReportUndetectedScreenState
                 final allRows = rs.undetectedRows;
                 final rows = _filtered(allRows);
 
-                final depts = ({...allRows.map((r) => r.department)}.toList()
-                      ..sort())
-                    .cast<String>();
-                final reasons =
-                    ({...allRows.map((r) => r.failureReason)}.toList()..sort())
-                        .cast<String>();
+                final depts = ({
+                  ...allRows.map((r) => r.department),
+                }.toList()..sort()).cast<String>();
+                final reasons = ({
+                  ...allRows.map((r) => r.failureReason),
+                }.toList()..sort()).cast<String>();
 
                 return Column(
                   children: [
@@ -223,41 +241,46 @@ class _ReportUndetectedScreenState
                     Expanded(
                       child: rows.isEmpty
                           ? Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(24),
-                                    decoration: BoxDecoration(
-                                      color: theme.colorScheme.primaryContainer
-                                          .withValues(alpha: 0.5),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      _hasFilter
-                                          ? Icons.search_off_rounded
-                                          : Icons.check_circle_outline_rounded,
-                                      size: 48,
-                                      color: theme.colorScheme.primary
-                                          .withValues(alpha: 0.8),
-                                    ),
+                              child:
+                                  Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(24),
+                                        decoration: BoxDecoration(
+                                          color: theme
+                                              .colorScheme
+                                              .primaryContainer
+                                              .withValues(alpha: 0.5),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          _hasFilter
+                                              ? Icons.search_off_rounded
+                                              : Icons
+                                                    .check_circle_outline_rounded,
+                                          size: 48,
+                                          color: theme.colorScheme.primary
+                                              .withValues(alpha: 0.8),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        _hasFilter
+                                            ? 'لا توجد نتائج مطابقة'
+                                            : 'تم كشف جميع الموظفين بنجاح',
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                              color: theme
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                            ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  ).animate().fade().scale(
+                                    begin: const Offset(0.9, 0.9),
                                   ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    _hasFilter
-                                        ? 'لا توجد نتائج مطابقة'
-                                        : 'تم كشف جميع الموظفين بنجاح',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color:
-                                          theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              )
-                                  .animate()
-                                  .fade()
-                                  .scale(begin: const Offset(0.9, 0.9)),
                             )
                           : ListView.builder(
                               itemCount: rows.length,
@@ -309,21 +332,16 @@ class _InlineFilterHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final labelStyle = theme.textTheme.labelLarge?.copyWith(
-      fontWeight: FontWeight.bold,
-      color: theme.colorScheme.primary,
-      letterSpacing: 0.3,
-    );
 
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHigh,
         border: Border(
-          top: BorderSide(
-              color: theme.colorScheme.outlineVariant, width: 0.5),
+          top: BorderSide(color: theme.colorScheme.outlineVariant, width: 0.5),
           bottom: BorderSide(
-              color: theme.colorScheme.primary.withValues(alpha: 0.6),
-              width: 2),
+            color: theme.colorScheme.primary.withValues(alpha: 0.6),
+            width: 2,
+          ),
         ),
         boxShadow: [
           BoxShadow(
@@ -333,90 +351,51 @@ class _InlineFilterHeader extends StatelessWidget {
           ),
         ],
       ),
-      padding: const EdgeInsets.fromLTRB(8, 10, 8, 12),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Column label row
-          Row(
-            children: [
-              Expanded(
-                flex: 1,
-                child: Center(
-                    child: Text('#',
-                        style: labelStyle, textAlign: TextAlign.center)),
+          const Expanded(flex: 1, child: SizedBox()),
+          Expanded(
+            flex: 3,
+            child: Center(
+              child: FractionallySizedBox(
+                widthFactor: 0.75,
+                child: _FilterTextField(
+                  controller: nameCtrl,
+                  hint: 'اسم الموظف',
+                  onChanged: onNameChanged,
+                ),
               ),
-              Expanded(
-                flex: 3,
-                child: Center(
-                    child: Text('اسم الموظف',
-                        style: labelStyle, textAlign: TextAlign.center)),
-              ),
-              Expanded(
-                flex: 2,
-                child: Center(
-                    child: Text('القسم',
-                        style: labelStyle, textAlign: TextAlign.center)),
-              ),
-              Expanded(
-                flex: 3,
-                child: Center(
-                    child: Text('سبب عدم الكشف',
-                        style: labelStyle, textAlign: TextAlign.center)),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: 10),
-          // Filter controls row
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Spacer for # column
-              const Expanded(flex: 1, child: SizedBox()),
-              // Name search
-              Expanded(
-                flex: 3,
-                child: Center(
-                  child: FractionallySizedBox(
-                    widthFactor: 0.67,
-                    child: _FilterTextField(
-                      controller: nameCtrl,
-                      onChanged: onNameChanged,
-                    ),
-                  ),
+          Expanded(
+            flex: 2,
+            child: Center(
+              child: FractionallySizedBox(
+                widthFactor: 0.75,
+                child: _FilterDropdown(
+                  hint: 'القسم',
+                  value: selectedDept,
+                  items: depts,
+                  onChanged: onDeptChanged,
                 ),
               ),
-              // Dept dropdown
-              Expanded(
-                flex: 2,
-                child: Center(
-                  child: FractionallySizedBox(
-                    widthFactor: 0.67,
-                    child: _FilterDropdown(
-                      hint: 'الكل',
-                      value: selectedDept,
-                      items: depts,
-                      onChanged: onDeptChanged,
-                    ),
-                  ),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Center(
+              child: FractionallySizedBox(
+                widthFactor: 0.85,
+                child: _FilterDropdown(
+                  hint: 'سبب عدم الكشف',
+                  value: selectedReason,
+                  items: reasons,
+                  onChanged: onReasonChanged,
                 ),
               ),
-              // Reason dropdown
-              Expanded(
-                flex: 3,
-                child: Center(
-                  child: FractionallySizedBox(
-                    widthFactor: 0.85,
-                    child: _FilterDropdown(
-                      hint: 'الكل',
-                      value: selectedReason,
-                      items: reasons,
-                      onChanged: onReasonChanged,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ),
@@ -429,10 +408,15 @@ class _InlineFilterHeader extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _FilterTextField extends StatelessWidget {
-  const _FilterTextField({required this.controller, required this.onChanged});
+  const _FilterTextField({
+    required this.controller,
+    required this.onChanged,
+    this.hint,
+  });
 
   final TextEditingController controller;
   final void Function(String) onChanged;
+  final String? hint;
 
   @override
   Widget build(BuildContext context) {
@@ -442,8 +426,12 @@ class _FilterTextField extends StatelessWidget {
       child: TextField(
         controller: controller,
         decoration: InputDecoration(
-          prefixIcon: Icon(Icons.search_rounded,
-              size: 16, color: theme.colorScheme.onSurfaceVariant),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            size: 16,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          hintText: hint,
           isDense: true,
           filled: true,
           fillColor: theme.colorScheme.surface,
@@ -455,8 +443,10 @@ class _FilterTextField extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
           ),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 8,
+          ),
         ),
         style: const TextStyle(fontSize: 13),
         onChanged: onChanged,
@@ -495,16 +485,18 @@ class _FilterDropdown extends StatelessWidget {
           isDense: true,
           underline: const SizedBox(),
           padding: const EdgeInsets.symmetric(horizontal: 10),
-          style:
-              TextStyle(fontSize: 13, color: theme.colorScheme.onSurface),
-          hint: Text(hint,
-              style: TextStyle(
-                  fontSize: 13,
-                  color: theme.colorScheme.onSurfaceVariant)),
+          style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface),
+          hint: Text(
+            hint,
+            style: TextStyle(
+              fontSize: 13,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
           items: [
             DropdownMenuItem<String>(
               value: null,
-              child: Text(hint, style: const TextStyle(fontSize: 13)),
+              child: Text('الكل', style: const TextStyle(fontSize: 13)),
             ),
             ...items.map(
               (v) => DropdownMenuItem<String>(
@@ -555,15 +547,14 @@ class _UndetectedRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Leading orange accent bar
-              Container(
-                width: 3,
-                color: Colors.orange.withValues(alpha: 0.6),
-              ),
+              Container(width: 3, color: Colors.orange.withValues(alpha: 0.6)),
               // Main content
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 13),
+                    horizontal: 14,
+                    vertical: 13,
+                  ),
                   child: Row(
                     children: [
                       // Row number badge
@@ -623,13 +614,15 @@ class _UndetectedRow extends StatelessWidget {
                         child: Center(
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.orange.withValues(alpha: 0.10),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                  color:
-                                      Colors.orange.withValues(alpha: 0.35)),
+                                color: Colors.orange.withValues(alpha: 0.35),
+                              ),
                             ),
                             child: Text(
                               row.failureReason,
@@ -697,7 +690,9 @@ class _SummaryCard extends StatelessWidget {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 14),
+                  horizontal: 14,
+                  vertical: 14,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -754,11 +749,7 @@ class _SummaryCard extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _AppBarAction extends StatelessWidget {
-  const _AppBarAction({
-    required this.icon,
-    required this.label,
-    this.onTap,
-  });
+  const _AppBarAction({required this.icon, required this.label, this.onTap});
 
   final IconData icon;
   final String label;
@@ -772,18 +763,21 @@ class _AppBarAction extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 22, color: color),
-            const SizedBox(height: 2),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 10,
-                    color: color,
-                    fontWeight: FontWeight.w500)),
+            Icon(icon, size: 26, color: color),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),

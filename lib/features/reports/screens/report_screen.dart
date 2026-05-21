@@ -1054,7 +1054,7 @@ class _FilterDropdown extends StatelessWidget {
           items: [
             DropdownMenuItem<String>(
               value: null,
-              child: Text('الكل', style: const TextStyle(fontSize: 13)),
+              child: Text('كل الاقسام', style: const TextStyle(fontSize: 13)),
             ),
             ...items.map(
               (v) => DropdownMenuItem<String>(
