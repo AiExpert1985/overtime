@@ -95,7 +95,7 @@ class _GenerationOverlayState extends State<GenerationOverlay> {
           BackdropFilter(
             filter: ui.ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
             child: Container(
-              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
+              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.3), // Lower opacity to see the screen behind
             ),
           ),
           
@@ -187,7 +187,7 @@ class _GenerationOverlayState extends State<GenerationOverlay> {
             ),
             child: const Center(
               child: Icon(
-                Icons.memory_rounded, // Symbolizes intelligence / AI / algorithm crunching
+                Icons.auto_awesome, // Symbolizes magic / intelligence
                 size: 52,
                 color: Colors.white,
               ),
@@ -237,9 +237,9 @@ class _GenerationOverlayState extends State<GenerationOverlay> {
                   width: 36,
                   child: isCompleted
                       ? Icon(
-                          Icons.check_circle_rounded, 
+                          Icons.check, 
                           color: const Color(0xFF22C55E), // Emerald Green
-                          size: 28,
+                          size: 32,
                         ).animate().scale(curve: Curves.elasticOut, duration: 600.ms)
                       : isActive
                           ? SizedBox(
