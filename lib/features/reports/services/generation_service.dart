@@ -140,9 +140,10 @@ class GenerationService {
 
     // Step 4 — Classify
 
-    // Check 1: combined period count (zone + anchor pair) below threshold → daily.
+    // Check 1: combined period count (zone + anchor pair) below threshold.
+    // Run daily validation gate before classifying as daily.
     if (winnerCount < _minValidPeriods) {
-      return _DailyResult();
+      return _runDailyValidationGate(entry.timestamps, startDate, endDate, settings);
     }
 
     // Check 2: start time confidence — only required when multiple start times
@@ -160,6 +161,65 @@ class GenerationService {
     }
 
     return _ShiftResult(winnerStartTime, validPeriodsMap[winnerStartTime]!);
+  }
+
+  _DetectResult _runDailyValidationGate(
+    List<DateTime> timestamps,
+    DateTime startDate,
+    DateTime endDate,
+    AppSettings settings,
+  ) {
+    final parts = settings.dailyStartTime.split(':');
+    final startMins = int.parse(parts[0]) * 60 + int.parse(parts[1]);
+    final delay = settings.dailyDelayAllowance;
+    final entryLow = startMins - delay;
+    final entryHigh = startMins + delay;
+    final exitBase = startMins + settings.dailyWorkDuration * 60;
+    final exitLow = exitBase - delay;
+    final exitHigh = exitBase + delay;
+
+    var workingDays = 0;
+    var day = DateTime(startDate.year, startDate.month, startDate.day);
+    final lastDay = DateTime(endDate.year, endDate.month, endDate.day);
+    while (!day.isAfter(lastDay)) {
+      if (day.weekday != DateTime.friday && day.weekday != DateTime.saturday) {
+        workingDays++;
+      }
+      day = day.add(const Duration(days: 1));
+    }
+
+    if (workingDays == 0) return _DailyResult();
+
+    final dayMap = _groupByDay(timestamps);
+
+    final morningDayKeys = <String>{};
+    for (final e in dayMap.entries) {
+      final hasEntry = e.value.any((ts) {
+        final tsMin = ts.hour * 60 + ts.minute;
+        return tsMin >= entryLow && tsMin <= entryHigh;
+      });
+      if (hasEntry) morningDayKeys.add(e.key);
+    }
+
+    final morningDays = morningDayKeys.length;
+    if (morningDays / workingDays < 0.50) {
+      return _UndetectedResult('لا ينتمي لنظام المناوبة أو الدوام الصباحي');
+    }
+
+    var exitDays = 0;
+    for (final key in morningDayKeys) {
+      final hasExit = dayMap[key]!.any((ts) {
+        final tsMin = ts.hour * 60 + ts.minute;
+        return tsMin >= exitLow && tsMin <= exitHigh;
+      });
+      if (hasExit) exitDays++;
+    }
+
+    if (exitDays / morningDays < 0.50) {
+      return _UndetectedResult('لا ينتمي لنظام المناوبة أو الدوام الصباحي');
+    }
+
+    return _DailyResult();
   }
 
   String _dayKey(DateTime d) =>

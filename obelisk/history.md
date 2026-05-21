@@ -274,3 +274,9 @@ The following tasks were agreed during discovery and must be implemented in orde
 **Rejected:** Pre-computing off-days from the full dictionary to detect weekend gaps — unnecessary since the weekend is always Friday-Saturday in this app's context; a simple day-of-week check is sufficient and avoids any pipeline dependency.
 
 ---
+
+## 20260521-0000 | Daily Validation Gate — Schedule Detection | TASK
+
+**Task:** Added a daily validation gate in schedule detection that runs when an employee fails to produce enough valid shift periods. Before classifying the employee as daily, the gate verifies they follow a daily schedule using two sequential checks: (1) morningDays (days with a timestamp within the entry window) must be ≥ 50% of working days in the report range; (2) exitDays (subset of morningDays with a timestamp within the exit window) must be ≥ 50% of morningDays. Employees who fail either check become undetected with reason "لا ينتمي لنظام المناوبة أو الدوام الصباحي". Working days exclude Fridays and Saturdays. morningDays counts all calendar days (including weekends) to avoid penalising employees who work seven days. The gate uses the existing daily config already available in AppSettings — no signature changes were needed.
+
+---
