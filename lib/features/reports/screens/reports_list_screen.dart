@@ -16,7 +16,10 @@ class ReportsListScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('التقارير السابقة', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'التقارير السابقة',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.transparent,
@@ -32,21 +35,25 @@ class ReportsListScreen extends ConsumerWidget {
                 end: Alignment.bottomRight,
                 colors: [
                   Theme.of(context).colorScheme.surface,
-                  Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+                  Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer.withValues(alpha: 0.3),
                   Theme.of(context).colorScheme.surface,
                 ],
               ),
             ),
           ),
-          
+
           SafeArea(
             child: reportsAsync.when(
               loading: () => Center(
-                child: const CircularProgressIndicator().animate().fade().scale(),
+                child: const CircularProgressIndicator()
+                    .animate()
+                    .fade()
+                    .scale(),
               ),
-              error: (e, _) => Center(
-                child: _ErrorDisplay(error: e.toString()),
-              ),
+              error: (e, _) =>
+                  Center(child: _ErrorDisplay(error: e.toString())),
               data: (reports) => reports.isEmpty
                   ? const _EmptyReportsView()
                   : _ReportsList(reports: reports),
@@ -68,32 +75,42 @@ class _EmptyReportsView extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.format_list_bulleted_rounded,
-              size: 80,
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
-            ),
-          ).animate(onPlay: (c) => c.repeat(reverse: true))
-           .scale(begin: const Offset(0.95, 0.95), end: const Offset(1.05, 1.05), duration: 2.seconds, curve: Curves.easeInOut),
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.format_list_bulleted_rounded,
+                  size: 80,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.8),
+                ),
+              )
+              .animate(onPlay: (c) => c.repeat(reverse: true))
+              .scale(
+                begin: const Offset(0.95, 0.95),
+                end: const Offset(1.05, 1.05),
+                duration: 2.seconds,
+                curve: Curves.easeInOut,
+              ),
           const SizedBox(height: 32),
           Text(
             'لا توجد تقارير سابقة',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ).animate().fade(delay: 200.ms).slideY(begin: 0.3),
           const SizedBox(height: 12),
           Text(
             'قم بتوليد تقرير جديد من الشاشة الرئيسية ليظهر هنا',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.outline,
-                ),
+              color: Theme.of(context).colorScheme.outline,
+            ),
           ).animate().fade(delay: 400.ms).slideY(begin: 0.3),
           const SizedBox(height: 48),
           FilledButton.icon(
@@ -102,7 +119,9 @@ class _EmptyReportsView extends StatelessWidget {
             label: const Text('توليد تقرير جديد'),
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
             ),
           ).animate().fade(delay: 600.ms).scale(),
         ],
@@ -168,7 +187,9 @@ class _ReportCard extends ConsumerWidget {
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          hoverColor: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+          hoverColor: Theme.of(
+            context,
+          ).colorScheme.primaryContainer.withValues(alpha: 0.3),
           onTap: () => context.pushNamed(
             'report',
             pathParameters: {'reportId': '${report.id}'},
@@ -197,46 +218,54 @@ class _ReportCard extends ConsumerWidget {
                       Row(
                         children: [
                           Icon(
-                            Icons.access_time_rounded, 
-                            size: 16, 
-                            color: Theme.of(context).colorScheme.outline
+                            Icons.access_time_rounded,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.outline,
                           ),
                           const SizedBox(width: 6),
                           Text(
                             'تم الإنشاء في: ${datetimeFmt.format(report.generationDatetime)}',
-                            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            style: Theme.of(context).textTheme.labelLarge
+                                ?.copyWith(
                                   color: Theme.of(context).colorScheme.outline,
                                 ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'تقرير أوقات إضافية',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 14),
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.secondaryContainer.withValues(alpha: 0.5),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .secondaryContainer
+                                  .withValues(alpha: 0.5),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.date_range, size: 14, color: Theme.of(context).colorScheme.secondary),
+                                Icon(
+                                  Icons.date_range,
+                                  size: 14,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.secondary,
+                                ),
                                 const SizedBox(width: 6),
                                 Text(
                                   'من ${dateFmt.format(report.rangeStart)}',
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
-                                    color: Theme.of(context).colorScheme.secondary,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.secondary,
                                   ),
                                 ),
                               ],
@@ -244,39 +273,58 @@ class _ReportCard extends ConsumerWidget {
                           ),
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.secondaryContainer.withValues(alpha: 0.5),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .secondaryContainer
+                                  .withValues(alpha: 0.5),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.date_range, size: 14, color: Theme.of(context).colorScheme.secondary),
+                                Icon(
+                                  Icons.date_range,
+                                  size: 14,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.secondary,
+                                ),
                                 const SizedBox(width: 6),
                                 Text(
                                   'إلى ${dateFmt.format(report.rangeEnd)}',
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
-                                    color: Theme.of(context).colorScheme.secondary,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.secondary,
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         ],
-                      )
+                      ),
                     ],
                   ),
                 ),
                 Container(
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.5),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.errorContainer.withValues(alpha: 0.5),
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
-                    icon: Icon(Icons.delete_outline_rounded, color: Theme.of(context).colorScheme.error),
+                    icon: Icon(
+                      Icons.delete_outline_rounded,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
                     iconSize: 24,
                     padding: const EdgeInsets.all(12),
                     onPressed: () => _confirmDelete(context, ref),
@@ -296,7 +344,9 @@ class _ReportCard extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('حذف التقرير'),
-        content: const Text('هل أنت متأكد من حذف هذا التقرير؟ لا يمكن التراجع عن هذا الإجراء.'),
+        content: const Text(
+          'هل أنت متأكد من حذف هذا التقرير؟ لا يمكن التراجع عن هذا الإجراء.',
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         actions: [
           TextButton(
@@ -309,7 +359,10 @@ class _ReportCard extends ConsumerWidget {
               foregroundColor: Theme.of(context).colorScheme.onError,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('حذف', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'حذف',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -335,14 +388,25 @@ class _ErrorDisplay extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline, size: 48, color: Theme.of(context).colorScheme.error),
+          Icon(
+            Icons.error_outline,
+            size: 48,
+            color: Theme.of(context).colorScheme.error,
+          ),
           const SizedBox(height: 16),
           Text(
-             'خطأ في تحميل التقارير',
-             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Theme.of(context).colorScheme.error),
+            'خطأ في تحميل التقارير',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              color: Theme.of(context).colorScheme.error,
+            ),
           ),
           const SizedBox(height: 8),
-          Text(error, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          Text(
+            error,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
         ],
       ),
     );
