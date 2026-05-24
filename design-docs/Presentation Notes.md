@@ -9,18 +9,42 @@
 
 ---
 
+### Report Generation
+
+- Before Pressing generate tell the story: The app is intelligent 
+  - List employees
+  - Separate them into daily and shift
+  - Separate shifts into (8:00) & (11:00)
+  - Detect holidays, including sudden holidays
+  - Calculates overtime for each type
+  - prepare full report
+- Now show the animation (intelligence in motion)
 
 
-----
+- Report for both types
+- show how to use app (filter, search, cards show the accumulation live)
+- the details of shift
+- the details of daily
 
-## Every Think Is Automatic
+---
 
-(This is after showing the app)
+### Excel export
+- main report
+- detailed report
 
-*Give example of washing machine, full automatic, that even iron and fold the cloths*
+### Undetected employees
 
+- Even irregular employees are detected
 
-----
+### Settings
+
+- The app is flexible for any schedule and for any new device
+
+### History
+
+- Has memory - stores all previous reports
+
+---
 
 ## More Intelligence
 
@@ -28,4 +52,25 @@
 	illustrate that with copying the same oct file, and putting both
 	The hours will be the same, the only difference is just duplicate timestamps within periods
 	
-2. 
+
+
+---
+
+## Every Think Is So Simple & Automatic
+
+(This is after showing the app)
+
+*Give example of washing machine, full automatic, that even iron and fold the cloths*
+
+---
+### Digital Transformation
+Employees feel threatened,
+The benefit !
+They become supervisors instead 
+
+Speed 100 x faster (2 hours instead of 200 hours)
+Accuracy Increase (near 100 %)
+No money lost on paper printing (hundreds of papers are printed)
+Full details for each employee (better follow up)
+
+----
