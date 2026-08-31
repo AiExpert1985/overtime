@@ -26,7 +26,7 @@ For each `DailyPeriod`, the calculator sets:
 - **totalAttendanceDuration** — minutes from first to last timestamp. Set for all periods including invalid ones. Audit display only.
 - **overtimeMinutes** — calculated overtime in minutes. 0 if invalid.
 - **isValid** — whether this period passed validation. Set at calculation time — never changes after.
-- **notes** — Arabic invalid reason. Null if valid.
+- **notes** — set of every applicable Arabic invalid reason. Empty set if valid.
 
 ---
 
@@ -50,7 +50,11 @@ The delay allowance gives employees a configurable grace period after the offici
 
 Example: start 08:00, delay allowance 60 min → employee valid if first timestamp ≤ 09:00. End time remains 16:00.
 
-If either condition fails → `isValid = false`, `overtimeMinutes = 0`, `notes` set to Arabic reason.
+Both conditions are always evaluated — neither short-circuits the other — and each failure adds its Arabic reason to a **set**. `isValid = true` only when the set is empty; otherwise `overtimeMinutes = 0`. A period with a single stamp that is also late carries both reasons.
+
+The entry-time rule stays one-sided: it checks only that the first timestamp is not *later* than `daily_start_time + daily_delay_allowance`. Arriving early is not a violation.
+
+Off days only ever carry the single-stamp reason — the entry-time check does not apply to them.
 
 ### Calculation
 

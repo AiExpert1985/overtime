@@ -26,6 +26,8 @@ class GenerationService {
   static const _minValidPeriods = 3;
   static const _minStartTimeConfidence = 0.60;
   static const _restGapDays = 2;
+  // EXPERIMENT: detection-only edge tolerance.
+  static const _detectionEdgeTolerance = 120;
 
   // Stage 3 — Dictionary Build
   Future<Map<String, EmployeeEntry>> buildDictionary(
@@ -229,7 +231,8 @@ class GenerationService {
     final startHour = int.parse(parts[0]);
     final startMinute = int.parse(parts[1]);
 
-    final toleranceMinutes = settings.shiftTolerance;
+    final edgeTolerance = settings.shiftEdgeTolerance;
+    final innerTolerance = settings.shiftInnerTolerance;
     final zoneIntervalHours = settings.shiftZoneInterval;
     final shiftDurationHours = settings.shiftDuration;
     final zoneCount = settings.zoneCount;
@@ -246,11 +249,16 @@ class GenerationService {
       final startTimeOnDay = day.add(
         Duration(hours: startHour, minutes: startMinute),
       );
+      // The period window spans B1's bucket start to BN's bucket end, both of
+      // which are set by the edge tolerance.
       final windowStart = startTimeOnDay.subtract(
-        Duration(minutes: toleranceMinutes),
+        const Duration(minutes: _detectionEdgeTolerance),
       );
       final windowEnd = startTimeOnDay.add(
-        Duration(hours: shiftDurationHours, minutes: toleranceMinutes),
+        Duration(
+          hours: shiftDurationHours,
+          minutes: _detectionEdgeTolerance,
+        ),
       );
 
       final windowTimestamps = timestamps
@@ -258,17 +266,19 @@ class GenerationService {
           .toList();
 
       if (windowTimestamps.isNotEmpty) {
-        final zoneResults = _buildZoneResults(
+        final (zoneResults, wideSatisfied) = _buildZoneResults(
           windowTimestamps,
           windowStart,
           windowEnd,
           startTimeOnDay,
           zoneCount,
           zoneIntervalHours,
-          toleranceMinutes,
+          shiftDurationHours,
+          edgeTolerance,
+          innerTolerance,
         );
 
-        final satisfiedCount = zoneResults.where((z) => z.isSatisfied).length;
+        final satisfiedCount = wideSatisfied;
         if (satisfiedCount >= minZones) {
           periods.add(
             ShiftPeriod(
@@ -287,7 +297,7 @@ class GenerationService {
             startTimeOnDay,
             zoneResults,
             periodIndex,
-            toleranceMinutes,
+            _detectionEdgeTolerance,
           );
           if (anchor != null) {
             periods.add(anchor);
@@ -313,13 +323,14 @@ class GenerationService {
     DateTime startTimeOnDay,
     List<ZoneResult> zoneResults,
     int periodIndex,
-    int toleranceMinutes,
+    int edgeTolerance,
   ) {
-    // hasOpening: stamp within shift start window on D
+    // hasOpening: stamp within shift start window on D. Uses the edge
+    // tolerance — this is the same question B1 asks elsewhere.
     final openingLow = startTimeOnDay.subtract(
-      Duration(minutes: toleranceMinutes),
+      Duration(minutes: edgeTolerance),
     );
-    final openingHigh = startTimeOnDay.add(Duration(minutes: toleranceMinutes));
+    final openingHigh = startTimeOnDay.add(Duration(minutes: edgeTolerance));
     final dStamps = dayMap[_dayKey(day)] ?? [];
     final hasOpening = dStamps.any(
       (ts) => !ts.isBefore(openingLow) && !ts.isAfter(openingHigh),
@@ -469,6 +480,16 @@ class GenerationService {
     required AppSettings settings,
     required List<ColumnHeader> headers,
   }) {
+    // Defence in depth: the settings screen blocks this, but settings could
+    // have been altered outside that flow. Checked on the main isolate so the
+    // failure surfaces through the normal generation error path.
+    if (!settings.hasValidTolerances) {
+      throw GenerationException(
+        'إعدادات المناوبة غير صالحة: يجب ألا تتجاوز سماحية البصمة '
+        '${settings.maxToleranceMinutes} دقيقة مع ساعات البصمة الحالية',
+      );
+    }
+
     return Isolate.run(() async {
       final svc = GenerationService();
       final dictionary = await svc.buildDictionary(
@@ -499,7 +520,7 @@ class GenerationService {
       var totalHoursCounted = 0;
 
       for (final period in entry.periods) {
-        _enrichShiftPeriod(period);
+        _enrichShiftPeriod(period, settings);
         totalHoursCounted += period.hoursCounted!;
       }
 
@@ -583,18 +604,26 @@ class GenerationService {
   ) {
     final timestamps = period.allTimestamps;
 
+    // Both checks always run — neither short-circuits the other, so a single
+    // late stamp reports both reasons.
+    final reasons = <String>{};
+
     if (timestamps.length < 2) {
-      period.isValid = false;
-      period.overtimeMinutes = 0;
-      period.notes = 'بصمة واحدة فقط';
-      return;
+      reasons.add('بصمة واحدة فقط');
     }
 
-    final firstMinutes = timestamps.first.hour * 60 + timestamps.first.minute;
-    if (firstMinutes > deadlineMinutes) {
+    if (timestamps.isNotEmpty) {
+      final firstMinutes = timestamps.first.hour * 60 + timestamps.first.minute;
+      if (firstMinutes > deadlineMinutes) {
+        reasons.add('البصمة الأولى تتجاوز وقت البداية مع وقت السماح');
+      }
+    }
+
+    period.notes = reasons;
+
+    if (reasons.isNotEmpty) {
       period.isValid = false;
       period.overtimeMinutes = 0;
-      period.notes = 'البصمة الأولى تتجاوز وقت البداية مع وقت السماح';
       return;
     }
 
@@ -604,87 +633,164 @@ class GenerationService {
       0,
       maxOvertimeMinutes,
     );
-    period.notes = null;
   }
 
   void _enrichOffDay(DailyPeriod period, int maxOvertimeMinutes) {
     final timestamps = period.allTimestamps;
 
+    // The entry-time check does not apply to off days, so this is the only
+    // reason an off day can carry.
     if (timestamps.length < 2) {
       period.isValid = false;
       period.overtimeMinutes = 0;
-      period.notes = 'بصمة واحدة فقط';
+      period.notes = {'بصمة واحدة فقط'};
       return;
     }
 
     final raw = timestamps.last.difference(timestamps.first).inMinutes;
     period.isValid = true;
     period.overtimeMinutes = raw.clamp(0, maxOvertimeMinutes);
-    period.notes = null;
+    period.notes = {};
   }
 
-  void _enrichShiftPeriod(ShiftPeriod period) {
-    final isValid = period.zoneResults.every((z) => z.isSatisfied);
+  // Every check runs on every period — none short-circuits another, so the
+  // order below does not affect the outcome. A period is valid only when no
+  // check contributed a reason.
+  void _enrichShiftPeriod(ShiftPeriod period, AppSettings settings) {
+    final zones = period.zoneResults;
     final first = period.allTimestamps.first;
     final last = period.allTimestamps.last;
+    final duration = last.difference(first).inMinutes;
+
+    final reasons = <String>{};
+
+    if (zones.isNotEmpty && !zones.first.isSatisfied) {
+      reasons.add('بصمة الدخول خارج الوقت المسموح به');
+    }
+
+    final innerCount = zones.length - 2;
+    if (innerCount > 0) {
+      final innerZones = zones.sublist(1, zones.length - 1);
+      if (innerZones.any((z) => !z.isSatisfied)) {
+        reasons.add(
+          'لم يتم استيفاء العدد المطلوب من نقاط التحقق الداخلية '
+          '(المطلوب: $innerCount نقطة)',
+        );
+      }
+    }
+
+    if (zones.length > 1 && !zones.last.isSatisfied) {
+      reasons.add('بصمة الخروج خارج الوقت المسموح به');
+    }
+
+    final minimumDuration =
+        settings.shiftDuration * 60 - settings.shiftDurationTolerance;
+    if (duration < minimumDuration) {
+      reasons.add('مدة الحضور الفعلية أقل من الحد الأدنى المطلوب');
+    }
+
+    final isValid = reasons.isEmpty;
 
     period.endDate =
         '${last.year}-${last.month.toString().padLeft(2, '0')}-${last.day.toString().padLeft(2, '0')}';
-    period.totalAttendanceDuration = last.difference(first).inMinutes;
+    period.totalAttendanceDuration = duration;
     period.isValid = isValid;
     period.hoursCounted = isValid ? 24 : 0;
-    period.notes = isValid ? null : 'يوجد فترة زمنية بدون بصمة تحقق';
+    period.notes = reasons;
   }
 
-  List<ZoneResult> _buildZoneResults(
+  // Zone layout, built in three ordered steps.
+  //
+  // 1. Centers — B1 at the start time, inner zones every zone_interval, BN at
+  //    start + shift_duration.
+  // 2. Buckets — boundaries sit at the midpoint between neighbouring centers.
+  //    The two outer edges have no neighbour, so the edge tolerance is used
+  //    there instead. Buckets are contiguous and non-overlapping, so every
+  //    timestamp in the period window falls into exactly one bucket.
+  // 3. Validity windows — center +/- its own tolerance. Centered inside the
+  //    bucket for inner zones; for B1 and BN the window sits at the outer end
+  //    of the bucket, not its middle. That asymmetry is intended.
+  //
+  // Boundaries belong to the zone that opens there (exclusive on the end they
+  // close), except the final boundary of the period, which is inclusive so the
+  // closing timestamp is never dropped.
+  (List<ZoneResult>, int) _buildZoneResults(
     List<DateTime> timestamps,
     DateTime windowStart,
     DateTime windowEnd,
     DateTime startTimeOnDay,
     int zoneCount,
     int zoneIntervalHours,
-    int toleranceMinutes,
+    int shiftDurationHours,
+    int edgeTolerance,
+    int innerTolerance,
   ) {
+    final lastIndex = zoneCount - 1;
+
+    // Step 1 — centers.
+    final centers = <DateTime>[
+      for (var i = 0; i < lastIndex; i++)
+        startTimeOnDay.add(Duration(hours: i * zoneIntervalHours)),
+      startTimeOnDay.add(Duration(hours: shiftDurationHours)),
+    ];
+
+    // Step 2 — bucket boundaries from the midpoints between centers.
+    final bounds = <DateTime>[windowStart];
+    for (var i = 0; i < lastIndex; i++) {
+      final gap = centers[i + 1].difference(centers[i]);
+      bounds.add(centers[i].add(gap ~/ 2));
+    }
+    bounds.add(windowEnd);
+
     final zones = <ZoneResult>[];
+    var wideSatisfied = 0;
 
     for (var i = 0; i < zoneCount; i++) {
-      final zoneStart = windowStart.add(Duration(hours: i * zoneIntervalHours));
-      final zoneEnd = (i < zoneCount - 1)
-          ? windowStart.add(Duration(hours: (i + 1) * zoneIntervalHours))
-          : windowEnd;
+      final isLast = i == lastIndex;
+      final zoneStart = bounds[i];
+      final zoneEnd = bounds[i + 1];
 
-      final zoneCenter = startTimeOnDay.add(
-        Duration(hours: i * zoneIntervalHours),
-      );
-      final centerLow = zoneCenter.subtract(
-        Duration(minutes: toleranceMinutes),
-      );
-      final centerHigh = zoneCenter.add(Duration(minutes: toleranceMinutes));
+      // Step 3 — validity window.
+      final tolerance = (i == 0 || isLast) ? edgeTolerance : innerTolerance;
+      final centerLow = centers[i].subtract(Duration(minutes: tolerance));
+      final centerHigh = centers[i].add(Duration(minutes: tolerance));
 
       final zoneTimestamps = timestamps.where((ts) {
-        if (i < zoneCount - 1) {
+        if (!isLast) {
           return !ts.isBefore(zoneStart) && ts.isBefore(zoneEnd);
-        } else {
-          return !ts.isBefore(zoneStart) && !ts.isAfter(zoneEnd);
         }
+        return !ts.isBefore(zoneStart) && !ts.isAfter(zoneEnd);
       }).toList();
 
-      final isSatisfied = zoneTimestamps.any(
-        (ts) => !ts.isBefore(centerLow) && !ts.isAfter(centerHigh),
-      );
+      final isSatisfied = zoneTimestamps.any((ts) {
+        if (ts.isBefore(centerLow)) return false;
+        return isLast ? !ts.isAfter(centerHigh) : ts.isBefore(centerHigh);
+      });
+
+      // Detection uses a wider edge window than overtime validity does.
+      final wideTol = (i == 0 || isLast) ? _detectionEdgeTolerance : tolerance;
+      final wideLow = centers[i].subtract(Duration(minutes: wideTol));
+      final wideHigh = centers[i].add(Duration(minutes: wideTol));
+      if (zoneTimestamps.any(
+        (ts) => !ts.isBefore(wideLow) && !ts.isAfter(wideHigh),
+      )) {
+        wideSatisfied++;
+      }
 
       zones.add(
         ZoneResult(
           zoneIndex: i,
           startTime: zoneStart,
           endTime: zoneEnd,
+          windowStart: centerLow,
+          windowEnd: centerHigh,
           timestamps: zoneTimestamps,
           isSatisfied: isSatisfied,
         ),
       );
     }
 
-    return zones;
+    return (zones, wideSatisfied);
   }
 
   Map<String, List<DateTime>> _groupByDay(List<DateTime> timestamps) {

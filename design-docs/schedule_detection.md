@@ -16,7 +16,8 @@ Detection and shift period extraction are combined in a single pass — valid sh
 
 - Working dictionary: `employeeName → { name, department, [timestamps] }` — timestamps sorted ascending, filtered to report date range
 - Report period duration — total calendar days between report start and end date (inclusive)
-- Config: `shift_start_times`, `shift_duration`, `shift_zone_interval`, `shift_tolerance`
+- Config: `shift_start_times`, `shift_duration`, `shift_zone_interval`, `shift_inner_tolerance`
+- Constant: `detection_edge_tolerance` (see `config.md`) — used for the period window, the zone-satisfied count, and the anchor pair opening window. `shift_edge_tolerance` is **not** used by detection.
 - Config: `daily_start_time`, `daily_delay_allowance`
 
 ---
@@ -50,17 +51,49 @@ Every employee is assigned exactly one of three types as the output of this stag
 
 Zone count = `(shift_duration / shift_zone_interval) + 1` Default: `(24 / 6) + 1 = 5 zones` (B1 through B5).
 
-For a window starting at `windowStart = D @ S − shift_tolerance`:
+Computed in three ordered steps. Detection and the overtime calculator share this layout — the same zones serve classification and validity.
+
+**Step 1 — centers.**
+
+|Zone|Center|
+|---|---|
+|B1|`D @ S`|
+|Inner zone i|`D @ S + i × shift_zone_interval`|
+|BN|`D @ S + shift_duration`|
+
+**Step 2 — buckets.** Each boundary sits at the midpoint between neighbouring centers. The two outer edges have no neighbour, so the edge tolerance is used there instead.
 
 |Field|Formula|
 |---|---|
-|Zone start|`windowStart + i × shift_zone_interval`|
-|Zone end|`windowStart + (i+1) × shift_zone_interval` for inner zones; `windowEnd` for last zone|
-|Zone center|`D @ S + i × shift_zone_interval`|
-|Center window|`[zone_center − shift_tolerance, zone_center + shift_tolerance]`|
-|isSatisfied|at least one timestamp falls within center window|
+|First bucket start|`B1_center − detection_edge_tolerance` (= `windowStart`)|
+|Boundary between zone i and i+1|`center[i] + (center[i+1] − center[i]) / 2`|
+|Last bucket end|`BN_center + detection_edge_tolerance` (= `windowEnd`)|
 
-Last zone end is always inclusive. All other zone ends are exclusive.
+Buckets are contiguous and non-overlapping, so every timestamp in the period window falls into exactly one bucket. Inner bucket width equals `shift_zone_interval` whenever `shift_duration` is a multiple of `shift_zone_interval`; when it is not, the gap before BN is larger, and the midpoint rule above is what governs.
+
+**Step 3 — validity windows.**
+
+Two windows are computed per zone, from the same centers and the same buckets.
+
+|Purpose|Edge zone tolerance|Inner zone tolerance|Used by|
+|---|---|---|---|
+|Classification|`detection_edge_tolerance`|`shift_inner_tolerance`|the `satisfiedZones` count below — never stored|
+|Overtime validity|`shift_edge_tolerance`|`shift_inner_tolerance`|the stored `isSatisfied` flag, read by `overtime_calculation_shift.md`|
+
+|Field|Formula|
+|---|---|
+|Center window|`[zone_center − tolerance, zone_center + tolerance]`|
+|satisfied|at least one timestamp **in this zone's bucket** falls within the relevant center window|
+
+Both windows are evaluated only against timestamps already assigned to that zone's bucket, so a detection window wider than half the zone interval is clipped by the bucket rather than reaching into a neighbour's. The one-timestamp-one-zone model holds regardless of how the two tolerances compare.
+
+Because a fully valid period satisfies every zone under the narrow window, it satisfies every zone under the wide one too — so the wider detection window only ever admits periods the calculator then marks invalid. It changes classification, never the set of valid periods.
+
+For inner zones the window is centered inside the bucket. For B1 and BN it sits at the *outer* end of the bucket, not the middle — B1's window opens exactly where its bucket opens. This asymmetry is intended.
+
+With start 08:00, `shift_zone_interval` 6h, `shift_edge_tolerance` 30, `shift_inner_tolerance` 120 and 5 zones, B1's bucket is 07:30–11:00 while its window is only 07:30–08:30; B2's bucket is 11:00–17:00 with its window centered at 12:00–16:00.
+
+**Boundaries.** Every boundary belongs to the zone that opens there — exclusive on the end it closes, inclusive on the end it opens — except the final boundary of the period window, which is inclusive on both sides so the closing timestamp is never dropped. Validity windows follow the same convention, which is why `config.md` caps each tolerance at half the zone interval: a wider window could be satisfied by a timestamp belonging to a neighbouring bucket.
 
 ---
 
@@ -83,8 +116,8 @@ For each configured start time S in `shift_start_times`, build `validPeriods[S] 
 For each calendar day D in the report range:
 
 ```
-windowStart      = D @ S − shift_tolerance
-windowEnd        = D @ S + shift_duration + shift_tolerance
+windowStart      = D @ S − detection_edge_tolerance
+windowEnd        = D @ S + shift_duration + detection_edge_tolerance
 windowTimestamps = all employee timestamps where windowStart ≤ ts ≤ windowEnd
 ```
 
@@ -92,21 +125,21 @@ If `windowTimestamps` is empty → skip this day, no period created.
 
 Otherwise, compute zone results using the Zone Layout above. Count `satisfiedZones`.
 
-**Zone check:** If `satisfiedZones ≥ min_zones_satisfied (zoneCount − 1)` → append a `ShiftPeriod` to `validPeriods[S]`:
+**Zone check:** Counting satisfied zones with the *classification* windows — if `satisfiedZones ≥ min_zones_satisfied (zoneCount − 1)` → append a `ShiftPeriod` to `validPeriods[S]`:
 
 |Field|Value|
 |---|---|
 |periodIndex|0-based index within validPeriods[S]|
 |periodDate|D (ISO 8601)|
 |allTimestamps|windowTimestamps, sorted ascending|
-|zoneResults|list of `{ zoneIndex, startTime, endTime, timestamps[], isSatisfied }`|
+|zoneResults|list of `{ zoneIndex, startTime, endTime, windowStart, windowEnd, timestamps[], isSatisfied }`|
 
 Calculated fields (`endDate`, `totalAttendanceDuration`, `hoursCounted`, `isValid`, `notes`) are left unset — the calculator fills them in Stage 7.
 
 **Anchor pair check (fallback):** If the zone check failed, run the anchor pair check for this day D and start time S:
 
 ```
-openingWindow = [D @ S − shift_tolerance, D @ S + shift_tolerance]
+openingWindow = [D @ S − detection_edge_tolerance, D @ S + detection_edge_tolerance]
 
 hasOpening  = any timestamp falls within openingWindow
 hasActivity = any timestamp exists on D+1 (any time)

@@ -21,7 +21,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late TextEditingController _dailyDelayAllowanceCtrl;
   late TextEditingController _shiftDurationCtrl;
   late TextEditingController _shiftZoneIntervalCtrl;
-  late TextEditingController _shiftToleranceCtrl;
+  late TextEditingController _shiftEdgeToleranceCtrl;
+  late TextEditingController _shiftInnerToleranceCtrl;
+  late TextEditingController _shiftDurationToleranceCtrl;
   late TextEditingController _shiftBaselineCtrl;
   late TextEditingController _shiftCeilingCtrl;
 
@@ -32,7 +34,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _dailyDelayAllowanceCtrl.dispose();
     _shiftDurationCtrl.dispose();
     _shiftZoneIntervalCtrl.dispose();
-    _shiftToleranceCtrl.dispose();
+    _shiftEdgeToleranceCtrl.dispose();
+    _shiftInnerToleranceCtrl.dispose();
+    _shiftDurationToleranceCtrl.dispose();
     _shiftBaselineCtrl.dispose();
     _shiftCeilingCtrl.dispose();
     super.dispose();
@@ -45,7 +49,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _dailyDelayAllowanceCtrl = TextEditingController(text: '${s.dailyDelayAllowance}');
     _shiftDurationCtrl = TextEditingController(text: '${s.shiftDuration}');
     _shiftZoneIntervalCtrl = TextEditingController(text: '${s.shiftZoneInterval}');
-    _shiftToleranceCtrl = TextEditingController(text: '${s.shiftTolerance}');
+    _shiftEdgeToleranceCtrl = TextEditingController(
+      text: '${s.shiftEdgeTolerance}',
+    );
+    _shiftInnerToleranceCtrl = TextEditingController(
+      text: '${s.shiftInnerTolerance}',
+    );
+    _shiftDurationToleranceCtrl = TextEditingController(
+      text: '${s.shiftDurationTolerance}',
+    );
     _shiftBaselineCtrl = TextEditingController(text: '${s.shiftBaselineHours}');
     _shiftCeilingCtrl = TextEditingController(text: '${s.shiftCeilingHours}');
     _initialized = true;
@@ -249,21 +261,56 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             () => _saveNumber(
               _shiftZoneIntervalCtrl,
               '${s.shiftZoneInterval}',
-              (v) => v > 0 && v <= s.shiftDuration,
+              (v) =>
+                  v > 0 &&
+                  v <= s.shiftDuration &&
+                  v * 30 >= _largestTolerance(s),
               notifier.updateShiftZoneInterval,
+              invalidMessage: _minZoneIntervalMessage(s),
             ),
           ),
         ),
         _settingRow(
-          label: 'سماحية البصمة',
-          hint: 'الهامش الزمني بالدقائق المسموح به للتقديم او التأخير بالبصمة',
+          label: 'سماحية بصمة الدخول والخروج',
+          hint:
+              'الهامش الزمني بالدقائق المسموح به لبصمة بداية المناوبة ونهايتها',
           value: _numberField(
-            _shiftToleranceCtrl,
+            _shiftEdgeToleranceCtrl,
             () => _saveNumber(
-              _shiftToleranceCtrl,
-              '${s.shiftTolerance}',
+              _shiftEdgeToleranceCtrl,
+              '${s.shiftEdgeTolerance}',
+              (v) => v >= 0 && v <= s.maxToleranceMinutes,
+              notifier.updateShiftEdgeTolerance,
+              invalidMessage: _maxToleranceMessage(s),
+            ),
+          ),
+        ),
+        _settingRow(
+          label: 'سماحية البصمات الداخلية',
+          hint:
+              'الهامش الزمني بالدقائق المسموح به لبصمات التحقق خلال المناوبة',
+          value: _numberField(
+            _shiftInnerToleranceCtrl,
+            () => _saveNumber(
+              _shiftInnerToleranceCtrl,
+              '${s.shiftInnerTolerance}',
+              (v) => v >= 0 && v <= s.maxToleranceMinutes,
+              notifier.updateShiftInnerTolerance,
+              invalidMessage: _maxToleranceMessage(s),
+            ),
+          ),
+        ),
+        _settingRow(
+          label: 'سماحية مدة المناوبة',
+          hint:
+              'الهامش الزمني بالدقائق المسموح به للنقص في مدة الحضور الفعلية',
+          value: _numberField(
+            _shiftDurationToleranceCtrl,
+            () => _saveNumber(
+              _shiftDurationToleranceCtrl,
+              '${s.shiftDurationTolerance}',
               (v) => v >= 0,
-              notifier.updateShiftTolerance,
+              notifier.updateShiftDurationTolerance,
             ),
           ),
         ),
@@ -637,16 +684,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   // ─── actions ──────────────────────────────────────────────────────────────
 
+  // Both tolerances must fit inside half a zone interval, or a timestamp could
+  // satisfy one zone's validity window while belonging to a neighbour's
+  // bucket. Changing the interval re-validates both tolerances against it.
+  int _largestTolerance(AppSettings s) =>
+      s.shiftEdgeTolerance > s.shiftInnerTolerance
+      ? s.shiftEdgeTolerance
+      : s.shiftInnerTolerance;
+
+  String _maxToleranceMessage(AppSettings s) =>
+      'الحد الأقصى للسماحية هو ${s.maxToleranceMinutes} دقيقة مع ساعات البصمة الحالية';
+
+  String _minZoneIntervalMessage(AppSettings s) {
+    final minHours = (_largestTolerance(s) + 29) ~/ 30;
+    return 'ساعات البصمة يجب ألا تقل عن $minHours ساعة مع السماحيات الحالية';
+  }
+
   void _saveNumber(
     TextEditingController ctrl,
     String fallback,
     bool Function(int) valid,
-    Future<void> Function(int) save,
-  ) async {
+    Future<void> Function(int) save, {
+    String? invalidMessage,
+  }) async {
     final parsed = int.tryParse(ctrl.text.trim());
     if (parsed == null || !valid(parsed)) {
       ctrl.text = fallback;
-      _snack('قيمة غير صالحة');
+      _snack(invalidMessage ?? 'قيمة غير صالحة');
       return;
     }
     try {

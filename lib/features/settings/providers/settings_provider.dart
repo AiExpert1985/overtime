@@ -39,8 +39,23 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   Future<void> updateShiftZoneInterval(int v) =>
       _save('shift_zone_interval', '$v', (s) => s.copyWith(shiftZoneInterval: v));
 
-  Future<void> updateShiftTolerance(int v) =>
-      _save('shift_tolerance', '$v', (s) => s.copyWith(shiftTolerance: v));
+  Future<void> updateShiftEdgeTolerance(int v) => _save(
+    'shift_edge_tolerance',
+    '$v',
+    (s) => s.copyWith(shiftEdgeTolerance: v),
+  );
+
+  Future<void> updateShiftInnerTolerance(int v) => _save(
+    'shift_inner_tolerance',
+    '$v',
+    (s) => s.copyWith(shiftInnerTolerance: v),
+  );
+
+  Future<void> updateShiftDurationTolerance(int v) => _save(
+    'shift_duration_tolerance',
+    '$v',
+    (s) => s.copyWith(shiftDurationTolerance: v),
+  );
 
   Future<void> updateShiftBaselineHours(int v) =>
       _save('shift_baseline_hours', '$v', (s) => s.copyWith(shiftBaselineHours: v));

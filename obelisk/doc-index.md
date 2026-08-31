@@ -22,7 +22,7 @@ Depends on: architecture_overview.md
 
 ### config.md
 About: All constants and configurable defaults — the single source of truth for setting keys and values.
-Covers: Daily settings (start time, work duration, max overtime, delay allowance), shift settings (start times, duration, zone interval, tolerance, baseline/ceiling hours), display settings (rounding mode, max date range), hardcoded constants (off_day_threshold), default column headers.
+Covers: Daily settings (start time, work duration, max overtime, delay allowance), shift settings (start times, duration, zone interval, edge/inner/duration tolerances and the tolerance ≤ interval/2 constraint, baseline/ceiling hours), display settings (rounding mode, max date range), hardcoded constants (off_day_threshold), default column headers.
 Relevant for: Settings screen, configuration repository, any stage that reads settings.
 Depends on: none
 
@@ -52,7 +52,7 @@ Depends on: config.md, screen_report_generate.md
 
 ### schedule_detection.md
 About: Stage 4 — detects each employee's employment type (shift/daily/undetected) and shift start time.
-Covers: Algorithm 1 (attendance density check, day filtering, zone bucketing, employment type vote), Algorithm 2 (shift start time bucketing and vote), confidence thresholds, failure reasons, output three buckets.
+Covers: Algorithm 1 (attendance density check, day filtering, midpoint zone bucketing, employment type vote), Algorithm 2 (shift start time bucketing and vote), confidence thresholds, edge/inner tolerance split, the detection-only edge tolerance constant, anchor pair fallback, shift period construction, failure reasons, output three buckets.
 Relevant for: Schedule detection function implementation, generation service.
 Depends on: dictionary_build.md, config.md
 
@@ -63,9 +63,9 @@ Relevant for: Off-day detection function, generation service.
 Depends on: schedule_detection.md, config.md
 
 ### period_extractor_shift.md
-About: Stage 6 — extracts ShiftPeriod objects from the shift hash table.
+About: RETIRED — merged into schedule_detection.md (Detection V2). Kept as a record of the original design; do not implement from it.
 Covers: Zone layout formula, period window definition, period separation, zone bucketing, isSatisfied flag, shared timestamp rule, discard weak periods (< 2 zones satisfied).
-Relevant for: Shift period extractor function, generation service.
+Relevant for: Nothing current — read schedule_detection.md instead.
 Depends on: schedule_detection.md, data_shared_models.md, config.md
 
 ### period_extractor_daily.md

@@ -217,7 +217,7 @@ class ReportExportService {
         TextCellValue(zoneSummary),
         TextCellValue(_fmtDuration(p.totalAttendanceDuration)),
         IntCellValue(p.hoursCounted),
-        TextCellValue(p.notes ?? ''),
+        TextCellValue(p.notes.join(' - ')),
       ]);
     }
 
@@ -287,7 +287,7 @@ class ReportExportService {
         TextCellValue(exit),
         TextCellValue(_fmtDuration(p.totalAttendanceDuration)),
         TextCellValue(_fmt(p.overtimeMinutes, roundingMode)),
-        TextCellValue(p.notes ?? ''),
+        TextCellValue(p.notes.join(' - ')),
       ]);
     }
 

@@ -58,7 +58,7 @@ One row per calendar day with at least one timestamp, ordered by date ascending.
 | Exit | الخروج | Time of last timestamp |
 | Working hours | ساعات الحضور | Duration from first to last timestamp. Shown for all days including invalid. |
 | Overtime | الوقت الإضافي | Overtime minutes for this period. 0 if invalid. |
-| Notes | ملاحظات | Arabic invalid reason. Empty if valid. |
+| Notes | ملاحظات | Every applicable Arabic invalid reason, stacked one per line. Empty if valid. |
 
 ### Row Color Coding
 
@@ -70,7 +70,9 @@ One row per calendar day with at least one timestamp, ordered by date ascending.
 | Reason | Arabic |
 |---|---|
 | Fewer than 2 timestamps | بصمة واحدة فقط |
-| First timestamp after start time | البصمة الأولى تتجاوز وقت البداية المحدد |
+| First timestamp after start time + delay allowance | البصمة الأولى تتجاوز وقت البداية مع وقت السماح |
+
+Both reasons can appear together on the same period — a single stamp that is also late reports both.
 
 ---
 
@@ -82,10 +84,10 @@ One row per detected shift period, ordered by period date ascending.
 |---|---|---|
 | Start date | تاريخ البداية | Calendar date this period is anchored to |
 | End date | تاريخ النهاية | Date of last timestamp |
-| Zones | نقاط التحقق | All zones stacked vertically. Each zone shows: label (e.g. نقطة 1: 08:00) and all timestamps within the zone window. Valid zones (at least one timestamp within center ± tolerance) show normally. Invalid zones show red background with ✗ indicator — a zone can have timestamps and still be invalid if none fall within center ± tolerance. |
+| Zones | نقاط التحقق | All zones stacked vertically. Each zone shows its stored validity window and, split into two sub-columns, the timestamps inside that window and those inside the bucket but outside it. Valid zones (at least one timestamp inside the window) show normally. Invalid zones show red background with ✗ indicator — a zone can have timestamps and still be invalid if none fall inside the window. The window is read from the stored zone record, never re-derived from current settings, because bucket boundaries no longer imply it. |
 | Working hours | ساعات الحضور | Duration from first to last timestamp. Shown for all periods. |
 | Hours counted | الساعات المحتسبة | 24 if valid, 0 if invalid |
-| Notes | ملاحظات | Arabic invalid reason. Empty if valid. |
+| Notes | ملاحظات | Every applicable Arabic invalid reason, stacked one per line. Empty if valid. |
 
 Zones column is fixed width — zones stack vertically within the cell.
 
@@ -100,4 +102,11 @@ Zones column is fixed width — zones stack vertically within the cell.
 
 | Reason | Arabic |
 |---|---|
-| Missing timestamp in one or more zones | يوجد فترة زمنية بدون بصمة تحقق |
+| Reason | Arabic |
+|---|---|
+| B1 not satisfied | بصمة الدخول خارج الوقت المسموح به |
+| One or more inner zones not satisfied | لم يتم استيفاء العدد المطلوب من نقاط التحقق الداخلية (المطلوب: X نقطة) |
+| BN not satisfied | بصمة الخروج خارج الوقت المسموح به |
+| Attendance span below the minimum | مدة الحضور الفعلية أقل من الحد الأدنى المطلوب |
+
+X is the number of inner zones, `zoneCount − 2`. The inner reason is added once no matter how many inner zones fail.

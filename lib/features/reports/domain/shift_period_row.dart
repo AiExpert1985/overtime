@@ -1,3 +1,4 @@
+import 'notes_codec.dart';
 import 'zone_row.dart';
 
 class ShiftPeriodRow {
@@ -9,7 +10,7 @@ class ShiftPeriodRow {
     required this.totalAttendanceDuration,
     required this.hoursCounted,
     required this.isValid,
-    this.notes,
+    required this.notes,
   });
 
   final int periodIndex;
@@ -19,7 +20,7 @@ class ShiftPeriodRow {
   final int totalAttendanceDuration;
   final int hoursCounted;
   final bool isValid;
-  final String? notes;
+  final List<String> notes;
 
   factory ShiftPeriodRow.fromMap(Map<String, dynamic> map) => ShiftPeriodRow(
         periodIndex: map['period_index'] as int,
@@ -29,6 +30,6 @@ class ShiftPeriodRow {
         totalAttendanceDuration: map['total_attendance_duration'] as int,
         hoursCounted: map['hours_counted'] as int,
         isValid: (map['is_valid'] as int) == 1,
-        notes: map['notes'] as String?,
+        notes: decodeNotes(map['notes'] as String?),
       );
 }

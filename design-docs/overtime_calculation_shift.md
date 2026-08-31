@@ -7,9 +7,11 @@
 
 ## Purpose
 
-Defines validity rules and overtime calculation for shift employees. Receives the shift hash table enriched with `ShiftPeriod` lists from `period_extractor_shift.md`. Enriches each `ShiftPeriod` in place with calculated fields and returns the updated hash table. Pure function — no database access, no UI dependency.
+Defines validity rules and overtime calculation for shift employees. Receives the shift hash table enriched with `ShiftPeriod` lists built during schedule detection — see `schedule_detection.md`. The separate extraction stage described in `period_extractor_shift.md` was retired when detection began building periods directly. Enriches each `ShiftPeriod` in place with calculated fields and returns the updated hash table. Pure function — no database access, no UI dependency.
 
-Periods with fewer than 2 satisfied zones have already been discarded by the extractor before this calculator receives them. Every period received here has at least 2 zones satisfied.
+Periods below `min_zones_satisfied` (`zoneCount − 1`) have already been discarded during detection, except anchor-pair periods, which bypass the zone check entirely. That discard is a separate, earlier filter — it removes a period outright, while the checks below only mark a surviving period invalid.
+
+A consequence worth knowing: because a zone-based period reaching this calculator has at most one unsatisfied zone, its reason set holds at most one zone reason. The set becomes genuinely multi-valued through the duration check, or on anchor-pair periods.
 
 ---
 
@@ -28,8 +30,8 @@ For each `ShiftPeriod`, the calculator sets:
 - **endDate** — ISO 8601 date of the last timestamp. Derived at calculation time.
 - **totalAttendanceDuration** — minutes from first to last timestamp. Set for all periods including invalid ones. Audit display only.
 - **hoursCounted** — 24 if valid, 0 if invalid.
-- **isValid** — whether all zones are satisfied. Set at calculation time — never changes after.
-- **notes** — Arabic invalid reason. Null if valid.
+- **isValid** — true only when the reason set is empty. Set at calculation time — never changes after.
+- **notes** — set of every applicable Arabic invalid reason. Empty set if valid.
 
 A period spanning 26 actual hours still counts as 24. A period spanning 23 actual hours that meets all zone conditions also counts as 24.
 
@@ -61,13 +63,32 @@ Each zone has a center time used for validity checking:
 
 **Note:** All timestamps within a zone window are collected and stored for display purposes — the user sees every timestamp per zone in the detail screen. However, for overtime calculation, a zone is valid only if at least one timestamp falls within `[zone_center − tolerance, zone_center + tolerance]`. A zone may contain timestamps but still be invalid if none are close enough to the center.
 
-A period is valid only if **all zones** are satisfied by this center-based check.
-
 Zone results carry both the full timestamp list (for display) and the `isSatisfied` flag (for overtime). The calculator reads `isSatisfied` from each zone result directly — it does not recompute zone assignments.
 
-If any zone has `isSatisfied = false` → `isValid = false`, `hoursCounted = 0`, `notes` set to Arabic reason.
+`isSatisfied` is computed with `shift_edge_tolerance`, not the wider `detection_edge_tolerance` that governs classification. A period can therefore be admitted by detection and still fail every check here — that is the intended separation, not a contradiction.
 
-**Invalid reason stored:** يوجد فترة زمنية بدون بصمة تحقق
+### All checks run — no short-circuit
+
+Four independent checks run on every period. None skips another, so evaluation order does not affect the outcome. Each failed check adds its Arabic reason to a **set** — a set, not a list, so multiple failing inner zones collapse to one entry with no manual dedup.
+
+| Reason | Arabic |
+|---|---|
+| B1 not satisfied | بصمة الدخول خارج الوقت المسموح به |
+| One or more inner zones not satisfied | لم يتم استيفاء العدد المطلوب من نقاط التحقق الداخلية (المطلوب: X نقطة) |
+| BN not satisfied | بصمة الخروج خارج الوقت المسموح به |
+| Attendance span below the minimum | مدة الحضور الفعلية أقل من الحد الأدنى المطلوب |
+
+X is the number of inner zones, `zoneCount − 2`. The inner reason is added once no matter how many inner zones fail.
+
+### Duration check
+
+`totalAttendanceDuration ≥ (shift_duration × 60) − shift_duration_tolerance`, in minutes.
+
+`totalAttendanceDuration` is the existing first-to-last timestamp span — no other value is used. This check is independent of the zone checks: a period can fail it while satisfying every zone, and vice versa. With the default `shift_duration_tolerance` of 60 minutes and an edge tolerance of 30, a period whose opening and closing stamps both sit inside their windows always passes, since the narrowest such span is `shift_duration − 2 × shift_edge_tolerance`.
+
+Because the span is measured from the extreme timestamps, it is sensitive to a stray early or late punch. This is accepted deliberately — `totalAttendanceDuration` is the defined input.
+
+`isValid = true` if and only if the reason set is empty. `hoursCounted` stays binary: 24 if valid, 0 if invalid.
 
 Invalid zones are highlighted in the detail screen with a red background and ✗ indicator.
 
@@ -105,7 +126,9 @@ Stored in minutes on the employee result row for consistency with daily employee
 |---|---|
 | Shift duration | 24 hours |
 | Zone interval | 6 hours |
-| Tolerance | 60 minutes |
+| Edge tolerance | 30 minutes |
+| Inner tolerance | 120 minutes |
+| Duration tolerance | 60 minutes |
 | Baseline hours | 154 hours |
 | Ceiling hours | 192 hours |
 

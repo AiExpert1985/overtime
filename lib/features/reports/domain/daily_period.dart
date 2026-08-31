@@ -17,5 +17,7 @@ class DailyPeriod {
   int? totalAttendanceDuration;
   int? overtimeMinutes;
   bool? isValid;
-  String? notes;
+
+  // Every reason this period failed. Empty = valid.
+  Set<String> notes = {};
 }

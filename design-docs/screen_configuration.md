@@ -43,12 +43,16 @@ End time shown as read-only derived value: "وقت النهاية: HH:MM" — up
 |---|---|---|
 | بداية المناوبة | [08:00] | List — multiple values allowed. Add button adds a new time entry. Each entry has a delete icon. At least one value must remain. Used by schedule detection only — not applied directly during report generation. |
 | مدة المناوبة | 24 hours | Number input (hours) |
-| عدد ساعات كل بصمة | 6 hours | Number input (hours) |
-| دقائق السماح للبصمة | 60 minutes | Number input (minutes) |
+| عدد ساعات كل بصمة | 6 hours | Number input (hours). Rejected if it would leave either tolerance above half the interval. |
+| سماحية بصمة الدخول والخروج | 30 minutes | Number input (minutes). Must be ≤ `shift_zone_interval / 2`. |
+| سماحية البصمات الداخلية | 120 minutes | Number input (minutes). Must be ≤ `shift_zone_interval / 2`. |
+| سماحية مدة المناوبة | 60 minutes | Number input (minutes) |
 | ساعات العمل الأساسية | 154 hours | Number input (hours) |
 | الحد الأقصى للساعات الشهرية | 192 hours | Number input (hours) |
 
 Zone count shown as read-only derived value: "عدد نقاط التحقق: N" — derived from `(shift_duration / zone_interval) + 1`.
+
+**Tolerance guard.** Editing `shift_zone_interval`, `shift_edge_tolerance`, or `shift_inner_tolerance` re-validates the constraint in `config.md` for *both* tolerances. A violating edit is rejected and reverted, with an Arabic message naming the allowed maximum — the same revert-and-notify pattern used by every other numeric setting on this screen. Lowering the zone interval below what the current tolerances allow is blocked, so tolerances must be lowered first.
 
 ---
 

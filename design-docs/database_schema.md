@@ -73,7 +73,7 @@ One row per detected shift period per employee. Cascade deleted with parent empl
 | zone_data | text | JSON array of zone results: [{ zoneIndex, startTime, endTime, timestamps[], isSatisfied }] |
 | hours_counted | integer | 24 if valid, 0 if invalid |
 | is_valid | integer | 1 if period satisfied all zone rules, 0 if not. Set at generation time — never changes. |
-| notes | text, nullable | Arabic invalid reason. Null if valid. |
+| notes | text | JSON array of Arabic invalid reasons. Empty array if valid. |
 
 ---
 
@@ -110,7 +110,7 @@ One row per detected daily period per employee. Cascade deleted with parent empl
 | total_attendance_duration | integer | Duration from first to last timestamp in minutes. Audit display only. |
 | overtime_minutes | integer | Overtime for this period in minutes. 0 if invalid. |
 | is_valid | integer | 1 if period satisfied validation rules, 0 if not. Set at generation time — never changes. |
-| notes | text, nullable | Arabic invalid reason. Null if valid. |
+| notes | text | JSON array of Arabic invalid reasons. Empty array if valid. |
 
 ---
 
@@ -154,7 +154,7 @@ One row per setting key. Seeded with defaults on first launch. Never overwrites 
 | key | text, unique | Setting identifier — matches keys in `config.md` |
 | value | text | Current value |
 
-Predefined keys: `daily_start_time`, `daily_work_duration`, `daily_max_overtime`, `daily_delay_allowance`, `shift_start_times`, `shift_duration`, `shift_zone_interval`, `shift_tolerance`, `shift_baseline_hours`, `shift_ceiling_hours`, `rounding_mode`, `max_report_date_range`.
+Predefined keys: `daily_start_time`, `daily_work_duration`, `daily_max_overtime`, `daily_delay_allowance`, `shift_start_times`, `shift_duration`, `shift_zone_interval`, `shift_edge_tolerance`, `shift_inner_tolerance`, `shift_duration_tolerance`, `shift_baseline_hours`, `shift_ceiling_hours`, `rounding_mode`, `max_report_date_range`.
 
 ---
 

@@ -5,6 +5,8 @@ class ZoneRow {
     required this.zoneIndex,
     required this.startTime,
     required this.endTime,
+    required this.windowStart,
+    required this.windowEnd,
     required this.timestamps,
     required this.isSatisfied,
   });
@@ -12,6 +14,8 @@ class ZoneRow {
   final int zoneIndex;
   final DateTime startTime;
   final DateTime endTime;
+  final DateTime windowStart;
+  final DateTime windowEnd;
   final List<DateTime> timestamps;
   final bool isSatisfied;
 
@@ -23,6 +27,8 @@ class ZoneRow {
         zoneIndex: map['zoneIndex'] as int,
         startTime: DateTime.parse(map['startTime'] as String),
         endTime: DateTime.parse(map['endTime'] as String),
+        windowStart: DateTime.parse(map['windowStart'] as String),
+        windowEnd: DateTime.parse(map['windowEnd'] as String),
         timestamps: (map['timestamps'] as List<dynamic>)
             .map((ts) => DateTime.parse(ts as String))
             .toList(),

@@ -5,6 +5,14 @@
 
 ---
 
+> **RETIRED — do not implement from this document.**
+>
+> Shift period extraction was merged into schedule detection when detection began building periods directly (Detection V2). There is no separate extraction stage. The live specification for zone layout, bucketing, validity windows and period admission is `schedule_detection.md`; validity and overtime rules are in `overtime_calculation_shift.md`.
+>
+> Two details here are specifically out of date and must not be used: the sequential-offset zone layout (replaced by midpoint bucketing) and the "discard periods with fewer than 2 satisfied zones" filter (the real threshold is `min_zones_satisfied` = `zoneCount − 1`). The document is kept only as a record of the original design.
+
+---
+
 ## Purpose
 
 Defines the period extraction algorithm for shift employees. Receives the shift hash table, enriches each employee entry with their period and zone results, and returns the updated hash table. Pure function — no database access, no overtime rules, no side effects.

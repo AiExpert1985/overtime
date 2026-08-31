@@ -79,7 +79,7 @@ Single object per period type. Created by the extractor with base fields, enrich
 | totalAttendanceDuration | calculator | integer | Minutes from first to last timestamp. Audit only. |
 | hoursCounted | calculator | integer | 24 if valid, 0 if invalid |
 | isValid | calculator | boolean | Set at calculation time — never changes after |
-| notes | calculator | string? | Arabic invalid reason. Null if valid. |
+| notes | calculator | Set&lt;string&gt; | Every applicable Arabic invalid reason. Empty set if valid. |
 
 ---
 
@@ -95,7 +95,7 @@ Single object per period type. Created by the extractor with base fields, enrich
 | totalAttendanceDuration | calculator | integer | Minutes from first to last timestamp. Audit only. |
 | overtimeMinutes | calculator | integer | Overtime for this period. 0 if invalid. |
 | isValid | calculator | boolean | Set at calculation time — never changes after |
-| notes | calculator | string? | Arabic invalid reason. Null if valid. |
+| notes | calculator | Set&lt;string&gt; | Every applicable Arabic invalid reason. Empty set if valid. |
 
 ---
 

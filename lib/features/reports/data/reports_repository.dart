@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../domain/daily_employee_entry.dart';
 import '../domain/daily_employee_row.dart';
+import '../domain/notes_codec.dart';
 import '../domain/report.dart';
 import '../domain/shift_employee_entry.dart';
 import '../domain/shift_employee_row.dart';
@@ -67,6 +68,8 @@ class ReportsRepository {
                         'zoneIndex': z.zoneIndex,
                         'startTime': z.startTime.toIso8601String(),
                         'endTime': z.endTime.toIso8601String(),
+                        'windowStart': z.windowStart.toIso8601String(),
+                        'windowEnd': z.windowEnd.toIso8601String(),
                         'timestamps': z.timestamps
                             .map((ts) => ts.toIso8601String())
                             .toList(),
@@ -76,7 +79,7 @@ class ReportsRepository {
             ),
             'hours_counted': period.hoursCounted!,
             'is_valid': period.isValid! ? 1 : 0,
-            'notes': period.notes,
+            'notes': encodeNotes(period.notes),
           });
         }
       }
@@ -105,7 +108,7 @@ class ReportsRepository {
             'total_attendance_duration': period.totalAttendanceDuration!,
             'overtime_minutes': period.overtimeMinutes!,
             'is_valid': period.isValid! ? 1 : 0,
-            'notes': period.notes,
+            'notes': encodeNotes(period.notes),
           });
         }
       }

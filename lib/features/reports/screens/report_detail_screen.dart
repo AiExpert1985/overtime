@@ -702,9 +702,6 @@ class _ShiftPeriodRowWidget extends StatelessWidget {
     final bg = period.isValid ? null : Colors.red.shade50;
 
     final zones = period.zoneResults;
-    final toleranceMinutes = zones.isNotEmpty
-        ? zones.last.endTime.difference(zones.last.startTime).inMinutes ~/ 2
-        : 0;
 
     return Container(
       decoration: BoxDecoration(
@@ -743,10 +740,7 @@ class _ShiftPeriodRowWidget extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const _ZoneSubHeader(),
-                ...zones.map(
-                  (z) =>
-                      _ZoneWidget(zone: z, toleranceMinutes: toleranceMinutes),
-                ),
+                ...zones.map((z) => _ZoneWidget(zone: z)),
               ],
             ),
           ),
@@ -766,7 +760,7 @@ class _ShiftPeriodRowWidget extends StatelessWidget {
           ),
           _Cell(
             flex: flexes[5],
-            child: Text(period.notes ?? '', textAlign: TextAlign.center),
+            child: _NotesCell(notes: period.notes),
           ),
         ],
       ),
@@ -851,7 +845,7 @@ class _DailyPeriodRowWidget extends StatelessWidget {
           ),
           _Cell(
             flex: flexes[8],
-            child: Text(period.notes ?? '', textAlign: TextAlign.center),
+            child: _NotesCell(notes: period.notes),
           ),
         ],
       ),
@@ -933,24 +927,28 @@ class _ZoneSubHeader extends StatelessWidget {
 }
 
 class _ZoneWidget extends StatelessWidget {
-  const _ZoneWidget({required this.zone, required this.toleranceMinutes});
+  const _ZoneWidget({required this.zone});
 
   final ZoneRow zone;
-  final int toleranceMinutes;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final windowEnd = zone.startTime.add(
-      Duration(minutes: 2 * toleranceMinutes),
-    );
-    final window = '${_fmtTime(zone.startTime)} - ${_fmtTime(windowEnd)}';
+    // The validity window is stored with the zone — under midpoint bucketing
+    // it can no longer be derived from the bucket boundaries.
+    final window =
+        '${_fmtTime(zone.windowStart)} - ${_fmtTime(zone.windowEnd)}';
 
     final inWindow = zone.timestamps
-        .where((ts) => !ts.isBefore(zone.startTime) && !ts.isAfter(windowEnd))
+        .where(
+          (ts) =>
+              !ts.isBefore(zone.windowStart) && !ts.isAfter(zone.windowEnd),
+        )
         .toList();
     final outOfWindow = zone.timestamps
-        .where((ts) => ts.isBefore(zone.startTime) || ts.isAfter(windowEnd))
+        .where(
+          (ts) => ts.isBefore(zone.windowStart) || ts.isAfter(zone.windowEnd),
+        )
         .toList();
 
     return Container(
@@ -1299,6 +1297,23 @@ class _EmptyState extends StatelessWidget {
           ),
         ],
       ).animate().fade().scale(begin: const Offset(0.9, 0.9)),
+    );
+  }
+}
+
+class _NotesCell extends StatelessWidget {
+  const _NotesCell({required this.notes});
+
+  final List<String> notes;
+
+  @override
+  Widget build(BuildContext context) {
+    if (notes.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        for (final note in notes) Text(note, textAlign: TextAlign.center),
+      ],
     );
   }
 }

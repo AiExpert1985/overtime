@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'notes_codec.dart';
+
 class DailyPeriodRow {
   const DailyPeriodRow({
     required this.periodIndex,
@@ -10,7 +12,7 @@ class DailyPeriodRow {
     required this.totalAttendanceDuration,
     required this.overtimeMinutes,
     required this.isValid,
-    this.notes,
+    required this.notes,
   });
 
   final int periodIndex;
@@ -21,7 +23,7 @@ class DailyPeriodRow {
   final int totalAttendanceDuration;
   final int overtimeMinutes;
   final bool isValid;
-  final String? notes;
+  final List<String> notes;
 
   factory DailyPeriodRow.fromMap(Map<String, dynamic> map) {
     final tsJson =
@@ -36,7 +38,7 @@ class DailyPeriodRow {
       totalAttendanceDuration: map['total_attendance_duration'] as int,
       overtimeMinutes: map['overtime_minutes'] as int,
       isValid: (map['is_valid'] as int) == 1,
-      notes: map['notes'] as String?,
+      notes: decodeNotes(map['notes'] as String?),
     );
   }
 }
