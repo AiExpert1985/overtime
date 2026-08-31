@@ -72,6 +72,7 @@ These values are fixed in code and not user-configurable.
 | off_day_threshold | 25% | `off_day_detection.md` — minimum attendance rate below which a day is classified as off |
 | detection_edge_tolerance | 120 minutes | `schedule_detection.md` — edge tolerance used by classification only, never by overtime validity |
 | morning_arrival_lead | 120 minutes | `schedule_detection.md` — how far before `daily_start_time` an arrival still counts as a morning arrival in the daily validation gate |
+| max_look_ahead_days | 2 days | `period_extractor_daily.md` — longest spill into the next month treated as shift look-ahead rather than a genuine two-month report |
 | min_morning_days | 5 | `schedule_detection.md` — floor for the daily validation gate threshold |
 
 `detection_edge_tolerance` is deliberately wider than `shift_edge_tolerance` and deliberately not user-configurable. Classification asks "does this person work shifts?", which a punch 90 minutes off the mark still answers yes to; overtime validity asks "did this period meet the rules?", which it does not. Keeping them separate means editing `shift_edge_tolerance` changes who earns overtime without changing who is classified as a shift worker.

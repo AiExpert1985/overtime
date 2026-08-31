@@ -56,6 +56,8 @@ See `off_day_detection.md`.
 
 periods are extracted using calendar day grouping and the off-days hash set.
 
+Days beyond the report's own month are dropped here. The range carries a trailing day or two so shift periods anchored on the last of the month can close; those days belong to the next report, and a daily employee must not be paid for them twice.
+
 See `period_extractor_daily.md`
 
 ### Stage 7 — Shift Employees Overtime Calculation

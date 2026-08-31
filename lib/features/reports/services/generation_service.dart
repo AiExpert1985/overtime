@@ -28,6 +28,9 @@ class GenerationService {
   // share of the total, this does not change as more start times are added.
   static const _startTimeWinMargin = 1.5;
   static const _restGapDays = 2;
+  // Longest trailing spill into the next month that is treated as look-ahead
+  // rather than as a report that genuinely spans two months.
+  static const _maxLookAheadDays = 2;
   // Floor for the daily gate, so a very short report cannot be satisfied by a
   // couple of stray morning stamps.
   static const _minMorningDays = 5.0;
@@ -469,12 +472,31 @@ class GenerationService {
     return offDays;
   }
 
+  // The report range is a calendar month plus a trailing day or two, so a shift
+  // period anchored on the last of the month can read its closing stamps. Those
+  // trailing days belong to the NEXT month's report — a daily employee must not
+  // accrue overtime on them here and again there.
+  //
+  // Returns the first day to exclude, or null when there is nothing to trim.
+  // A range that genuinely spans months (not a short spill) is left alone, so a
+  // non-month report never silently loses its later weeks.
+  DateTime? _dailyCutoff(DateTime startDate, DateTime endDate) {
+    final sameMonth =
+        endDate.year == startDate.year && endDate.month == startDate.month;
+    if (sameMonth) return null;
+    if (endDate.day > _maxLookAheadDays) return null;
+    return DateTime(startDate.year, startDate.month + 1, 1);
+  }
+
   // Stage 6 — Daily Period Extractor
   Map<String, DailyEmployeeEntry> extractDailyPeriods(
     Map<String, EmployeeEntry> dailyTable,
     Set<DateTime> offDays,
+    DateTime startDate,
+    DateTime endDate,
   ) {
     final result = <String, DailyEmployeeEntry>{};
+    final cutoff = _dailyCutoff(startDate, endDate);
 
     for (final entry in dailyTable.values) {
       final dayMap = _groupByDay(entry.timestamps);
@@ -485,6 +507,7 @@ class GenerationService {
       for (final dateStr in sortedKeys) {
         final timestamps = dayMap[dateStr]!;
         final date = DateTime.parse(dateStr);
+        if (cutoff != null && !date.isBefore(cutoff)) continue;
         final dayType = offDays.contains(date) ? 'off' : 'regular';
         periods.add(
           DailyPeriod(
@@ -558,7 +581,12 @@ class GenerationService {
       );
       final schedules = svc.detectSchedules(dictionary, startDate, endDate, settings);
       final offDays = svc.detectOffDays(schedules.dailyTable, startDate, endDate);
-      final dailyEntries = svc.extractDailyPeriods(schedules.dailyTable, offDays);
+      final dailyEntries = svc.extractDailyPeriods(
+        schedules.dailyTable,
+        offDays,
+        startDate,
+        endDate,
+      );
       svc.calculateShiftOvertime(schedules.shiftTable, settings);
       svc.calculateDailyOvertime(dailyEntries, settings);
       return (

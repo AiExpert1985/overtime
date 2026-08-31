@@ -44,6 +44,18 @@ Calculated fields (`totalAttendanceDuration`, `overtimeMinutes`, `isValid`, `not
 
 ---
 
+## Report Month Trim
+
+A report range is a calendar month plus a trailing day or two, so that a shift period anchored on the last of the month can read its closing stamps. Those trailing days belong to the **next** month's report.
+
+Daily employees must not accrue overtime on them — a day counted here would be counted again in the next report. Days on or after the first of the month following `startDate` are therefore dropped entirely: no `DailyPeriod` is created, so the day contributes nothing to the employee's total, the detail screen, or the export.
+
+The trim applies only when `endDate` falls in a different calendar month from `startDate` **and** spills no more than `max_look_ahead_days` into it. A range that genuinely spans two months is left untouched, so a non-month report never silently loses its later weeks.
+
+Shift employees are unaffected — their periods are anchored by `schedule_detection.md` within `startDate..endDate` and need the trailing days to close.
+
+---
+
 ## Algorithm
 
 Runs for each employee in the daily hash table independently.
