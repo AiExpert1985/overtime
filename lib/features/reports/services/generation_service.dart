@@ -28,6 +28,7 @@ class GenerationService {
   // share of the total, this does not change as more start times are added.
   static const _startTimeWinMargin = 1.5;
   static const _restGapDays = 2;
+  static int expInnerAllowance = 0; // EXPERIMENT: inner zones allowed to miss
   // Floor for the daily gate, so a very short report cannot be satisfied by a
   // couple of stray morning stamps.
   static const _minMorningDays = 5.0;
@@ -729,10 +730,12 @@ class GenerationService {
     final innerCount = zones.length - 2;
     if (innerCount > 0) {
       final innerZones = zones.sublist(1, zones.length - 1);
-      if (innerZones.any((z) => !z.isSatisfied)) {
+      final satisfied = innerZones.where((z) => z.isSatisfied).length;
+      final required = (innerCount - expInnerAllowance).clamp(0, innerCount);
+      if (satisfied < required) {
         reasons.add(
           'لم يتم استيفاء العدد المطلوب من نقاط التحقق الداخلية '
-          '(المطلوب: $innerCount نقطة)',
+          '(المطلوب: $required نقطة)',
         );
       }
     }
