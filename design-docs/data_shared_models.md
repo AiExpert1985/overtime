@@ -75,7 +75,7 @@ Single object per period type. Created by the extractor with base fields, enrich
 | periodDate | extractor | string | ISO 8601 date this period is anchored to |
 | endDate | calculator | string | ISO 8601 date of last timestamp — derived at calculation time |
 | allTimestamps | extractor | List\<DateTime\> | All timestamps within the period, sorted ascending |
-| zoneResults | extractor | List\<ZoneResult\> | One entry per zone: { zoneIndex, startTime, endTime, timestamps, isSatisfied } |
+| zoneResults | detection | List\<ZoneResult\> | One entry per zone: { zoneIndex, startTime, endTime, windowStart, windowEnd, timestamps, isSatisfied }. `startTime`/`endTime` are the zone's bucket boundaries; `windowStart`/`windowEnd` are its validity window, stored so display never re-derives it from settings that may since have changed. `isSatisfied` reflects overtime validity only. |
 | totalAttendanceDuration | calculator | integer | Minutes from first to last timestamp. Audit only. |
 | hoursCounted | calculator | integer | 24 if valid, 0 if invalid |
 | isValid | calculator | boolean | Set at calculation time — never changes after |

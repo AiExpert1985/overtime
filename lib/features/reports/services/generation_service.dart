@@ -24,9 +24,25 @@ class GenerationService {
   static const _offDayThreshold = 0.25;
   static const _minAttendanceDensity = 0.15;
   static const _minValidPeriods = 3;
-  static const _minStartTimeConfidence = 0.60;
+  // The winning start time must beat the runner-up by this factor. Unlike a
+  // share of the total, this does not change as more start times are added.
+  static const _startTimeWinMargin = 1.5;
   static const _restGapDays = 2;
-  // EXPERIMENT: detection-only edge tolerance.
+  // Floor for the daily gate, so a very short report cannot be satisfied by a
+  // couple of stray morning stamps.
+  static const _minMorningDays = 5.0;
+  // How far before daily_start_time an arrival can still count as a morning
+  // arrival. The entry test is otherwise one-sided — arriving early is never a
+  // violation — but without a lower bound a night worker leaving in the small
+  // hours reads as a daily employee arriving very early. Expressed relative to
+  // the configured start time rather than as a fixed hour, so it stays correct
+  // if the daily schedule is ever moved off the morning.
+  static const _morningArrivalLead = 120;
+  // Edge tolerance used by classification only, never by overtime validity.
+  // Deliberately wider than shift_edge_tolerance: deciding whether someone
+  // works shifts is a different question from whether a period met the rules,
+  // and keeping them apart means tuning shift_edge_tolerance changes who earns
+  // overtime without changing who is classified as a shift worker.
   static const _detectionEdgeTolerance = 120;
 
   // Stage 3 — Dictionary Build
@@ -67,6 +83,12 @@ class GenerationService {
     final dailyTable = <String, EmployeeEntry>{};
     final undetectedList = <UndetectedEntry>[];
 
+    final openWorkingDays = _countOpenWorkingDays(
+      dictionary,
+      startDate,
+      endDate,
+    );
+
     for (final entry in dictionary.values) {
       final result = _classifyEmployee(
         entry,
@@ -74,6 +96,7 @@ class GenerationService {
         startDate,
         endDate,
         settings,
+        openWorkingDays,
       );
       switch (result) {
         case _ShiftResult(:final startTime, :final periods):
@@ -104,12 +127,47 @@ class GenerationService {
     );
   }
 
+  // Days the organisation was actually open, measured from attendance rather
+  // than assumed from the calendar. A month containing an extended holiday has
+  // far fewer real working days than non-weekend days, and thresholds built on
+  // the calendar reject an entire workforce when that happens.
+  int _countOpenWorkingDays(
+    Map<String, EmployeeEntry> dictionary,
+    DateTime startDate,
+    DateTime endDate,
+  ) {
+    final headcount = dictionary.length;
+    if (headcount == 0) return 0;
+
+    final presentPerDay = <String, int>{};
+    for (final entry in dictionary.values) {
+      for (final key in _groupByDay(entry.timestamps).keys) {
+        presentPerDay.update(key, (v) => v + 1, ifAbsent: () => 1);
+      }
+    }
+
+    var open = 0;
+    var day = DateTime(startDate.year, startDate.month, startDate.day);
+    final lastDay = DateTime(endDate.year, endDate.month, endDate.day);
+    while (!day.isAfter(lastDay)) {
+      final isWeekend =
+          day.weekday == DateTime.friday || day.weekday == DateTime.saturday;
+      if (!isWeekend) {
+        final present = presentPerDay[_dayKey(day)] ?? 0;
+        if (present / headcount >= _offDayThreshold) open++;
+      }
+      day = day.add(const Duration(days: 1));
+    }
+    return open;
+  }
+
   _DetectResult _classifyEmployee(
     EmployeeEntry entry,
     int reportDays,
     DateTime startDate,
     DateTime endDate,
     AppSettings settings,
+    int openWorkingDays,
   ) {
     // Step 1 — Attendance pre-check
     final attendanceDays = _groupByDay(entry.timestamps).length;
@@ -148,22 +206,27 @@ class GenerationService {
     if (winnerCount < _minValidPeriods) {
       return _runDailyValidationGate(
         entry.timestamps,
-        startDate,
-        endDate,
         settings,
+        openWorkingDays,
       );
     }
 
     // Check 2: start time confidence — only required when multiple start times
-    // are configured. A tie (≤ 50%) always fails the 60% threshold, so ties
-    // are implicitly handled here without a separate branch.
+    // are configured. The winner is compared against the runner-up rather than
+    // against the sum of all candidates. Zones overlap, so one employee scores
+    // under several start times; measuring against the sum meant every extra
+    // configured start time diluted the winner's share, and configuring the
+    // app more thoroughly silently made detection worse. A tie fails, since
+    // the winner cannot then clear the margin.
     if (settings.shiftStartTimes.length > 1) {
-      final totalValid = validPeriodsMap.values.fold(
-        0,
-        (sum, list) => sum + list.length,
-      );
-      if (totalValid == 0 ||
-          winnerCount / totalValid < _minStartTimeConfidence) {
+      var runnerUpCount = 0;
+      for (final st in settings.shiftStartTimes) {
+        if (st == winnerStartTime) continue;
+        final count = validPeriodsMap[st]!.length;
+        if (count > runnerUpCount) runnerUpCount = count;
+      }
+      if (winnerCount == 0 ||
+          winnerCount < runnerUpCount * _startTimeWinMargin) {
         return _UndetectedResult('وقت بداية المناوبة غير واضح');
       }
     }
@@ -171,43 +234,38 @@ class GenerationService {
     return _ShiftResult(winnerStartTime, validPeriodsMap[winnerStartTime]!);
   }
 
+  // Confirms an employee who failed the shift check really does follow the
+  // morning schedule, before accepting them as daily.
+  //
+  // Two properties matter here. The threshold counts days the organisation was
+  // actually open, not calendar weekdays, so a holiday month does not reject
+  // everyone. And the entry test is one-sided: arriving before the start time
+  // is never a violation, matching the rule the daily calculator applies.
   _DetectResult _runDailyValidationGate(
     List<DateTime> timestamps,
-    DateTime startDate,
-    DateTime endDate,
     AppSettings settings,
+    int openWorkingDays,
   ) {
+    if (openWorkingDays == 0) return _DailyResult();
+
     final parts = settings.dailyStartTime.split(':');
-    final startMins = int.parse(parts[0]) * 60 + int.parse(parts[1]);
-    final delay = settings.dailyDelayAllowance;
-    final entryLow = startMins - delay;
-    final entryHigh = startMins + delay;
-
-    var workingDays = 0;
-    var day = DateTime(startDate.year, startDate.month, startDate.day);
-    final lastDay = DateTime(endDate.year, endDate.month, endDate.day);
-    while (!day.isAfter(lastDay)) {
-      if (day.weekday != DateTime.friday && day.weekday != DateTime.saturday) {
-        workingDays++;
-      }
-      day = day.add(const Duration(days: 1));
-    }
-
-    if (workingDays == 0) return _DailyResult();
+    final startMinutes = int.parse(parts[0]) * 60 + int.parse(parts[1]);
+    final earliestEntry = startMinutes - _morningArrivalLead;
+    final latestEntry = startMinutes + settings.dailyDelayAllowance;
 
     final dayMap = _groupByDay(timestamps);
-
     var morningDays = 0;
     for (final stamps in dayMap.values) {
-      final hasEntry = stamps.any((ts) {
-        final tsMin = ts.hour * 60 + ts.minute;
-        return tsMin >= entryLow && tsMin <= entryHigh;
-      });
-      if (hasEntry) morningDays++;
+      // stamps are sorted, so the earliest is the arrival for that day
+      final firstMinutes = stamps.first.hour * 60 + stamps.first.minute;
+      if (firstMinutes >= earliestEntry && firstMinutes <= latestEntry) {
+        morningDays++;
+      }
     }
 
-    final ratioThreshold = workingDays * 0.50;
-    final threshold = ratioThreshold < 10.0 ? 10.0 : ratioThreshold;
+    final ratioThreshold = openWorkingDays * 0.50;
+    final threshold =
+        ratioThreshold < _minMorningDays ? _minMorningDays : ratioThreshold;
     if (morningDays < threshold) {
       return _UndetectedResult(
         'لا يتوافق مع تعليمات المناوبة أو الدوام الصباحي',

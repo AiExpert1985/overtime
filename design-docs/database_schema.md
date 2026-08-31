@@ -70,7 +70,7 @@ One row per detected shift period per employee. Cascade deleted with parent empl
 | end_date | text | ISO 8601 date of last timestamp |
 | all_timestamps | text | JSON array of ISO 8601 datetime strings, sorted ascending |
 | total_attendance_duration | integer | Duration from first to last timestamp in minutes. Audit display only. |
-| zone_data | text | JSON array of zone results: [{ zoneIndex, startTime, endTime, timestamps[], isSatisfied }] |
+| zone_data | text | JSON array of zone results: [{ zoneIndex, startTime, endTime, windowStart, windowEnd, timestamps[], isSatisfied }] |
 | hours_counted | integer | 24 if valid, 0 if invalid |
 | is_valid | integer | 1 if period satisfied all zone rules, 0 if not. Set at generation time — never changes. |
 | notes | text | JSON array of Arabic invalid reasons. Empty array if valid. |
@@ -169,6 +169,10 @@ All inserts for a single generation (report row, all employee result rows, all p
 ## Schema Initialization
 
 Schema created on first launch if tables do not exist. A version number tracks schema changes — migrations applied in sequence on version mismatch. Default values seeded into `column_headers` and `app_settings` on first launch, existence-checked before insert.
+
+`app_settings` is additionally reconciled against the current defaults on upgrade: keys the code no longer defines are dropped, and missing keys are seeded. User-set values for keys that are still valid are left untouched. This exists because a version number alone cannot be trusted — a database carrying the same version number but a different settings vocabulary would otherwise satisfy the version check while lacking keys the app requires, and the failure would surface much later as an unexplained generation error. For the same reason the settings seed also runs on every open, since a missing key with a known default is not worth failing on.
+
+Report data is not migrated across schema changes. Stored periods carry notes and zone data in shapes tied to the code that wrote them, so an upgrade that changes either drops existing reports rather than converting them. This is acceptable only while the app has no production data; once real reports accumulate, a migration path must be reconsidered.
 
 ---
 

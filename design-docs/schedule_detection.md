@@ -40,7 +40,7 @@ Every employee is assigned exactly one of three types as the output of this stag
 |---|---|---|
 |min_attendance_density|0.15|Cheap pre-filter — employee must have appeared on at least 15% of report days|
 |min_valid_periods|3|Winner must have at least 3 valid periods — hard to achieve by luck, absorbs mis-punches|
-|min_start_time_confidence|0.60|Applied only when multiple start times are configured. Winner's valid periods must be ≥ 60% of all valid periods across all start times.|
+|start_time_win_margin|1.5|Applied only when multiple start times are configured. The winner's valid-period count must be at least 1.5× the runner-up's. Independent of how many start times are configured.|
 |min_zones_satisfied|`zoneCount − 1`|Derived from zone count at runtime — not hardcoded. Requires all zones except one to be satisfied, forcing overnight zone presence while tolerating exactly one mis-punch. With default 5 zones: 4. With 4 zones: 3. With 3 zones: 2. Blocks daily employee collision regardless of zone configuration.|
 |min_anchor_pairs|2|Minimum number of valid anchor pairs required when counting periods via the anchor pair fallback. Lower than min_valid_periods because irregular employees have minimal stamps by nature.|
 |rest_gap_days|2|Minimum number of consecutive days with zero timestamps required after a shift period to confirm a rest gap in the anchor pair check.|
@@ -89,9 +89,19 @@ Both windows are evaluated only against timestamps already assigned to that zone
 
 Because a fully valid period satisfies every zone under the narrow window, it satisfies every zone under the wide one too — so the wider detection window only ever admits periods the calculator then marks invalid. It changes classification, never the set of valid periods.
 
-For inner zones the window is centered inside the bucket. For B1 and BN it sits at the *outer* end of the bucket, not the middle — B1's window opens exactly where its bucket opens. This asymmetry is intended.
+For inner zones both windows are centered inside the bucket, since bucket and window share a center. For B1 and BN they are not centered — the bucket extends `detection_edge_tolerance` past the center on the outer side but only half a zone interval on the inner side, so the windows sit toward the outer end. This asymmetry is intended and must not be "corrected" to a centered window.
 
-With start 08:00, `shift_zone_interval` 6h, `shift_edge_tolerance` 30, `shift_inner_tolerance` 120 and 5 zones, B1's bucket is 07:30–11:00 while its window is only 07:30–08:30; B2's bucket is 11:00–17:00 with its window centered at 12:00–16:00.
+Worked example — start 08:00, `shift_zone_interval` 6h, `detection_edge_tolerance` 120, `shift_edge_tolerance` 30, `shift_inner_tolerance` 120, 5 zones:
+
+|Zone|Bucket|Classification window|Overtime window|
+|---|---|---|---|
+|B1|06:00 – 11:00|06:00 – 10:00|07:30 – 08:30|
+|B2|11:00 – 17:00|12:00 – 16:00|12:00 – 16:00|
+|B3|17:00 – 23:00|18:00 – 22:00|18:00 – 22:00|
+|B4|23:00 – 05:00 (+1)|00:00 – 04:00 (+1)|00:00 – 04:00 (+1)|
+|BN|05:00 – 10:00 (+1)|06:00 – 10:00 (+1)|07:30 – 08:30 (+1)|
+
+Inner zones are identical in both columns because only the edge tolerance differs between the two purposes. B1's classification window opens exactly where its bucket opens; its overtime window is a narrow slice well inside it. Were `detection_edge_tolerance` equal to `shift_edge_tolerance`, B1's bucket would be 07:30–11:00 and both windows would collapse to 07:30–08:30.
 
 **Boundaries.** Every boundary belongs to the zone that opens there — exclusive on the end it closes, inclusive on the end it opens — except the final boundary of the period window, which is inclusive on both sides so the closing timestamp is never dropped. Validity windows follow the same convention, which is why `config.md` caps each tolerance at half the zone interval: a wider window could be satisfied by a timestamp belonging to a neighbouring bucket.
 
@@ -182,20 +192,30 @@ if winnerCount < min_valid_periods (3):
 Reached when the employee failed to produce enough valid shift periods. Before classifying as daily, verify the employee actually follows a daily schedule. Uses config: `daily_start_time`, `daily_delay_allowance`.
 
 ```
-entryWindow = [daily_start_time − daily_delay_allowance,
+entryWindow = [daily_start_time − morning_arrival_lead (120 min),
                daily_start_time + daily_delay_allowance]
 
-workingDays = non-weekend (non-Friday, non-Saturday) days in report range
-morningDays = days where employee has at least one timestamp within entryWindow
-threshold   = max(10, workingDays × 0.50)
+openWorkingDays = non-weekend days in the report range on which at least
+                  off_day_threshold (25%) of the workforce attended
+morningDays     = days where the employee's FIRST timestamp falls within
+                  entryWindow
+threshold       = max(5, openWorkingDays × 0.50)
 
 if morningDays < threshold:
-  → undetected: "لا ينتمي لنظام المناوبة أو الدوام الصباحي"
+  → undetected: "لا يتوافق مع تعليمات المناوبة أو الدوام الصباحي"
 
 → daily
 ```
 
-The floor of 10 prevents the ratio from becoming too easy to pass on short reports — a shift employee on a 3-day cycle works at most ~10 shifts per month, so requiring at least 10 morning stamps keeps the threshold meaningful regardless of report length.
+**The threshold counts days the organisation was actually open, not calendar weekdays.** A month containing an extended holiday has far fewer real working days than non-weekend days. Measuring open days from attendance — reusing the `off_day_threshold` already defined in `config.md` — keeps the threshold proportionate to the month that was actually worked. A calendar-based threshold rejects an entire workforce whenever a long holiday falls inside the report range.
+
+**The entry test is one-sided.** Only arriving *later* than `latestEntry` is a violation, matching the rule the daily calculator applies. A symmetric window would reject an employee who arrives before the start time, which is not a violation of anything.
+
+The lower bound of `morning_arrival_lead` is not a symmetric allowance — arriving early is not a violation and is never penalised. It exists so that a night worker leaving in the small hours is not read as a daily employee arriving very early. Without it, employees whose shift ends before dawn drift into the daily bucket, where the wrong overtime rules would be applied to them.
+
+It is expressed relative to `daily_start_time` rather than as a fixed clock time, so it remains meaningful if the daily schedule is moved off the morning. With the default 08:00 start and a 30-minute allowance the window is 06:00 – 08:30.
+
+The floor of 5 keeps a very short report from being satisfied by a couple of stray morning stamps.
 
 **Design notes:**
 
@@ -208,11 +228,14 @@ An employee who fails the gate has neither a convincing shift pattern nor a conv
 
 ```
 if len(shift_start_times) > 1:
-  if tie OR winnerCount / totalValid < min_start_time_confidence (0.60):
+  runnerUp = highest valid-period count among the non-winning start times
+  if winnerCount == 0 OR winnerCount < runnerUp × start_time_win_margin (1.5):
     → undetected: "وقت بداية المناوبة غير واضح"
 ```
 
-Employee has clear shift signal but it is split across multiple start times — ambiguous, not daily. When only one start time is configured this check is skipped entirely — `winnerCount / totalValid` is always 100%.
+Employee has clear shift signal but it is split across multiple start times — ambiguous, not daily. When only one start time is configured this check is skipped entirely.
+
+**The winner is compared against the runner-up, not against the sum of all candidates.** Zones overlap, so a single employee produces valid periods under several start times. Measuring the winner's share of the total meant every additional configured start time diluted that share: configuring a third shift dropped detection sharply and silently, so a more complete configuration produced a worse result. A margin over the runner-up does not change as more candidates are added. A tie fails, since the winner cannot then clear the margin.
 
 **Result — shift:**
 

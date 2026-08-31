@@ -20,7 +20,7 @@ A daily employee works standard morning shifts on regular workdays. Their attend
 ## Input
 
 - Daily hash table: `employeeName → { name, department, [timestamps] }` — timestamps sorted ascending, filtered to report date range
-- Off-days hash set — produced by Stage 5 (off-day detection). Contains all dates classified as off-days for this report. Passed in as input to this extractor at Stage 7.
+- Off-days hash set — produced by Stage 5 (off-day detection). Contains all dates classified as off-days for this report. Passed in as input to this extractor at Stage 6.
 
 ---
 
@@ -40,7 +40,7 @@ The same daily hash table enriched with a list of `DailyPeriod` objects per empl
 | allTimestamps | All timestamps of the day, sorted ascending |
 | weekday | Arabic weekday name derived from date e.g. الأحد، الاثنين |
 
-Calculated fields (`totalAttendanceDuration`, `overtimeMinutes`, `isValid`, `notes`) are added to the same object by the calculator in Stage 9. See `overtime_calculation_daily.md`.
+Calculated fields (`totalAttendanceDuration`, `overtimeMinutes`, `isValid`, `notes` — a set of reasons, empty when valid) are added to the same object by the calculator in Stage 8. See `overtime_calculation_daily.md`.
 
 ---
 
@@ -60,7 +60,7 @@ For each remaining partition:
 - Otherwise → regular
 
 **Step 4 — Build DailyPeriod**
-For each remaining partition, create one `DailyPeriod` with: `periodIndex`, `date`, `dayType`, `allTimestamps`, and `weekday` derived from the date. Calculated fields are left unset — the calculator fills them in Stage 9.
+For each remaining partition, create one `DailyPeriod` with: `periodIndex`, `date`, `dayType`, `allTimestamps`, and `weekday` derived from the date. Calculated fields are left unset — the calculator fills them in Stage 8.
 
 Days with exactly 1 timestamp are included — the calculator determines validity, not the extractor.
 

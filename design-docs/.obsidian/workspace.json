@@ -20,8 +20,23 @@
               "icon": "lucide-file",
               "title": "Presentation Notes"
             }
+          },
+          {
+            "id": "75481e68fdeaa974",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "schedule_detection.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "schedule_detection"
+            }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -185,18 +200,22 @@
       "bases:Create new base": false
     }
   },
-  "active": "1f3b2e308af9701c",
+  "active": "75481e68fdeaa974",
   "lastOpenFiles": [
+    "Untitled.md",
     "schedule_detection.md",
+    "main_workflow.md",
+    "dictionary_build.md",
+    "config.md",
+    "screen_report_generate.md",
+    "file_processing.md",
+    "`file_processing.md`.md",
+    "Presentation Notes.md",
     "overtime_calculation_shift.md",
     "overtime_calculation_daily.md",
     "off_day_detection.md",
-    "main_workflow.md",
-    "file_processing.md",
-    "dictionary_build.md",
     "database_schema.md",
     "data_shared_models.md",
-    "config.md",
     "architecture_overview.md",
     "screen_report.md",
     "screen_history.md",

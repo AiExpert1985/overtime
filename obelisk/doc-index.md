@@ -15,8 +15,8 @@ Relevant for: Every task — foundational rules that govern all implementation.
 Depends on: none
 
 ### main_workflow.md
-About: End-to-end description of the 10-stage report generation pipeline.
-Covers: Stage 1–10 flow (file upload → dictionary build → schedule detection → off-day detection → period extraction → overtime calculation → store → display), error handling, key design principles.
+About: End-to-end description of the 9-stage report generation pipeline.
+Covers: Stage 1–9 flow (file upload → pre-flight settings check → dictionary build → schedule detection with shift period construction → off-day detection → daily period extraction → overtime calculation → store → display), error handling, key design principles.
 Relevant for: Any task touching report generation, pipeline stages, or generation service.
 Depends on: architecture_overview.md
 
@@ -34,7 +34,7 @@ Depends on: architecture_overview.md
 
 ### database_schema.md
 About: All SQLite tables, columns, relationships, and versioning strategy.
-Covers: reports, shift_employee_results, shift_period_details, daily_employee_results, daily_period_details, undetected_employee_results, column_headers, app_settings — schema, cascade rules, seeding, migration approach, data loading rules at display time.
+Covers: reports, shift_employee_results, shift_period_details, daily_employee_results, daily_period_details, undetected_employee_results, column_headers, app_settings — schema, cascade rules, seeding, settings reconciliation on upgrade, why report data is dropped rather than migrated, data loading rules at display time.
 Relevant for: Database initialization, repositories, any task reading/writing reports or settings.
 Depends on: data_shared_models.md, config.md
 

@@ -34,7 +34,7 @@ After finishing processing all Excel files, sort the timestamp list ascending fo
 
 ## Result
 
-The working dictionary is passed directly to Stage 4 (Employee Separation). After results are stored to the database, the dictionary is discarded — the database is the sole source of truth.
+The working dictionary is passed directly to Stage 4 (Schedule Detection). After results are stored to the database, the dictionary is discarded — the database is the sole source of truth.
 
 
 ---
