@@ -351,3 +351,11 @@ Confirmed correct and left alone: two shift start times of 08:00 and 23:00 (bett
 **Diverged:** A bug surfaced during review — the approximate window's outermost edges (first zone start, last zone end) were using the internal, wider `detection_edge_tolerance` inherited from the zone's stored bucket boundary instead of the user-configured `shift_edge_tolerance`. Fixed by deriving those two edges from the zone's own true tolerance (recovered from its stored validity window) instead of its bucket boundary; all other (inner) boundaries were unaffected and unchanged.
 
 ---
+
+## 20260901-1600 | Login Gate — Three Fixed-Role Accounts | TASK
+
+**Task:** Added a login gate with three fixed-role accounts (admin, generate, audit), implemented as a thin layer over the existing router and screens rather than a restructuring. The session is in-memory only — every app launch requires logging in again. Router-level redirects do the gating: unauthenticated users go to login; audit is confined to the reports history (no report generation, no settings); everyone but admin is blocked from settings. A handful of additive UI conditionals cover what redirects can't reach: the reports-list delete button and the "generate a report" prompt are hidden for non-admin/audit respectively, and the report screen's inclusion toggle is disabled for audit, making it fully read-only. Credentials live as six key/value rows in the existing app_settings table, reusing the config seeding mechanism with no schema version bump, and are editable — username and password only, never role — by the admin from a new Accounts section on the Settings screen. A follow-up changed the seeded default usernames for the generate and audit accounts to Arabic labels; the admin username and all three passwords were left unchanged. Because the app had already run once and seeded the old English usernames into the live local database, the user chose to apply that rename themselves through the new admin Accounts panel rather than have it patched directly.
+
+**Rejected:** Persisting the login session across app restarts — every launch requiring a fresh login was kept as the simpler option. Leaving the report screen's inclusion toggle editable for audit — extended to disabled instead, so audit's read-only restriction is genuine rather than partial.
+
+---
