@@ -281,21 +281,30 @@ class AppDatabase {
   }
 
   static Map<String, String> get _settingsDefaults => {
-      'daily_start_time': '08:00',
-      'daily_work_duration': '8',
-      'daily_max_overtime': '3',
-      'daily_delay_allowance': '60',
-      'shift_start_times': jsonEncode(['08:00']),
-      'shift_duration': '24',
-      'shift_zone_interval': '6',
-      'shift_edge_tolerance': '30',
-      'shift_inner_tolerance': '120',
-      'shift_duration_tolerance': '60',
-      'shift_baseline_hours': '154',
-      'shift_ceiling_hours': '192',
-      'rounding_mode': 'quarter',
-      'max_report_date_range': '32',
-    };
+    'daily_start_time': '08:00',
+    'daily_work_duration': '8',
+    'daily_max_overtime': '3',
+    'daily_delay_allowance': '60',
+    'shift_start_times': jsonEncode(['08:00']),
+    'shift_duration': '24',
+    'shift_zone_interval': '6',
+    'shift_edge_tolerance': '30',
+    'shift_inner_tolerance': '120',
+    'shift_duration_tolerance': '60',
+    'shift_baseline_hours': '154',
+    'shift_ceiling_hours': '192',
+    'rounding_mode': 'quarter',
+    'max_report_date_range': '32',
+    // Fixed login accounts (see lib/features/auth). Only username/password
+    // are ever changed, by the admin, from the Settings screen — the role
+    // each key belongs to is fixed in code, not stored.
+    'admin_username': 'admin',
+    'admin_password': 'Ad@112233',
+    'generate_username': 'الادارة',
+    'generate_password': 'Ge@654321',
+    'audit_username': 'التدقيق',
+    'audit_password': 'Au@123456',
+  };
 
   // Drops settings keys this code does not define, then seeds any that are
   // missing. User-set values for keys that are still valid are left untouched.

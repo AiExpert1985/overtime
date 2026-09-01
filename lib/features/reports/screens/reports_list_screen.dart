@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../auth/domain/user_role.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../domain/report.dart';
 import '../providers/reports_provider.dart';
 
@@ -13,6 +15,7 @@ class ReportsListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final reportsAsync = ref.watch(reportsProvider);
+    final role = ref.watch(currentUserProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -23,6 +26,13 @@ class ReportsListScreen extends ConsumerWidget {
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.transparent,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout_rounded),
+            tooltip: 'تسجيل الخروج',
+            onPressed: () => ref.read(currentUserProvider.notifier).logout(),
+          ),
+        ],
       ),
       extendBodyBehindAppBar: true,
       body: Stack(
@@ -55,8 +65,11 @@ class ReportsListScreen extends ConsumerWidget {
               error: (e, _) =>
                   Center(child: _ErrorDisplay(error: e.toString())),
               data: (reports) => reports.isEmpty
-                  ? const _EmptyReportsView()
-                  : _ReportsList(reports: reports),
+                  ? _EmptyReportsView(canGenerate: role != UserRole.audit)
+                  : _ReportsList(
+                      reports: reports,
+                      canDelete: role == UserRole.admin,
+                    ),
             ),
           ),
         ],
@@ -66,7 +79,9 @@ class ReportsListScreen extends ConsumerWidget {
 }
 
 class _EmptyReportsView extends StatelessWidget {
-  const _EmptyReportsView();
+  const _EmptyReportsView({required this.canGenerate});
+
+  final bool canGenerate;
 
   @override
   Widget build(BuildContext context) {
@@ -107,23 +122,30 @@ class _EmptyReportsView extends StatelessWidget {
           ).animate().fade(delay: 200.ms).slideY(begin: 0.3),
           const SizedBox(height: 12),
           Text(
-            'قم بتوليد تقرير جديد من الشاشة الرئيسية ليظهر هنا',
+            canGenerate
+                ? 'قم بتوليد تقرير جديد من الشاشة الرئيسية ليظهر هنا'
+                : 'لا توجد تقارير لعرضها بعد',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: Theme.of(context).colorScheme.outline,
             ),
           ).animate().fade(delay: 400.ms).slideY(begin: 0.3),
-          const SizedBox(height: 48),
-          FilledButton.icon(
-            onPressed: () => context.pop(), // Pop back to Generate Screen
-            icon: const Icon(Icons.add),
-            label: const Text('توليد تقرير جديد'),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
+          if (canGenerate) ...[
+            const SizedBox(height: 48),
+            FilledButton.icon(
+              onPressed: () => context.pop(), // Pop back to Generate Screen
+              icon: const Icon(Icons.add),
+              label: const Text('توليد تقرير جديد'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
               ),
-            ),
-          ).animate().fade(delay: 600.ms).scale(),
+            ).animate().fade(delay: 600.ms).scale(),
+          ],
         ],
       ),
     );
@@ -131,9 +153,10 @@ class _EmptyReportsView extends StatelessWidget {
 }
 
 class _ReportsList extends StatelessWidget {
-  const _ReportsList({required this.reports});
+  const _ReportsList({required this.reports, required this.canDelete});
 
   final List<Report> reports;
+  final bool canDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -146,7 +169,7 @@ class _ReportsList extends StatelessWidget {
           separatorBuilder: (context, index) => const SizedBox(height: 16),
           itemBuilder: (context, index) {
             final report = reports[index];
-            return _ReportCard(report: report)
+            return _ReportCard(report: report, canDelete: canDelete)
                 .animate()
                 .fade(delay: (index * 50).ms, duration: 400.ms)
                 .slideX(begin: 0.1, curve: Curves.easeOut);
@@ -158,9 +181,10 @@ class _ReportsList extends StatelessWidget {
 }
 
 class _ReportCard extends ConsumerWidget {
-  const _ReportCard({required this.report});
+  const _ReportCard({required this.report, required this.canDelete});
 
   final Report report;
+  final bool canDelete;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -313,24 +337,25 @@ class _ReportCard extends ConsumerWidget {
                     ],
                   ),
                 ),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.errorContainer.withValues(alpha: 0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.delete_outline_rounded,
-                      color: Theme.of(context).colorScheme.error,
+                if (canDelete)
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.errorContainer.withValues(alpha: 0.5),
+                      shape: BoxShape.circle,
                     ),
-                    iconSize: 24,
-                    padding: const EdgeInsets.all(12),
-                    onPressed: () => _confirmDelete(context, ref),
-                    tooltip: 'حذف التقرير',
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.delete_outline_rounded,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                      iconSize: 24,
+                      padding: const EdgeInsets.all(12),
+                      onPressed: () => _confirmDelete(context, ref),
+                      tooltip: 'حذف التقرير',
+                    ),
                   ),
-                ),
               ],
             ),
           ),

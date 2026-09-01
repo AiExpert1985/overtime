@@ -5,6 +5,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../auth/domain/user_role.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../../settings/providers/settings_provider.dart';
 import '../domain/picked_file.dart';
 import '../providers/report_generate_provider.dart';
@@ -645,6 +647,8 @@ class _AppDrawer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentLocation = GoRouterState.of(context).uri.path;
+    final role = ref.watch(currentUserProvider);
+    final isAdmin = role == UserRole.admin;
 
     return Drawer(
       child: SafeArea(
@@ -698,16 +702,26 @@ class _AppDrawer extends ConsumerWidget {
                 context.push('/reports');
               },
             ),
+            if (isAdmin)
+              _DrawerTile(
+                icon: Icons.settings_outlined,
+                label: 'الإعدادات',
+                selected: currentLocation == '/settings',
+                onTap: () {
+                  Navigator.of(context).pop();
+                  context.push('/settings');
+                },
+              ),
+            const Spacer(),
             _DrawerTile(
-              icon: Icons.settings_outlined,
-              label: 'الإعدادات',
-              selected: currentLocation == '/settings',
+              icon: Icons.logout_rounded,
+              label: 'تسجيل الخروج',
+              selected: false,
               onTap: () {
                 Navigator.of(context).pop();
-                context.push('/settings');
+                ref.read(currentUserProvider.notifier).logout();
               },
             ),
-            const Spacer(),
             const Divider(height: 1),
             Padding(
               padding: const EdgeInsets.all(24),

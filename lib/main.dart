@@ -16,22 +16,20 @@ void main() async {
 
   runApp(
     ProviderScope(
-      overrides: [
-        dbProvider.overrideWithValue(db),
-      ],
+      overrides: [dbProvider.overrideWithValue(db)],
       child: const OvertimeApp(),
     ),
   );
 }
 
-class OvertimeApp extends StatelessWidget {
+class OvertimeApp extends ConsumerWidget {
   const OvertimeApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
       title: 'احتساب الوقت الإضافي',
-      routerConfig: appRouter,
+      routerConfig: ref.watch(routerProvider),
       locale: const Locale('ar'),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -46,9 +44,7 @@ class OvertimeApp extends StatelessWidget {
           brightness: Brightness.light,
           surface: const Color(0xFFF8FAFC),
         ),
-        textTheme: GoogleFonts.cairoTextTheme(
-          Theme.of(context).textTheme,
-        ),
+        textTheme: GoogleFonts.cairoTextTheme(Theme.of(context).textTheme),
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.transparent,
           elevation: 0,

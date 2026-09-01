@@ -3,6 +3,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../auth/domain/user_role.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../../settings/providers/settings_provider.dart';
 import '../domain/daily_employee_row.dart';
 import '../domain/shift_employee_row.dart';
@@ -88,6 +90,8 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
     final rs = state.whenOrNull(data: (v) => v);
     final undetectedCount = rs?.totalUndetected ?? 0;
     final theme = Theme.of(context);
+    // Audit is read-only: no inclusion-toggle mutations.
+    final canEdit = ref.watch(currentUserProvider) != UserRole.audit;
 
     final appBarTitle = rs != null
         ? 'تقرير ${_fmtDate(rs.report.rangeStart)} — ${_fmtDate(rs.report.rangeEnd)}'
@@ -295,8 +299,9 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                               _notifier.setShiftShowIncluded(v),
                           onShowExcludedChanged: (v) =>
                               _notifier.setShiftShowExcluded(v),
-                          onToggle: (id, v) =>
-                              _notifier.toggleShiftIncluded(id, v),
+                          onToggle: canEdit
+                              ? (id, v) => _notifier.toggleShiftIncluded(id, v)
+                              : null,
                           onRowTap: (id) => context.push(
                             '/report/${widget.reportId}/detail/shift/$id',
                           ),
@@ -315,8 +320,9 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                               _notifier.setDailyShowIncluded(v),
                           onShowExcludedChanged: (v) =>
                               _notifier.setDailyShowExcluded(v),
-                          onToggle: (id, v) =>
-                              _notifier.toggleDailyIncluded(id, v),
+                          onToggle: canEdit
+                              ? (id, v) => _notifier.toggleDailyIncluded(id, v)
+                              : null,
                           onRowTap: (id) => context.push(
                             '/report/${widget.reportId}/detail/daily/$id',
                           ),
@@ -688,7 +694,7 @@ class _ShiftTab extends StatelessWidget {
   final void Function(bool) onNoOvertimeChanged;
   final void Function(bool) onShowIncludedChanged;
   final void Function(bool) onShowExcludedChanged;
-  final void Function(int, bool) onToggle;
+  final void Function(int, bool)? onToggle;
   final void Function(int) onRowTap;
 
   @override
@@ -732,7 +738,9 @@ class _ShiftTab extends StatelessWidget {
                     index: i,
                     roundingMode: roundingMode,
                     onTap: () => onRowTap(rows[i].id),
-                    onToggle: (v) => onToggle(rows[i].id, v),
+                    onToggle: onToggle == null
+                        ? null
+                        : (v) => onToggle!(rows[i].id, v),
                   ),
                 ),
         ),
@@ -769,7 +777,7 @@ class _DailyTab extends StatelessWidget {
   final void Function(bool) onNoOvertimeChanged;
   final void Function(bool) onShowIncludedChanged;
   final void Function(bool) onShowExcludedChanged;
-  final void Function(int, bool) onToggle;
+  final void Function(int, bool)? onToggle;
   final void Function(int) onRowTap;
 
   @override
@@ -813,7 +821,9 @@ class _DailyTab extends StatelessWidget {
                     index: i,
                     roundingMode: roundingMode,
                     onTap: () => onRowTap(rows[i].id),
-                    onToggle: (v) => onToggle(rows[i].id, v),
+                    onToggle: onToggle == null
+                        ? null
+                        : (v) => onToggle!(rows[i].id, v),
                   ),
                 ),
         ),
@@ -1176,7 +1186,7 @@ class _ShiftRow extends StatelessWidget {
   final int index;
   final String roundingMode;
   final VoidCallback onTap;
-  final void Function(bool) onToggle;
+  final void Function(bool)? onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -1298,7 +1308,9 @@ class _ShiftRow extends StatelessWidget {
                         child: Center(
                           child: Checkbox(
                             value: row.isIncluded,
-                            onChanged: (v) => onToggle(v ?? row.isIncluded),
+                            onChanged: onToggle == null
+                                ? null
+                                : (v) => onToggle!(v ?? row.isIncluded),
                           ),
                         ),
                       ),
@@ -1327,7 +1339,7 @@ class _DailyRow extends StatelessWidget {
   final int index;
   final String roundingMode;
   final VoidCallback onTap;
-  final void Function(bool) onToggle;
+  final void Function(bool)? onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -1477,7 +1489,9 @@ class _DailyRow extends StatelessWidget {
                         child: Center(
                           child: Checkbox(
                             value: row.isIncluded,
-                            onChanged: (v) => onToggle(v ?? row.isIncluded),
+                            onChanged: onToggle == null
+                                ? null
+                                : (v) => onToggle!(v ?? row.isIncluded),
                           ),
                         ),
                       ),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../auth/domain/user_role.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../domain/app_settings.dart';
 import '../domain/column_header.dart';
 import '../providers/settings_provider.dart';
@@ -27,6 +29,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late TextEditingController _shiftBaselineCtrl;
   late TextEditingController _shiftCeilingCtrl;
 
+  bool _accountsInitialized = false;
+  final Map<UserRole, TextEditingController> _usernameCtrls = {};
+  final Map<UserRole, TextEditingController> _passwordCtrls = {};
+
   @override
   void dispose() {
     _dailyWorkDurationCtrl.dispose();
@@ -39,16 +45,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _shiftDurationToleranceCtrl.dispose();
     _shiftBaselineCtrl.dispose();
     _shiftCeilingCtrl.dispose();
+    for (final ctrl in _usernameCtrls.values) {
+      ctrl.dispose();
+    }
+    for (final ctrl in _passwordCtrls.values) {
+      ctrl.dispose();
+    }
     super.dispose();
   }
 
   void _initControllers(AppSettings s) {
     if (_initialized) return;
-    _dailyWorkDurationCtrl = TextEditingController(text: '${s.dailyWorkDuration}');
-    _dailyMaxOvertimeCtrl = TextEditingController(text: '${s.dailyMaxOvertime}');
-    _dailyDelayAllowanceCtrl = TextEditingController(text: '${s.dailyDelayAllowance}');
+    _dailyWorkDurationCtrl = TextEditingController(
+      text: '${s.dailyWorkDuration}',
+    );
+    _dailyMaxOvertimeCtrl = TextEditingController(
+      text: '${s.dailyMaxOvertime}',
+    );
+    _dailyDelayAllowanceCtrl = TextEditingController(
+      text: '${s.dailyDelayAllowance}',
+    );
     _shiftDurationCtrl = TextEditingController(text: '${s.shiftDuration}');
-    _shiftZoneIntervalCtrl = TextEditingController(text: '${s.shiftZoneInterval}');
+    _shiftZoneIntervalCtrl = TextEditingController(
+      text: '${s.shiftZoneInterval}',
+    );
     _shiftEdgeToleranceCtrl = TextEditingController(
       text: '${s.shiftEdgeTolerance}',
     );
@@ -63,6 +83,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _initialized = true;
   }
 
+  void _initAccountControllers(Map<UserRole, (String, String)> accounts) {
+    if (_accountsInitialized) return;
+    for (final role in UserRole.values) {
+      final (username, password) = accounts[role]!;
+      _usernameCtrls[role] = TextEditingController(text: username);
+      _passwordCtrls[role] = TextEditingController(text: password);
+    }
+    _accountsInitialized = true;
+  }
+
   @override
   Widget build(BuildContext context) {
     final settingsAsync = ref.watch(settingsProvider);
@@ -70,7 +100,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('إعدادات النظام', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'إعدادات النظام',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.transparent,
@@ -86,21 +119,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 end: Alignment.bottomRight,
                 colors: [
                   Theme.of(context).colorScheme.surface,
-                  Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+                  Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer.withValues(alpha: 0.3),
                   Theme.of(context).colorScheme.surface,
                 ],
               ),
             ),
           ),
-          
+
           SafeArea(
             child: settingsAsync.when(
-              loading: () => Center(child: const CircularProgressIndicator().animate().fade().scale()),
+              loading: () => Center(
+                child: const CircularProgressIndicator()
+                    .animate()
+                    .fade()
+                    .scale(),
+              ),
               error: (e, _) => _ErrorCard(error: e.toString()),
               data: (settings) {
                 _initControllers(settings);
                 return headersAsync.when(
-                  loading: () => Center(child: const CircularProgressIndicator().animate().fade().scale()),
+                  loading: () => Center(
+                    child: const CircularProgressIndicator()
+                        .animate()
+                        .fade()
+                        .scale(),
+                  ),
                   error: (e, _) => _ErrorCard(error: e.toString()),
                   data: (headers) => _buildContent(settings, headers),
                 );
@@ -112,7 +157,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Widget _buildContent(AppSettings settings, Map<String, List<ColumnHeader>> headers) {
+  Widget _buildContent(
+    AppSettings settings,
+    Map<String, List<ColumnHeader>> headers,
+  ) {
     final cs = Theme.of(context).colorScheme;
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
@@ -161,6 +209,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 icon: Icons.view_column_outlined,
                 child: _columnHeadersSection(headers),
               ).animate().fade(delay: 300.ms).slideY(begin: 0.1),
+
+              const SizedBox(height: 24),
+
+              _SettingsCard(
+                title: 'حسابات الدخول',
+                icon: Icons.admin_panel_settings_outlined,
+                child: _accountsSection(),
+              ).animate().fade(delay: 400.ms).slideY(begin: 0.1),
 
               const SizedBox(height: 64),
             ],
@@ -236,7 +292,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       children: [
         _settingRow(
           label: 'أوقات بداية المناوبة',
-          hint: 'قائمة الأوقات المحتملة لبداية المناوبة. ممكن ادخال اكثر من وقت',
+          hint:
+              'قائمة الأوقات المحتملة لبداية المناوبة. ممكن ادخال اكثر من وقت',
           value: _shiftStartTimesList(s),
           crossAxisAlignment: CrossAxisAlignment.start,
         ),
@@ -287,8 +344,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         _settingRow(
           label: 'سماحية البصمات الداخلية',
-          hint:
-              'الهامش الزمني بالدقائق المسموح به لبصمات التحقق خلال المناوبة',
+          hint: 'الهامش الزمني بالدقائق المسموح به لبصمات التحقق خلال المناوبة',
           value: _numberField(
             _shiftInnerToleranceCtrl,
             () => _saveNumber(
@@ -302,8 +358,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         _settingRow(
           label: 'سماحية مدة المناوبة',
-          hint:
-              'الهامش الزمني بالدقائق المسموح به للنقص في مدة الحضور الفعلية',
+          hint: 'الهامش الزمني بالدقائق المسموح به للنقص في مدة الحضور الفعلية',
           value: _numberField(
             _shiftDurationToleranceCtrl,
             () => _saveNumber(
@@ -356,12 +411,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primaryContainer.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text(e.value, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  child: Text(
+                    e.value,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
@@ -382,12 +445,133 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           icon: const Icon(Icons.add, size: 16),
           label: const Text('إضافة وقت'),
           style: TextButton.styleFrom(
-             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           ),
           onPressed: () => _addShiftStartTime(s.shiftStartTimes),
         ),
       ],
     );
+  }
+
+  // ─── accounts section ─────────────────────────────────────────────────────
+  // Only the admin ever reaches this screen (gated by routerProvider), so no
+  // further role check is needed here. Role identity itself is fixed — only
+  // each account's username/password can be changed.
+
+  Widget _accountsSection() {
+    final accountsAsync = ref.watch(accountsProvider);
+    return accountsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => _ErrorCard(error: e.toString()),
+      data: (accounts) {
+        _initAccountControllers(accounts);
+        return Column(
+          children: [
+            for (final role in UserRole.values) ...[
+              _accountRow(role),
+              if (role != UserRole.values.last) const Divider(height: 32),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _accountRow(UserRole role) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          role.arabicLabel,
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _accountTextField(
+                _usernameCtrls[role]!,
+                hint: 'اسم المستخدم',
+                onSave: () => _saveAccountUsername(role),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _accountTextField(
+                _passwordCtrls[role]!,
+                hint: 'كلمة المرور',
+                onSave: () => _saveAccountPassword(role),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _accountTextField(
+    TextEditingController ctrl, {
+    required String hint,
+    required VoidCallback onSave,
+  }) {
+    return Focus(
+      onFocusChange: (hasFocus) {
+        if (!hasFocus) onSave();
+      },
+      child: TextField(
+        controller: ctrl,
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        decoration: InputDecoration(
+          hintText: hint,
+          filled: true,
+          fillColor: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 10,
+          ),
+          isDense: true,
+        ),
+        onSubmitted: (_) => onSave(),
+      ),
+    );
+  }
+
+  void _saveAccountUsername(UserRole role) async {
+    final ctrl = _usernameCtrls[role]!;
+    final value = ctrl.text.trim();
+    if (value.isEmpty) {
+      ctrl.text = ref.read(accountsProvider).value?[role]?.$1 ?? '';
+      _snack('اسم المستخدم لا يمكن أن يكون فارغاً');
+      return;
+    }
+    try {
+      await ref.read(accountsProvider.notifier).updateUsername(role, value);
+    } catch (_) {
+      _snack('حدث خطأ أثناء الحفظ');
+    }
+  }
+
+  void _saveAccountPassword(UserRole role) async {
+    final ctrl = _passwordCtrls[role]!;
+    final value = ctrl.text;
+    if (value.isEmpty) {
+      ctrl.text = ref.read(accountsProvider).value?[role]?.$2 ?? '';
+      _snack('كلمة المرور لا يمكن أن تكون فارغة');
+      return;
+    }
+    try {
+      await ref.read(accountsProvider.notifier).updatePassword(role, value);
+    } catch (_) {
+      _snack('حدث خطأ أثناء الحفظ');
+    }
   }
 
   // ─── display section ──────────────────────────────────────────────────────
@@ -409,7 +593,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            color: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(16),
           ),
           child: RadioGroup<String>(
@@ -422,7 +608,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: Column(
               children: modes.map((m) {
                 return RadioListTile<String>(
-                  title: Text(m.$2, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                  title: Text(
+                    m.$2,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                   value: m.$1,
                   activeColor: Theme.of(context).colorScheme.primary,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
@@ -443,34 +635,74 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         if (constraints.maxWidth < 600) {
           return Column(
             children: [
-              _columnHeaderCard('employee_name', 'اسم الموظف', headers['employee_name'] ?? []),
+              _columnHeaderCard(
+                'employee_name',
+                'اسم الموظف',
+                headers['employee_name'] ?? [],
+              ),
               const SizedBox(height: 16),
-              _columnHeaderCard('department', 'القسم', headers['department'] ?? []),
+              _columnHeaderCard(
+                'department',
+                'القسم',
+                headers['department'] ?? [],
+              ),
               const SizedBox(height: 16),
-              _columnHeaderCard('datetime', 'التاريخ والوقت', headers['datetime'] ?? []),
+              _columnHeaderCard(
+                'datetime',
+                'التاريخ والوقت',
+                headers['datetime'] ?? [],
+              ),
             ],
           );
         }
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: _columnHeaderCard('employee_name', 'اسم الموظف', headers['employee_name'] ?? [])),
+            Expanded(
+              child: _columnHeaderCard(
+                'employee_name',
+                'اسم الموظف',
+                headers['employee_name'] ?? [],
+              ),
+            ),
             const SizedBox(width: 16),
-            Expanded(child: _columnHeaderCard('department', 'القسم', headers['department'] ?? [])),
+            Expanded(
+              child: _columnHeaderCard(
+                'department',
+                'القسم',
+                headers['department'] ?? [],
+              ),
+            ),
             const SizedBox(width: 16),
-            Expanded(child: _columnHeaderCard('datetime', 'التاريخ والوقت', headers['datetime'] ?? [])),
+            Expanded(
+              child: _columnHeaderCard(
+                'datetime',
+                'التاريخ والوقت',
+                headers['datetime'] ?? [],
+              ),
+            ),
           ],
         );
-      }
+      },
     );
   }
 
-  Widget _columnHeaderCard(String fieldKey, String title, List<ColumnHeader> headers) {
+  Widget _columnHeaderCard(
+    String fieldKey,
+    String title,
+    List<ColumnHeader> headers,
+  ) {
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        border: Border.all(
+          color: Theme.of(
+            context,
+          ).colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -478,11 +710,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.label_important_outline_rounded, color: Theme.of(context).colorScheme.primary, size: 20),
+              Icon(
+                Icons.label_important_outline_rounded,
+                color: Theme.of(context).colorScheme.primary,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Text(
-                title, 
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -496,7 +734,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               label: const Text('إضافة مرادف'),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: () => _showAddHeaderDialog(fieldKey, headers),
             ),
@@ -526,7 +766,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Expanded(
             child: Text(
               header.headerValue,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
             ),
           ),
           if (header.isDefault)
@@ -539,9 +781,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.lock_outline, size: 12, color: Theme.of(context).colorScheme.outline),
+                  Icon(
+                    Icons.lock_outline,
+                    size: 12,
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
                   const SizedBox(width: 4),
-                  Text('إفتراضي', style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.outline)),
+                  Text(
+                    'إفتراضي',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                  ),
                 ],
               ),
             )
@@ -586,15 +838,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               children: [
                 Flexible(
                   child: Text(
-                    label, 
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)
+                    label,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 6),
                 Tooltip(
                   message: hint,
                   preferBelow: false,
-                  child: Icon(Icons.info_outline, size: 16, color: Theme.of(context).colorScheme.outline),
+                  child: Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
                 ),
               ],
             ),
@@ -620,12 +878,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           decoration: InputDecoration(
             filled: true,
-            fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+            fillColor: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
             isDense: true,
           ),
           onSubmitted: (_) => onSave(),
@@ -647,11 +910,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.access_time_rounded, size: 16, color: Theme.of(context).colorScheme.primary),
+            Icon(
+              Icons.access_time_rounded,
+              size: 16,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             const SizedBox(width: 8),
             Text(
-              time, 
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.primary)
+              time,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
           ],
         ),
@@ -664,17 +935,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          Text(label, style: Theme.of(context).textTheme.titleSmall?.copyWith(color: Theme.of(context).colorScheme.outline)),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: Theme.of(context).colorScheme.outline,
+            ),
+          ),
           const Spacer(),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-               color: Theme.of(context).colorScheme.surfaceContainerHighest,
-               borderRadius: BorderRadius.circular(8),
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              value, 
-              style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.outline)
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.outline,
+              ),
             ),
           ),
         ],
@@ -735,7 +1014,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final picked = await _pickTime('08:00');
     if (picked == null || !mounted) return;
     try {
-      await ref.read(settingsProvider.notifier).updateShiftStartTimes([...current, picked]);
+      await ref.read(settingsProvider.notifier).updateShiftStartTimes([
+        ...current,
+        picked,
+      ]);
     } catch (_) {
       _snack('حدث خطأ أثناء الحفظ');
     }
@@ -752,7 +1034,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<String?> _pickTime(String current) async {
     final parts = current.split(':');
-    final initial = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+    final initial = TimeOfDay(
+      hour: int.parse(parts[0]),
+      minute: int.parse(parts[1]),
+    );
     final picked = await showTimePicker(
       context: context,
       initialTime: initial,
@@ -774,7 +1059,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         controller: ctrl,
         confirmLabel: 'إضافة',
         onConfirm: (value) {
-          if (existing.any((h) => h.headerValue == value)) return 'هذا المسمى موجود مسبقاً';
+          if (existing.any((h) => h.headerValue == value)) {
+            return 'هذا المسمى موجود مسبقاً';
+          }
           Navigator.pop(ctx);
           ref.read(columnHeadersProvider.notifier).add(fieldKey, value);
           return null;
@@ -793,11 +1080,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         confirmLabel: 'حفظ التعديلات',
         onConfirm: (value) {
           if (value == header.headerValue) {
-             Navigator.pop(ctx);
-             return null;
+            Navigator.pop(ctx);
+            return null;
           }
           Navigator.pop(ctx);
-          ref.read(columnHeadersProvider.notifier).updateHeader(header.id, value);
+          ref
+              .read(columnHeadersProvider.notifier)
+              .updateHeader(header.id, value);
           return null;
         },
       ),
@@ -809,10 +1098,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('حذف مسمى العمود'),
-        content: Text('هل أنت متأكد من رغبتك بحذف المسمى "${header.headerValue}"؟ لا يمكن التراجع عن هذا الإجراء.'),
+        content: Text(
+          'هل أنت متأكد من رغبتك بحذف المسمى "${header.headerValue}"؟ لا يمكن التراجع عن هذا الإجراء.',
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء'),
+          ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
@@ -822,7 +1116,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Navigator.pop(ctx);
               ref.read(columnHeadersProvider.notifier).delete(header.id);
             },
-            child: const Text('حذف', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'حذف',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -831,7 +1128,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   void _snack(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating, duration: const Duration(seconds: 2)),
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 }
@@ -839,7 +1140,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 // ─── Settings Card Layout Container ──────────────────────────────────────
 
 class _SettingsCard extends StatelessWidget {
-  const _SettingsCard({required this.title, required this.icon, required this.child, this.accentColor});
+  const _SettingsCard({
+    required this.title,
+    required this.icon,
+    required this.child,
+    this.accentColor,
+  });
 
   final String title;
   final IconData icon;
@@ -849,7 +1155,9 @@ class _SettingsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = accentColor ?? Theme.of(context).colorScheme.primary;
-    final outline = Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3);
+    final outline = Theme.of(
+      context,
+    ).colorScheme.outlineVariant.withValues(alpha: 0.3);
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.7),
@@ -889,10 +1197,7 @@ class _SettingsCard extends StatelessWidget {
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: child,
-            ),
+            Padding(padding: const EdgeInsets.all(24), child: child),
           ],
         ),
       ),
@@ -916,11 +1221,25 @@ class _ErrorCard extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline, size: 48, color: Theme.of(context).colorScheme.error),
+            Icon(
+              Icons.error_outline,
+              size: 48,
+              color: Theme.of(context).colorScheme.error,
+            ),
             const SizedBox(height: 16),
-             Text('حدث خطأ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Theme.of(context).colorScheme.error)),
+            Text(
+              'حدث خطأ',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: Theme.of(context).colorScheme.error,
+              ),
+            ),
             const SizedBox(height: 8),
-            Text(error, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            Text(
+              error,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
           ],
         ),
       ),
@@ -953,7 +1272,10 @@ class _HeaderInputDialogState extends State<_HeaderInputDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+      title: Text(
+        widget.title,
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       content: TextField(
         controller: widget.controller,
@@ -962,14 +1284,28 @@ class _HeaderInputDialogState extends State<_HeaderInputDialog> {
           hintText: 'قيمة المسمى..',
           errorText: _error,
           filled: true,
-          fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+          fillColor: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
         ),
         onSubmitted: (_) => _submit(),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
-        FilledButton(onPressed: _submit, child: Text(widget.confirmLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('إلغاء'),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: Text(
+            widget.confirmLabel,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
       ],
     );
   }
