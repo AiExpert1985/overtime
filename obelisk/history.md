@@ -377,3 +377,11 @@ Confirmed correct and left alone: two shift start times of 08:00 and 23:00 (bett
 **Rejected:** Migrating the live database's already-seeded tolerance values to the new defaults — the admin edits them directly in Settings instead, consistent with how the earlier login-username default change was handled. True fullscreen covering the taskbar — rejected in favor of the work-area size so the taskbar stays visible and usable. A persistent close control visible on every screen (both the bordered-title-bar strip and the borderless strip) — rejected as visually unwanted in favor of a single button on the login screen.
 
 ---
+
+## 20260901-1900 | Login Screen Header Rework & Close Button Simplification | TASK
+
+**Task:** Reworked the login screen's header and simplified its close action. The organization name, previously a small subtitle crammed under the "تسجيل الدخول" heading inside the login card, was promoted to a large bold headline above the card on the background, with the lock icon removed as redundant once that headline establishes the page's identity. The "تسجيل الدخول" heading itself was then also removed from inside the card, since it became redundant once the outer headline and the visible username/password fields already make clear it's a login form. Separately, the confirmation dialog previously shown before closing the app was removed — the login screen's close button now exits immediately on click.
+
+**Rejected:** Keeping the close confirmation dialog — recommended as a safety guard against an accidental click on an irreversible action, independent of login state, but removed per the user's decision that it is an unnecessary extra step.
+
+---
