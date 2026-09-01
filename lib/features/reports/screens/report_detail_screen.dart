@@ -399,7 +399,7 @@ class _ShiftDetailBody extends ConsumerWidget {
   static const _columns = [
     'تاريخ البداية',
     'تاريخ النهاية',
-    'نقاط التحقق',
+    '', // overridden below by the three checkpoint sub-titles
     'ساعات الحضور',
     'الساعات المحتسبة',
     'ملاحظات',
@@ -408,6 +408,12 @@ class _ShiftDetailBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final labelStyle = theme.textTheme.labelLarge?.copyWith(
+      fontWeight: FontWeight.bold,
+      color: theme.colorScheme.primary,
+      letterSpacing: 0.3,
+    );
     final settings = ref.watch(settingsProvider).whenOrNull(data: (s) => s);
     final periods = state.shiftPeriods;
 
@@ -464,7 +470,40 @@ class _ShiftDetailBody extends ConsumerWidget {
             ),
           ),
         ),
-        _DetailTableHeader(columns: _columns, flexes: _flexes),
+        _DetailTableHeader(
+          columns: _columns,
+          flexes: _flexes,
+          overrides: {
+            2: Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    'البصمة',
+                    style: labelStyle,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                Expanded(
+                  flex: 4,
+                  child: Text(
+                    'الوقت المسموح به للبصمة',
+                    style: labelStyle,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                Expanded(
+                  flex: 4,
+                  child: Text(
+                    'البصمات المتحققة',
+                    style: labelStyle,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
+          },
+        ),
         Expanded(
           child: periods.isEmpty
               ? const _EmptyState(message: 'لا توجد فترات محتسبة')
@@ -710,8 +749,8 @@ class _ShiftPeriodRowWidget extends StatelessWidget {
           bottom: BorderSide(
             color: Theme.of(
               context,
-            ).colorScheme.outlineVariant.withValues(alpha: 0.45),
-            width: 0.5,
+            ).colorScheme.outlineVariant.withValues(alpha: 0.9),
+            width: 1.2,
           ),
         ),
       ),
@@ -739,8 +778,9 @@ class _ShiftPeriodRowWidget extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const _ZoneSubHeader(),
-                ...zones.map((z) => _ZoneWidget(zone: z)),
+                ...zones.map(
+                  (z) => _ZoneWidget(zone: z, totalZones: zones.length),
+                ),
               ],
             ),
           ),
@@ -792,8 +832,8 @@ class _DailyPeriodRowWidget extends StatelessWidget {
           bottom: BorderSide(
             color: Theme.of(
               context,
-            ).colorScheme.outlineVariant.withValues(alpha: 0.45),
-            width: 0.5,
+            ).colorScheme.outlineVariant.withValues(alpha: 0.9),
+            width: 1.2,
           ),
         ),
       ),
@@ -870,8 +910,8 @@ class _UndetectedPeriodRowWidget extends StatelessWidget {
           bottom: BorderSide(
             color: Theme.of(
               context,
-            ).colorScheme.outlineVariant.withValues(alpha: 0.45),
-            width: 0.5,
+            ).colorScheme.outlineVariant.withValues(alpha: 0.9),
+            width: 1.2,
           ),
         ),
       ),
@@ -904,40 +944,57 @@ class _UndetectedPeriodRowWidget extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Zone widget
 // ---------------------------------------------------------------------------
+// Sub-column titles ('البصمة' / 'الوقت المسموح به للبصمة' / 'البصمات
+// المتحققة') render once, inline in the main header row above (see the
+// `overrides` map passed to _DetailTableHeader in _ShiftDetailBody) rather
+// than as a widget here. 'خارج النافذة' is kept out of the header and the
+// row layout below intentionally — see _showOutOfWindowColumn.
 
-class _ZoneSubHeader extends StatelessWidget {
-  const _ZoneSubHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.labelSmall?.copyWith(
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
-    );
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
-      child: Row(
-        children: [
-          Expanded(flex: 3, child: Text('النافذة', style: style)),
-          Expanded(flex: 4, child: Text('داخل النافذة', style: style)),
-          Expanded(flex: 4, child: Text('خارج النافذة', style: style)),
-        ],
-      ),
-    );
-  }
+/// Rounds a [DateTime] to the nearest 10-minute mark (display only — does
+/// not affect any stored or validity-checked value).
+DateTime _roundToNearest10(DateTime dt) {
+  final truncated = DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute);
+  final remainder = truncated.minute % 10;
+  final delta = remainder < 5 ? -remainder : (10 - remainder);
+  return truncated.add(Duration(minutes: delta));
 }
 
 class _ZoneWidget extends StatelessWidget {
-  const _ZoneWidget({required this.zone});
+  const _ZoneWidget({required this.zone, required this.totalZones});
 
   final ZoneRow zone;
+  final int totalZones;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // The validity window is stored with the zone — under midpoint bucketing
-    // it can no longer be derived from the bucket boundaries.
-    final window =
-        '${_fmtTime(zone.windowStart)} - ${_fmtTime(zone.windowEnd)}';
+    // The checkpoint's true center is the midpoint of its validity window
+    // (windowStart/windowEnd are always center +/- tolerance, symmetric).
+    final center = zone.windowStart.add(
+      zone.windowEnd.difference(zone.windowStart) ~/ 2,
+    );
+    // The approximate window shown in the UI is the zone's bucket boundary
+    // (startTime/endTime) for the side facing a neighbouring zone — a pure
+    // midpoint-between-centers, unaffected by any tolerance. But the two
+    // outermost edges of the whole period (the first zone's start and the
+    // last zone's end) are NOT bucket midpoints — bounds there are set by
+    // the internal detection_edge_tolerance (fixed, wider) rather than the
+    // configured shift_edge_tolerance, so using startTime/endTime there
+    // would show the wrong tolerance. Those two edges are instead derived
+    // as center +/- this zone's own real tolerance, recovered exactly from
+    // its stored validity window (windowEnd - windowStart == 2x tolerance).
+    // Rounded to the nearest 10 minutes for a cleaner display either way —
+    // none of this affects windowStart/windowEnd, which govern validity.
+    final isFirstZone = zone.zoneIndex == 0;
+    final isLastZone = zone.zoneIndex == totalZones - 1;
+    final tolerance = zone.windowEnd.difference(zone.windowStart) ~/ 2;
+    final approxStart = isFirstZone
+        ? _roundToNearest10(center.subtract(tolerance))
+        : _roundToNearest10(zone.startTime);
+    final approxEnd = isLastZone
+        ? _roundToNearest10(center.add(tolerance))
+        : _roundToNearest10(zone.endTime);
+    final approxWindow = '${_fmtTime(approxStart)} - ${_fmtTime(approxEnd)}';
 
     final inWindow = zone.timestamps
         .where(
@@ -960,11 +1017,15 @@ class _ZoneWidget extends StatelessWidget {
           Expanded(
             flex: 3,
             child: Text(
-              window,
+              _fmtTime(center),
               style: theme.textTheme.bodySmall?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
+          ),
+          Expanded(
+            flex: 4,
+            child: Text(approxWindow, style: theme.textTheme.bodySmall),
           ),
           Expanded(
             flex: 4,
@@ -981,36 +1042,53 @@ class _ZoneWidget extends StatelessWidget {
                     ),
                   ),
           ),
-          Expanded(
-            flex: 4,
-            child: outOfWindow.isNotEmpty
-                ? Text(
-                    outOfWindow.map(_fmtTime).join('، '),
-                    style: theme.textTheme.bodySmall,
-                  )
-                : Text(
-                    '✗',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.red.shade700,
-                      fontWeight: FontWeight.bold,
+          // 'خارج النافذة' (outOfWindow) is intentionally not rendered — kept
+          // computed above so the data/logic stays available in code. Flip
+          // _showOutOfWindowColumn to restore it in the UI.
+          if (_showOutOfWindowColumn)
+            Expanded(
+              flex: 4,
+              child: outOfWindow.isNotEmpty
+                  ? Text(
+                      outOfWindow.map(_fmtTime).join('، '),
+                      style: theme.textTheme.bodySmall,
+                    )
+                  : Text(
+                      '✗',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.red.shade700,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-          ),
+            ),
         ],
       ),
     );
   }
 }
 
+/// Set to true to restore the 'خارج النافذة' (out-of-window) column in the
+/// zone sub-table UI. Its data is always computed regardless of this flag.
+const bool _showOutOfWindowColumn = false;
+
 // ---------------------------------------------------------------------------
 // Table headers
 // ---------------------------------------------------------------------------
 
 class _DetailTableHeader extends StatelessWidget {
-  const _DetailTableHeader({required this.columns, required this.flexes});
+  const _DetailTableHeader({
+    required this.columns,
+    required this.flexes,
+    this.overrides = const {},
+  });
 
   final List<String> columns;
   final List<int> flexes;
+
+  /// Optional per-column-index widget replacing the plain text label —
+  /// used by the shift table to split one header slot into the three
+  /// checkpoint sub-titles while staying a single header row.
+  final Map<int, Widget> overrides;
 
   @override
   Widget build(BuildContext context) {
@@ -1045,11 +1123,9 @@ class _DetailTableHeader extends StatelessWidget {
           for (var i = 0; i < columns.length; i++)
             Expanded(
               flex: flexes[i],
-              child: Text(
-                columns[i],
-                style: labelStyle,
-                textAlign: TextAlign.center,
-              ),
+              child:
+                  overrides[i] ??
+                  Text(columns[i], style: labelStyle, textAlign: TextAlign.center),
             ),
         ],
       ),

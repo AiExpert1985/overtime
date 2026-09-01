@@ -343,3 +343,11 @@ Confirmed correct and left alone: two shift start times of 08:00 and 23:00 (bett
 **Diverged:** None — `database_schema.md` never documented indexes either way; this task simply corrects an oversight in the original schema, not a documented design.
 
 ---
+
+## 20260901-1150 | Shift Detail Zone Column Rework — Center, Approximate Window & Header Merge | TASK
+
+**Task:** Reworked the checkpoint zone display on the shift employee Detail screen, UI-only. The single "window" sub-column was split into a "center timestamp" column (the checkpoint's exact configured time) and a new "approximate allowed window" column (the zone's classification bucket boundaries, rounded to the nearest 10 minutes for display); the "inside window" column was relabeled to "achieved timestamps"; the "outside window" column was hidden from the UI behind a toggle constant while its data and logic remain in code. The three checkpoint sub-titles render as part of the single main table header row (via a new per-column override mechanism on the shared header widget) rather than as a separate stacked header row or repeated per period row. Row separator lines across all three period tables (shift/daily/undetected) were made more visible.
+
+**Diverged:** A bug surfaced during review — the approximate window's outermost edges (first zone start, last zone end) were using the internal, wider `detection_edge_tolerance` inherited from the zone's stored bucket boundary instead of the user-configured `shift_edge_tolerance`. Fixed by deriving those two edges from the zone's own true tolerance (recovered from its stored validity window) instead of its bucket boundary; all other (inner) boundaries were unaffected and unchanged.
+
+---
