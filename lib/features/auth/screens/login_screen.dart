@@ -110,7 +110,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'نظام حساب الاوقات الاضافية لموظفي الكهرباء',
+                        'نظام حساب الاوقات الاضافية لموظفي كهرباء مركز نينوى',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: colors.onSurfaceVariant,

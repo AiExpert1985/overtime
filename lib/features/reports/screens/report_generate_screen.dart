@@ -81,7 +81,7 @@ class _ReportGenerateScreenState extends ConsumerState<ReportGenerateScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
-          'نظام حساب الاوقات الاضافية لموظفي الكهرباء',
+          'نظام حساب الاوقات الاضافية لموظفي كهرباء مركز نينوى',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
             color: colors.onSurface,

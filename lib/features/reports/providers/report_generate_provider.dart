@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/backup/backup_service.dart';
 import '../../../core/database/database.dart';
 import '../../settings/providers/settings_provider.dart';
 import '../data/reports_repository.dart';
@@ -167,6 +170,9 @@ class ReportGenerateNotifier extends Notifier<ReportGenerateState> {
       );
 
       ref.invalidate(reportsProvider);
+      // Best-effort snapshot backup — never blocks or fails the generation
+      // flow itself, see BackupService.exportAutoBackupSilently.
+      unawaited(ref.read(backupServiceProvider).exportAutoBackupSilently());
       state = const ReportGenerateState();
       return reportId;
     } on GenerationException catch (e) {

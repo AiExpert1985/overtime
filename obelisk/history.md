@@ -359,3 +359,11 @@ Confirmed correct and left alone: two shift start times of 08:00 and 23:00 (bett
 **Rejected:** Persisting the login session across app restarts — every launch requiring a fresh login was kept as the simpler option. Leaving the report screen's inclusion toggle editable for audit — extended to disabled instead, so audit's read-only restriction is genuine rather than partial.
 
 ---
+
+## 20260901-1700 | Report Backup & Restore — Manual + Auto Export, Merge Import | TASK
+
+**Task:** Added manual and automatic backup/restore for generated reports as a top-layer feature — a new `BackupService` uses raw SQLite `ATTACH DATABASE` to snapshot only the report-related tables (reports plus their shift/daily/undetected employee and period detail tables) into a standalone `.db` file, with no changes to the existing schema, repositories, or generation pipeline. Manual export (a new Settings screen section, admin-only) and automatic export (fired silently after each successful report generation) write timestamped `reports_yyyymmddhhmm.db` files into `manual_backup/` and `auto_backup/` folders respectively, both located next to the app's executable so they're easy to find and copy externally (a follow-up moved these from the app-data folder to the exe folder for that reason). Import (also from Settings) lets the admin browse to any such file and merges its reports into the live database — a report already present, matched by generation datetime plus date range, is skipped; everything else is inserted with a freshly generated id tree. Settings, column headers, and login accounts are never included in or affected by backup/import. Auto-backup has no retention cap by design (report generation is infrequent, roughly 1-2 per month; cleanup is manual).
+
+**Rejected:** A raw whole-database-file copy as the backup format — would also capture and later restore settings, column headers, and login accounts, whereas the user wanted the backup scoped to reports only and kept small. A full-database-replace on import — rejected in favor of merge-only import, so restoring a backup can never overwrite or discard existing reports, settings, or accounts. Capping the number of retained auto-backups — rejected; the user prefers unbounded auto-backups with manual cleanup given the low generation frequency.
+
+---

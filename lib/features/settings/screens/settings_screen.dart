@@ -1,9 +1,12 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/backup/backup_service.dart';
 import '../../auth/domain/user_role.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../reports/providers/reports_provider.dart';
 import '../domain/app_settings.dart';
 import '../domain/column_header.dart';
 import '../providers/settings_provider.dart';
@@ -32,6 +35,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _accountsInitialized = false;
   final Map<UserRole, TextEditingController> _usernameCtrls = {};
   final Map<UserRole, TextEditingController> _passwordCtrls = {};
+
+  bool _exportingBackup = false;
+  bool _importingBackup = false;
 
   @override
   void dispose() {
@@ -217,6 +223,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 icon: Icons.admin_panel_settings_outlined,
                 child: _accountsSection(),
               ).animate().fade(delay: 400.ms).slideY(begin: 0.1),
+
+              const SizedBox(height: 24),
+
+              _SettingsCard(
+                title: 'النسخ الاحتياطي للتقارير',
+                icon: Icons.backup_outlined,
+                child: _backupSection(),
+              ).animate().fade(delay: 500.ms).slideY(begin: 0.1),
 
               const SizedBox(height: 64),
             ],
@@ -572,6 +586,132 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     } catch (_) {
       _snack('حدث خطأ أثناء الحفظ');
     }
+  }
+
+  // ─── backup section ───────────────────────────────────────────────────────
+  // Report-only backup/restore, layered on top of BackupService — see
+  // lib/core/backup/backup_service.dart. Manual export writes a snapshot to
+  // manual_backup/; import merges a chosen file's reports into the live
+  // database without touching settings, headers, or accounts.
+
+  Widget _backupSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'يشمل كل التقارير الحالية فقط، بدون الإعدادات أو الحسابات. '
+          'يتم إنشاء نسخة تلقائياً أيضاً بعد كل توليد تقرير.',
+          style: TextStyle(fontSize: 13),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: _exportingBackup
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_alt_outlined, size: 18),
+                label: const Text('تصدير نسخة احتياطية'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: _exportingBackup ? null : _exportManualBackup,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: _importingBackup
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.file_open_outlined, size: 18),
+                label: const Text('استيراد نسخة احتياطية'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: _importingBackup ? null : _importBackup,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _exportManualBackup() async {
+    setState(() => _exportingBackup = true);
+    try {
+      final path = await ref.read(backupServiceProvider).exportManualBackup();
+      if (!mounted) return;
+      _snack('تم إنشاء نسخة احتياطية: $path');
+    } catch (_) {
+      if (!mounted) return;
+      _snack('حدث خطأ أثناء إنشاء النسخة الاحتياطية');
+    } finally {
+      if (mounted) setState(() => _exportingBackup = false);
+    }
+  }
+
+  Future<void> _importBackup() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['db'],
+    );
+    final path = result?.files.single.path;
+    if (path == null || !mounted) return;
+
+    final confirmed = await _confirmImport();
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _importingBackup = true);
+    try {
+      final outcome = await ref.read(backupServiceProvider).importBackup(path);
+      ref.invalidate(reportsProvider);
+      if (!mounted) return;
+      _snack(
+        'تمت إضافة ${outcome.added} تقرير'
+        '${outcome.skipped > 0 ? '، وتجاوز ${outcome.skipped} موجود مسبقاً' : ''}',
+      );
+    } on BackupFormatException catch (e) {
+      if (!mounted) return;
+      _snack(e.arabicMessage);
+    } catch (_) {
+      if (!mounted) return;
+      _snack('حدث خطأ أثناء استيراد النسخة الاحتياطية');
+    } finally {
+      if (mounted) setState(() => _importingBackup = false);
+    }
+  }
+
+  Future<bool?> _confirmImport() {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('استيراد نسخة احتياطية'),
+        content: const Text(
+          'سيتم دمج التقارير الموجودة في هذا الملف مع التقارير الحالية. '
+          'التقارير المكررة (بنفس التاريخ والوقت) لن تُضاف مرة أخرى. متابعة؟',
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('استيراد'),
+          ),
+        ],
+      ),
+    );
   }
 
   // ─── display section ──────────────────────────────────────────────────────
