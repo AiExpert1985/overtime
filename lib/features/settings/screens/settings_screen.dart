@@ -591,13 +591,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           value: const SizedBox.shrink(),
         ),
         const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: Theme.of(
-              context,
-            ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(16),
-          ),
+        Material(
+          color: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(16),
+          clipBehavior: Clip.antiAlias,
           child: RadioGroup<String>(
             groupValue: s.roundingMode,
             onChanged: (v) {
