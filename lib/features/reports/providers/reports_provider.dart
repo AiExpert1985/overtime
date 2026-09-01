@@ -351,6 +351,6 @@ class ReportNotifier extends AsyncNotifier<ReportState> {
 }
 
 final reportProvider =
-    AsyncNotifierProvider.family<ReportNotifier, ReportState, int>(
+    AsyncNotifierProvider.autoDispose.family<ReportNotifier, ReportState, int>(
   ReportNotifier.new,
 );
