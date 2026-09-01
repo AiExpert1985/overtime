@@ -329,3 +329,17 @@ Confirmed correct and left alone: two shift start times of 08:00 and 23:00 (bett
 **Open:** Employees whose mid-shift punches fall inside another start time's opening window are assigned the wrong shift; no fix found. A department working a roughly fifteen-hour evening shift cannot be expressed by the configuration, which supports one daily schedule and a single global shift duration — a data-model decision, not a tuning one. The second three-month sample holds exactly 65,536 rows, the legacy spreadsheet limit, so its markedly lower shift recall may be an artifact of truncation; the first sample is missing all rows for 26-28 February.
 
 ---
+
+## 20260901-1200 | Report Delete Stall Fix — Batched Report Storage Inserts | TASK
+
+**Task:** Fixed reports appearing to never delete from the reports list. Root cause was report storage inserting every employee and period row one at a time inside a single transaction; on real data (hundreds of employees, dozens of periods each) this held the database transaction lock for minutes, so any other database call — including delete — queued behind it and never completed. Report storage now batches employee rows and their period rows per employee category into a couple of round-trips each instead of one round-trip per row, so the storing transaction finishes quickly and no longer blocks other database operations. Delete itself needed no change — it was correct all along, just starved.
+
+---
+
+## 20260901-1400 | Report Delete Stall Fix Part 2 — Missing Foreign-Key Indexes | TASK
+
+**Task:** The delete stall persisted after the previous task's fix, reproducing on a fresh app restart with no generation involved — pointing to a second, independent cause. Direct testing against the live database confirmed it: none of the six foreign-key columns linking reports to their employee results and employee results to their periods was indexed, so `ON DELETE CASCADE` full-table-scanned tables with hundreds of thousands of rows on every cascaded delete. Measured at roughly 90 seconds for one report delete before the fix, under a tenth of a second after. The six missing indexes are now created for fresh installs and added via schema migration for existing databases, with no report data dropped since indexing doesn't change how existing rows are read. The same missing indexes were also silently slowing every per-report load query, so this incidentally speeds up opening a report as well as deleting one.
+
+**Diverged:** None — `database_schema.md` never documented indexes either way; this task simply corrects an oversight in the original schema, not a documented design.
+
+---

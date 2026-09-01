@@ -43,103 +43,160 @@ class ReportsRepository {
         'range_end': _isoDate(rangeEnd),
       });
 
-      for (final entry in shiftEntries.values) {
-        final employeeId = await txn.insert('shift_employee_results', {
-          'report_id': reportId,
-          'employee_name': entry.name,
-          'department': entry.department,
-          'overtime_hours': entry.overtimeMinutes!,
-          'is_included': 0,
-        });
-
-        for (final period in entry.periods) {
-          await txn.insert('shift_period_details', {
-            'employee_result_id': employeeId,
-            'period_index': period.periodIndex,
-            'period_date': period.periodDate,
-            'end_date': period.endDate!,
-            'all_timestamps': jsonEncode(
-              period.allTimestamps.map((ts) => ts.toIso8601String()).toList(),
-            ),
-            'total_attendance_duration': period.totalAttendanceDuration!,
-            'zone_data': jsonEncode(
-              period.zoneResults
-                  .map((z) => {
-                        'zoneIndex': z.zoneIndex,
-                        'startTime': z.startTime.toIso8601String(),
-                        'endTime': z.endTime.toIso8601String(),
-                        'windowStart': z.windowStart.toIso8601String(),
-                        'windowEnd': z.windowEnd.toIso8601String(),
-                        'timestamps': z.timestamps
-                            .map((ts) => ts.toIso8601String())
-                            .toList(),
-                        'isSatisfied': z.isSatisfied,
-                      })
-                  .toList(),
-            ),
-            'hours_counted': period.hoursCounted!,
-            'is_valid': period.isValid! ? 1 : 0,
-            'notes': encodeNotes(period.notes),
-          });
-        }
-      }
-
-      for (final entry in dailyEntries.values) {
-        final employeeId = await txn.insert('daily_employee_results', {
-          'report_id': reportId,
-          'employee_name': entry.name,
-          'department': entry.department,
-          'total_overtime_minutes': entry.totalOvertimeMinutes!,
-          'regular_overtime_minutes': entry.regularOvertimeMinutes!,
-          'off_overtime_minutes': entry.offOvertimeMinutes!,
-          'is_included': 0,
-        });
-
-        for (final period in entry.periods) {
-          await txn.insert('daily_period_details', {
-            'employee_result_id': employeeId,
-            'period_index': period.periodIndex,
-            'date': period.date,
-            'weekday': period.weekday,
-            'day_type': period.dayType,
-            'all_timestamps': jsonEncode(
-              period.allTimestamps.map((ts) => ts.toIso8601String()).toList(),
-            ),
-            'total_attendance_duration': period.totalAttendanceDuration!,
-            'overtime_minutes': period.overtimeMinutes!,
-            'is_valid': period.isValid! ? 1 : 0,
-            'notes': encodeNotes(period.notes),
-          });
-        }
-      }
-
-      for (final entry in undetectedList) {
-        final employeeId = await txn.insert('undetected_employee_results', {
-          'report_id': reportId,
-          'employee_name': entry.name,
-          'department': entry.department,
-          'failure_reason': entry.failureReason,
-        });
-
-        final dayMap = _groupByDay(entry.timestamps);
-        final sortedKeys = dayMap.keys.toList()..sort();
-        for (var i = 0; i < sortedKeys.length; i++) {
-          final dateStr = sortedKeys[i];
-          final dayTimestamps = dayMap[dateStr]!;
-          await txn.insert('undetected_period_details', {
-            'employee_result_id': employeeId,
-            'period_index': i,
-            'date': dateStr,
-            'weekday': _arabicWeekdays[DateTime.parse(dateStr).weekday],
-            'all_timestamps': jsonEncode(
-              dayTimestamps.map((ts) => ts.toIso8601String()).toList(),
-            ),
-          });
-        }
-      }
+      await _insertShiftEntries(txn, reportId, shiftEntries.values.toList());
+      await _insertDailyEntries(txn, reportId, dailyEntries.values.toList());
+      await _insertUndetectedEntries(txn, reportId, undetectedList);
 
       return reportId;
     });
+  }
+
+  // Each employee category below is inserted in two batched round-trips
+  // (all employee rows, then all their period rows) instead of one awaited
+  // insert per row. sqflite_common_ffi serializes every call through a
+  // single worker isolate, so a real report — hundreds of employees with
+  // dozens of periods each — previously held the transaction lock for
+  // minutes doing thousands of sequential round-trips, stalling every other
+  // database call (e.g. deleting an older report) queued behind it.
+
+  Future<void> _insertShiftEntries(
+    Transaction txn,
+    int reportId,
+    List<ShiftEmployeeEntry> entries,
+  ) async {
+    if (entries.isEmpty) return;
+
+    final employeeBatch = txn.batch();
+    for (final entry in entries) {
+      employeeBatch.insert('shift_employee_results', {
+        'report_id': reportId,
+        'employee_name': entry.name,
+        'department': entry.department,
+        'overtime_hours': entry.overtimeMinutes!,
+        'is_included': 0,
+      });
+    }
+    final employeeIds = await employeeBatch.commit();
+
+    final periodBatch = txn.batch();
+    for (var i = 0; i < entries.length; i++) {
+      final employeeId = employeeIds[i] as int;
+      for (final period in entries[i].periods) {
+        periodBatch.insert('shift_period_details', {
+          'employee_result_id': employeeId,
+          'period_index': period.periodIndex,
+          'period_date': period.periodDate,
+          'end_date': period.endDate!,
+          'all_timestamps': jsonEncode(
+            period.allTimestamps.map((ts) => ts.toIso8601String()).toList(),
+          ),
+          'total_attendance_duration': period.totalAttendanceDuration!,
+          'zone_data': jsonEncode(
+            period.zoneResults
+                .map((z) => {
+                      'zoneIndex': z.zoneIndex,
+                      'startTime': z.startTime.toIso8601String(),
+                      'endTime': z.endTime.toIso8601String(),
+                      'windowStart': z.windowStart.toIso8601String(),
+                      'windowEnd': z.windowEnd.toIso8601String(),
+                      'timestamps': z.timestamps
+                          .map((ts) => ts.toIso8601String())
+                          .toList(),
+                      'isSatisfied': z.isSatisfied,
+                    })
+                .toList(),
+          ),
+          'hours_counted': period.hoursCounted!,
+          'is_valid': period.isValid! ? 1 : 0,
+          'notes': encodeNotes(period.notes),
+        });
+      }
+    }
+    await periodBatch.commit(noResult: true);
+  }
+
+  Future<void> _insertDailyEntries(
+    Transaction txn,
+    int reportId,
+    List<DailyEmployeeEntry> entries,
+  ) async {
+    if (entries.isEmpty) return;
+
+    final employeeBatch = txn.batch();
+    for (final entry in entries) {
+      employeeBatch.insert('daily_employee_results', {
+        'report_id': reportId,
+        'employee_name': entry.name,
+        'department': entry.department,
+        'total_overtime_minutes': entry.totalOvertimeMinutes!,
+        'regular_overtime_minutes': entry.regularOvertimeMinutes!,
+        'off_overtime_minutes': entry.offOvertimeMinutes!,
+        'is_included': 0,
+      });
+    }
+    final employeeIds = await employeeBatch.commit();
+
+    final periodBatch = txn.batch();
+    for (var i = 0; i < entries.length; i++) {
+      final employeeId = employeeIds[i] as int;
+      for (final period in entries[i].periods) {
+        periodBatch.insert('daily_period_details', {
+          'employee_result_id': employeeId,
+          'period_index': period.periodIndex,
+          'date': period.date,
+          'weekday': period.weekday,
+          'day_type': period.dayType,
+          'all_timestamps': jsonEncode(
+            period.allTimestamps.map((ts) => ts.toIso8601String()).toList(),
+          ),
+          'total_attendance_duration': period.totalAttendanceDuration!,
+          'overtime_minutes': period.overtimeMinutes!,
+          'is_valid': period.isValid! ? 1 : 0,
+          'notes': encodeNotes(period.notes),
+        });
+      }
+    }
+    await periodBatch.commit(noResult: true);
+  }
+
+  Future<void> _insertUndetectedEntries(
+    Transaction txn,
+    int reportId,
+    List<UndetectedEntry> entries,
+  ) async {
+    if (entries.isEmpty) return;
+
+    final employeeBatch = txn.batch();
+    for (final entry in entries) {
+      employeeBatch.insert('undetected_employee_results', {
+        'report_id': reportId,
+        'employee_name': entry.name,
+        'department': entry.department,
+        'failure_reason': entry.failureReason,
+      });
+    }
+    final employeeIds = await employeeBatch.commit();
+
+    final periodBatch = txn.batch();
+    for (var i = 0; i < entries.length; i++) {
+      final employeeId = employeeIds[i] as int;
+      final dayMap = _groupByDay(entries[i].timestamps);
+      final sortedKeys = dayMap.keys.toList()..sort();
+      for (var j = 0; j < sortedKeys.length; j++) {
+        final dateStr = sortedKeys[j];
+        final dayTimestamps = dayMap[dateStr]!;
+        periodBatch.insert('undetected_period_details', {
+          'employee_result_id': employeeId,
+          'period_index': j,
+          'date': dateStr,
+          'weekday': _arabicWeekdays[DateTime.parse(dateStr).weekday],
+          'all_timestamps': jsonEncode(
+            dayTimestamps.map((ts) => ts.toIso8601String()).toList(),
+          ),
+        });
+      }
+    }
+    await periodBatch.commit(noResult: true);
   }
 
   Future<Report> loadReport(int id) async {

@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
-const _schemaVersion = 6;
+const _schemaVersion = 7;
 
 final dbProvider = Provider<Database>((ref) {
   throw UnimplementedError('dbProvider must be overridden in main');
@@ -83,6 +83,16 @@ class AppDatabase {
           // data in shapes this code cannot read. There is no production data,
           // so old reports are dropped rather than migrated (details cascade).
           await db.delete('reports');
+        }
+        if (oldVersion < 7) {
+          // None of the six foreign-key columns joining reports to their
+          // results and results to their periods was ever indexed. Without
+          // an index, ON DELETE CASCADE has to full-table-scan every child
+          // table for each cascaded row, so deleting one report against a
+          // database with real data took upwards of a minute. This is purely
+          // additive — existing report data is read the same way either way,
+          // so nothing is dropped for this migration.
+          await _createIndexes(db);
         }
       },
       onOpen: (db) async {
@@ -204,6 +214,39 @@ class AppDatabase {
       )
     ''');
 
+    await batch.commit(noResult: true);
+    await _createIndexes(db);
+  }
+
+  // Indexes every foreign-key column joining reports to their results and
+  // results to their periods. Without these, ON DELETE CASCADE (and any
+  // per-report load query) full-table-scans the results/period tables.
+  static Future<void> _createIndexes(Database db) async {
+    final batch = db.batch();
+    batch.execute(
+      'CREATE INDEX IF NOT EXISTS idx_shift_employee_results_report_id '
+      'ON shift_employee_results(report_id)',
+    );
+    batch.execute(
+      'CREATE INDEX IF NOT EXISTS idx_daily_employee_results_report_id '
+      'ON daily_employee_results(report_id)',
+    );
+    batch.execute(
+      'CREATE INDEX IF NOT EXISTS idx_undetected_employee_results_report_id '
+      'ON undetected_employee_results(report_id)',
+    );
+    batch.execute(
+      'CREATE INDEX IF NOT EXISTS idx_shift_period_details_employee_result_id '
+      'ON shift_period_details(employee_result_id)',
+    );
+    batch.execute(
+      'CREATE INDEX IF NOT EXISTS idx_daily_period_details_employee_result_id '
+      'ON daily_period_details(employee_result_id)',
+    );
+    batch.execute(
+      'CREATE INDEX IF NOT EXISTS idx_undetected_period_details_employee_result_id '
+      'ON undetected_period_details(employee_result_id)',
+    );
     await batch.commit(noResult: true);
   }
 
