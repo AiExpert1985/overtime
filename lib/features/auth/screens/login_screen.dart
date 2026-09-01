@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -180,6 +182,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ),
                               ),
                       ),
+                      const SizedBox(height: 12),
+                      // The window opens borderless (no native title bar), so
+                      // this is the app's only way to close it — reachable
+                      // only from the login screen, i.e. after logging out.
+                      FilledButton(
+                        onPressed: _confirmClose,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFFDC2626),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: const Text(
+                          'اغلاق',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -189,5 +213,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmClose() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('إغلاق البرنامج'),
+        content: const Text('هل أنت متأكد من رغبتك بإغلاق البرنامج؟'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+              foregroundColor: Theme.of(ctx).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('إغلاق'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      exit(0);
+    }
   }
 }

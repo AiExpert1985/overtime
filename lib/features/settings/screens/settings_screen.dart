@@ -265,6 +265,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               (v) => v > 0,
               notifier.updateDailyWorkDuration,
             ),
+            unitSuffix: 'ساعة',
           ),
         ),
         _settingRow(
@@ -278,6 +279,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               (v) => v > 0,
               notifier.updateDailyMaxOvertime,
             ),
+            unitSuffix: 'ساعة',
           ),
         ),
         _settingRow(
@@ -291,6 +293,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               (v) => v >= 0,
               notifier.updateDailyDelayAllowance,
             ),
+            unitSuffix: 'دقيقة',
           ),
         ),
         _readOnlyRow('وقت النهاية المحتسب', s.dailyEndTime),
@@ -322,6 +325,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               (v) => v > 0,
               notifier.updateShiftDuration,
             ),
+            unitSuffix: 'ساعة',
           ),
         ),
         _settingRow(
@@ -339,6 +343,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               notifier.updateShiftZoneInterval,
               invalidMessage: _minZoneIntervalMessage(s),
             ),
+            unitSuffix: 'ساعة',
           ),
         ),
         _settingRow(
@@ -354,6 +359,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               notifier.updateShiftEdgeTolerance,
               invalidMessage: _maxToleranceMessage(s),
             ),
+            unitSuffix: 'دقيقة',
           ),
         ),
         _settingRow(
@@ -368,6 +374,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               notifier.updateShiftInnerTolerance,
               invalidMessage: _maxToleranceMessage(s),
             ),
+            unitSuffix: 'دقيقة',
           ),
         ),
         _settingRow(
@@ -381,6 +388,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               (v) => v >= 0,
               notifier.updateShiftDurationTolerance,
             ),
+            unitSuffix: 'دقيقة',
           ),
         ),
         _settingRow(
@@ -394,6 +402,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               (v) => v > 0 && v < s.shiftCeilingHours,
               notifier.updateShiftBaselineHours,
             ),
+            unitSuffix: 'ساعة',
           ),
         ),
         _settingRow(
@@ -407,9 +416,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               (v) => v > s.shiftBaselineHours,
               notifier.updateShiftCeilingHours,
             ),
+            unitSuffix: 'ساعة',
           ),
         ),
-        _readOnlyRow('عدد نقاط التحقق المحتسبة', '${s.zoneCount}'),
+        _readOnlyRow(
+          'عدد البصمات المطلوبة',
+          '${s.zoneCount}',
+          valueWidth: 130,
+        ),
       ],
     );
   }
@@ -1003,13 +1017,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Widget _numberField(TextEditingController ctrl, VoidCallback onSave) {
+  Widget _numberField(
+    TextEditingController ctrl,
+    VoidCallback onSave, {
+    String? unitSuffix,
+  }) {
     return Focus(
       onFocusChange: (hasFocus) {
         if (!hasFocus) onSave();
       },
       child: SizedBox(
-        width: 100,
+        width: unitSuffix == null ? 100 : 130,
         child: TextField(
           controller: ctrl,
           keyboardType: TextInputType.number,
@@ -1029,6 +1047,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               vertical: 12,
             ),
             isDense: true,
+            suffixText: unitSuffix,
+            suffixStyle: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.normal,
+              color: Theme.of(context).colorScheme.outline,
+            ),
           ),
           onSubmitted: (_) => onSave(),
         ),
@@ -1069,7 +1093,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Widget _readOnlyRow(String label, String value) {
+  Widget _readOnlyRow(String label, String value, {double? valueWidth}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
@@ -1082,6 +1106,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const Spacer(),
           Container(
+            width: valueWidth,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -1089,6 +1114,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             child: Text(
               value,
+              textAlign: valueWidth == null ? null : TextAlign.center,
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 color: Theme.of(context).colorScheme.outline,
