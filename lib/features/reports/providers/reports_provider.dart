@@ -6,6 +6,7 @@ import '../domain/daily_employee_row.dart';
 import '../domain/report.dart';
 import '../domain/shift_employee_row.dart';
 import '../domain/undetected_employee_row.dart';
+import '../domain/unified_employee_row.dart';
 
 final reportsRepositoryProvider = Provider<ReportsRepository>((ref) {
   return ReportsRepository(ref.watch(dbProvider));
@@ -35,145 +36,112 @@ class ReportState {
     required this.shiftRows,
     required this.dailyRows,
     required this.undetectedRows,
-    this.shiftSearch = '',
-    this.dailySearch = '',
-    this.undetectedSearch = '',
-    this.shiftDeptFilter,
-    this.dailyDeptFilter,
-    this.shiftShowIncluded = true,
-    this.shiftShowExcluded = true,
-    this.dailyShowIncluded = true,
-    this.dailyShowExcluded = true,
-    this.shiftHasOvertime = true,
-    this.shiftNoOvertime = true,
-    this.dailyHasOvertime = true,
-    this.dailyNoOvertime = true,
+    this.search = '',
+    this.deptFilter,
+    this.showShiftType = true,
+    this.showDailyType = true,
+    this.showUndetectedType = true,
+    this.showIncluded = true,
+    this.showExcluded = true,
+    this.hasOvertime = true,
+    this.noOvertime = true,
   });
 
   final Report report;
   final List<ShiftEmployeeRow> shiftRows;
   final List<DailyEmployeeRow> dailyRows;
   final List<UndetectedEmployeeRow> undetectedRows;
-  final String shiftSearch;
-  final String dailySearch;
-  final String undetectedSearch;
-  final String? shiftDeptFilter;
-  final String? dailyDeptFilter;
+
+  // Single filter surface shared by all three employee types.
+  final String search;
+  final String? deptFilter;
+
+  // Type filter: which categories are currently visible in the merged list.
+  // Paired-boolean convention below applies here too — all false → show none.
+  final bool showShiftType;
+  final bool showDailyType;
+  final bool showUndetectedType;
 
   // Paired booleans: both true → show all; one true → filter to that category;
   // both false → show none.
-  final bool shiftShowIncluded;
-  final bool shiftShowExcluded;
-  final bool dailyShowIncluded;
-  final bool dailyShowExcluded;
+  final bool showIncluded;
+  final bool showExcluded;
 
-  final bool shiftHasOvertime;
-  final bool shiftNoOvertime;
-  final bool dailyHasOvertime;
-  final bool dailyNoOvertime;
+  final bool hasOvertime;
+  final bool noOvertime;
 
-  // --- summaries (included employees only) ---
+  // --- per-type summaries (used to build the type-aware aggregate cards) ---
 
-  int get totalShift => shiftRows.length;
   int get includedShift => shiftRows.where((r) => r.isIncluded).length;
-  // All employees regardless of is_included (gross total)
-  int get totalShiftOvertimeAllMinutes =>
-      shiftRows.fold(0, (s, r) => s + r.overtimeMinutes);
-  // Included employees only (deserved total)
-  int get totalShiftOvertimeMinutes =>
-      shiftRows.where((r) => r.isIncluded).fold(0, (s, r) => s + r.overtimeMinutes);
+  // A shift employee's overtime is definitionally working-day overtime —
+  // shift has no off-day concept of its own.
+  int get includedShiftOvertimeMinutes => shiftRows
+      .where((r) => r.isIncluded)
+      .fold(0, (s, r) => s + r.overtimeMinutes);
 
-  int get totalDaily => dailyRows.length;
   int get includedDaily => dailyRows.where((r) => r.isIncluded).length;
-  // All employees regardless of is_included (gross total)
-  int get totalDailyOvertimeAllMinutes =>
-      dailyRows.fold(0, (s, r) => s + r.totalOvertimeMinutes);
-  // Included employees only (deserved total)
-  int get totalDailyOvertimeMinutes =>
-      dailyRows.where((r) => r.isIncluded).fold(0, (s, r) => s + r.totalOvertimeMinutes);
-  int get includedDailyOffOvertimeMinutes =>
-      dailyRows.where((r) => r.isIncluded).fold(0, (s, r) => s + r.offOvertimeMinutes);
-  int get includedDailyRegularOvertimeMinutes =>
-      dailyRows.where((r) => r.isIncluded).fold(0, (s, r) => s + r.regularOvertimeMinutes);
+  int get includedDailyOffOvertimeMinutes => dailyRows
+      .where((r) => r.isIncluded)
+      .fold(0, (s, r) => s + r.offOvertimeMinutes);
+  int get includedDailyRegularOvertimeMinutes => dailyRows
+      .where((r) => r.isIncluded)
+      .fold(0, (s, r) => s + r.regularOvertimeMinutes);
 
-  int get totalUndetected => undetectedRows.length;
+  // --- aggregate cards (included employees only, driven by which types are
+  // toggled visible) ---
 
-  // --- filtered + sorted views ---
+  int get includedEmployees =>
+      (showShiftType ? includedShift : 0) + (showDailyType ? includedDaily : 0);
 
-  List<ShiftEmployeeRow> get visibleShiftRows {
-    var list = List<ShiftEmployeeRow>.from(shiftRows);
+  // Off-day overtime — daily only; shift has no off-day concept.
+  int get includedOffOvertimeMinutes =>
+      showDailyType ? includedDailyOffOvertimeMinutes : 0;
 
-    if (!shiftShowIncluded && !shiftShowExcluded) {
-      return [];
-    } else if (shiftShowIncluded && !shiftShowExcluded) {
+  // Working-day overtime — daily's regular-day overtime plus shift's
+  // overtime, since both are earned on a working day.
+  int get includedRegularOvertimeMinutes =>
+      (showDailyType ? includedDailyRegularOvertimeMinutes : 0) +
+      (showShiftType ? includedShiftOvertimeMinutes : 0);
+
+  int get includedTotalOvertimeMinutes =>
+      includedOffOvertimeMinutes + includedRegularOvertimeMinutes;
+
+  // --- merged, filtered + sorted view ---
+
+  List<UnifiedEmployeeRow> get visibleRows {
+    if (!showShiftType && !showDailyType && !showUndetectedType) return [];
+    if (!showIncluded && !showExcluded) return [];
+    if (!hasOvertime && !noOvertime) return [];
+
+    var list = <UnifiedEmployeeRow>[
+      if (showShiftType) ...shiftRows.map(UnifiedEmployeeRow.shift),
+      if (showDailyType) ...dailyRows.map(UnifiedEmployeeRow.daily),
+      if (showUndetectedType)
+        ...undetectedRows.map(UnifiedEmployeeRow.undetected),
+    ];
+
+    if (showIncluded && !showExcluded) {
       list = list.where((r) => r.isIncluded).toList();
-    } else if (!shiftShowIncluded) {
+    } else if (!showIncluded) {
       list = list.where((r) => !r.isIncluded).toList();
     }
 
-    if (!shiftHasOvertime && !shiftNoOvertime) {
-      return [];
-    } else if (shiftHasOvertime && !shiftNoOvertime) {
+    if (hasOvertime && !noOvertime) {
       list = list.where((r) => r.overtimeMinutes > 0).toList();
-    } else if (!shiftHasOvertime) {
+    } else if (!hasOvertime) {
       list = list.where((r) => r.overtimeMinutes == 0).toList();
     }
 
-    if (shiftSearch.isNotEmpty) {
-      final q = shiftSearch.toLowerCase();
-      list = list.where((r) => r.employeeName.toLowerCase().contains(q)).toList();
+    if (search.isNotEmpty) {
+      final q = search.toLowerCase();
+      list =
+          list.where((r) => r.employeeName.toLowerCase().contains(q)).toList();
     }
 
-    if (shiftDeptFilter != null) {
-      list = list.where((r) => r.department == shiftDeptFilter).toList();
+    if (deptFilter != null) {
+      list = list.where((r) => r.department == deptFilter).toList();
     }
 
-    list.sort((a, b) => a.employeeName.compareTo(b.employeeName));
-    return list;
-  }
-
-  List<DailyEmployeeRow> get visibleDailyRows {
-    var list = List<DailyEmployeeRow>.from(dailyRows);
-
-    if (!dailyShowIncluded && !dailyShowExcluded) {
-      return [];
-    } else if (dailyShowIncluded && !dailyShowExcluded) {
-      list = list.where((r) => r.isIncluded).toList();
-    } else if (!dailyShowIncluded) {
-      list = list.where((r) => !r.isIncluded).toList();
-    }
-
-    if (!dailyHasOvertime && !dailyNoOvertime) {
-      return [];
-    } else if (dailyHasOvertime && !dailyNoOvertime) {
-      list = list.where((r) => r.totalOvertimeMinutes > 0).toList();
-    } else if (!dailyHasOvertime) {
-      list = list.where((r) => r.totalOvertimeMinutes == 0).toList();
-    }
-
-    if (dailySearch.isNotEmpty) {
-      final q = dailySearch.toLowerCase();
-      list = list.where((r) => r.employeeName.toLowerCase().contains(q)).toList();
-    }
-
-    if (dailyDeptFilter != null) {
-      list = list.where((r) => r.department == dailyDeptFilter).toList();
-    }
-
-    list.sort((a, b) => a.employeeName.compareTo(b.employeeName));
-    return list;
-  }
-
-  List<UndetectedEmployeeRow> get visibleUndetectedRows {
-    var list = List<UndetectedEmployeeRow>.from(undetectedRows);
-    if (undetectedSearch.isNotEmpty) {
-      final q = undetectedSearch.toLowerCase();
-      list = list
-          .where((r) =>
-              r.employeeName.toLowerCase().contains(q) ||
-              r.department.toLowerCase().contains(q))
-          .toList();
-    }
     list.sort((a, b) => a.employeeName.compareTo(b.employeeName));
     return list;
   }
@@ -183,42 +151,31 @@ class ReportState {
   ReportState copyWith({
     List<ShiftEmployeeRow>? shiftRows,
     List<DailyEmployeeRow>? dailyRows,
-    String? shiftSearch,
-    String? dailySearch,
-    String? undetectedSearch,
-    Object? shiftDeptFilter = _omit,
-    Object? dailyDeptFilter = _omit,
-    bool? shiftShowIncluded,
-    bool? shiftShowExcluded,
-    bool? dailyShowIncluded,
-    bool? dailyShowExcluded,
-    bool? shiftHasOvertime,
-    bool? shiftNoOvertime,
-    bool? dailyHasOvertime,
-    bool? dailyNoOvertime,
+    String? search,
+    Object? deptFilter = _omit,
+    bool? showShiftType,
+    bool? showDailyType,
+    bool? showUndetectedType,
+    bool? showIncluded,
+    bool? showExcluded,
+    bool? hasOvertime,
+    bool? noOvertime,
   }) =>
       ReportState(
         report: report,
         shiftRows: shiftRows ?? this.shiftRows,
         dailyRows: dailyRows ?? this.dailyRows,
         undetectedRows: undetectedRows,
-        shiftSearch: shiftSearch ?? this.shiftSearch,
-        dailySearch: dailySearch ?? this.dailySearch,
-        undetectedSearch: undetectedSearch ?? this.undetectedSearch,
-        shiftDeptFilter: shiftDeptFilter == _omit
-            ? this.shiftDeptFilter
-            : shiftDeptFilter as String?,
-        dailyDeptFilter: dailyDeptFilter == _omit
-            ? this.dailyDeptFilter
-            : dailyDeptFilter as String?,
-        shiftShowIncluded: shiftShowIncluded ?? this.shiftShowIncluded,
-        shiftShowExcluded: shiftShowExcluded ?? this.shiftShowExcluded,
-        dailyShowIncluded: dailyShowIncluded ?? this.dailyShowIncluded,
-        dailyShowExcluded: dailyShowExcluded ?? this.dailyShowExcluded,
-        shiftHasOvertime: shiftHasOvertime ?? this.shiftHasOvertime,
-        shiftNoOvertime: shiftNoOvertime ?? this.shiftNoOvertime,
-        dailyHasOvertime: dailyHasOvertime ?? this.dailyHasOvertime,
-        dailyNoOvertime: dailyNoOvertime ?? this.dailyNoOvertime,
+        search: search ?? this.search,
+        deptFilter:
+            deptFilter == _omit ? this.deptFilter : deptFilter as String?,
+        showShiftType: showShiftType ?? this.showShiftType,
+        showDailyType: showDailyType ?? this.showDailyType,
+        showUndetectedType: showUndetectedType ?? this.showUndetectedType,
+        showIncluded: showIncluded ?? this.showIncluded,
+        showExcluded: showExcluded ?? this.showExcluded,
+        hasOvertime: hasOvertime ?? this.hasOvertime,
+        noOvertime: noOvertime ?? this.noOvertime,
       );
 }
 
@@ -271,82 +228,58 @@ class ReportNotifier extends AsyncNotifier<ReportState> {
     ));
   }
 
-  void setShiftSearch(String q) {
+  void setSearch(String q) {
     final current = _current;
     if (current == null) return;
-    state = AsyncData(current.copyWith(shiftSearch: q));
+    state = AsyncData(current.copyWith(search: q));
   }
 
-  void setDailySearch(String q) {
+  void setDeptFilter(String? v) {
     final current = _current;
     if (current == null) return;
-    state = AsyncData(current.copyWith(dailySearch: q));
+    state = AsyncData(current.copyWith(deptFilter: v));
   }
 
-  void setUndetectedSearch(String q) {
+  void setShowShiftType(bool v) {
     final current = _current;
     if (current == null) return;
-    state = AsyncData(current.copyWith(undetectedSearch: q));
+    state = AsyncData(current.copyWith(showShiftType: v));
   }
 
-  void setShiftDeptFilter(String? v) {
+  void setShowDailyType(bool v) {
     final current = _current;
     if (current == null) return;
-    state = AsyncData(current.copyWith(shiftDeptFilter: v));
+    state = AsyncData(current.copyWith(showDailyType: v));
   }
 
-  void setDailyDeptFilter(String? v) {
+  void setShowUndetectedType(bool v) {
     final current = _current;
     if (current == null) return;
-    state = AsyncData(current.copyWith(dailyDeptFilter: v));
+    state = AsyncData(current.copyWith(showUndetectedType: v));
   }
 
-  void setShiftShowIncluded(bool v) {
+  void setShowIncluded(bool v) {
     final current = _current;
     if (current == null) return;
-    state = AsyncData(current.copyWith(shiftShowIncluded: v));
+    state = AsyncData(current.copyWith(showIncluded: v));
   }
 
-  void setShiftShowExcluded(bool v) {
+  void setShowExcluded(bool v) {
     final current = _current;
     if (current == null) return;
-    state = AsyncData(current.copyWith(shiftShowExcluded: v));
+    state = AsyncData(current.copyWith(showExcluded: v));
   }
 
-  void setDailyShowIncluded(bool v) {
+  void setHasOvertime(bool v) {
     final current = _current;
     if (current == null) return;
-    state = AsyncData(current.copyWith(dailyShowIncluded: v));
+    state = AsyncData(current.copyWith(hasOvertime: v));
   }
 
-  void setDailyShowExcluded(bool v) {
+  void setNoOvertime(bool v) {
     final current = _current;
     if (current == null) return;
-    state = AsyncData(current.copyWith(dailyShowExcluded: v));
-  }
-
-  void setShiftHasOvertime(bool v) {
-    final current = _current;
-    if (current == null) return;
-    state = AsyncData(current.copyWith(shiftHasOvertime: v));
-  }
-
-  void setShiftNoOvertime(bool v) {
-    final current = _current;
-    if (current == null) return;
-    state = AsyncData(current.copyWith(shiftNoOvertime: v));
-  }
-
-  void setDailyHasOvertime(bool v) {
-    final current = _current;
-    if (current == null) return;
-    state = AsyncData(current.copyWith(dailyHasOvertime: v));
-  }
-
-  void setDailyNoOvertime(bool v) {
-    final current = _current;
-    if (current == null) return;
-    state = AsyncData(current.copyWith(dailyNoOvertime: v));
+    state = AsyncData(current.copyWith(noOvertime: v));
   }
 }
 

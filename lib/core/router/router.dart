@@ -8,7 +8,6 @@ import '../../features/auth/domain/user_role.dart';
 import '../../features/reports/screens/report_detail_screen.dart';
 import '../../features/reports/screens/report_generate_screen.dart';
 import '../../features/reports/screens/report_screen.dart';
-import '../../features/reports/screens/report_undetected_screen.dart';
 import '../../features/reports/screens/reports_list_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
 
@@ -84,13 +83,6 @@ final routerProvider = Provider<GoRouter>((ref) {
               employeeResultId: int.parse(
                 state.pathParameters['employeeResultId']!,
               ),
-            ),
-          ),
-          GoRoute(
-            path: 'undetected',
-            name: 'undetected',
-            builder: (context, state) => ReportUndetectedScreen(
-              reportId: int.parse(state.pathParameters['reportId']!),
             ),
           ),
         ],

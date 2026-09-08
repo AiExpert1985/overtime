@@ -6,8 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../auth/domain/user_role.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../settings/providers/settings_provider.dart';
-import '../domain/daily_employee_row.dart';
-import '../domain/shift_employee_row.dart';
+import '../domain/unified_employee_row.dart';
 import '../providers/reports_provider.dart';
 import '../services/report_export_service.dart';
 
@@ -34,6 +33,18 @@ String _fmt(int minutes, String mode) {
 String _fmtDate(DateTime d) =>
     '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
+String _typeLabel(EmployeeType type) => switch (type) {
+      EmployeeType.shift => 'مناوبة',
+      EmployeeType.daily => 'دوام صباحي',
+      EmployeeType.undetected => 'غير محدد',
+    };
+
+MaterialColor _typeColor(EmployeeType type) => switch (type) {
+      EmployeeType.shift => Colors.indigo,
+      EmployeeType.daily => Colors.green,
+      EmployeeType.undetected => Colors.orange,
+    };
+
 // ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
@@ -48,47 +59,41 @@ class ReportScreen extends ConsumerStatefulWidget {
 }
 
 class _ReportScreenState extends ConsumerState<ReportScreen> {
-  int _selectedTab = 0;
-  late final TextEditingController _shiftSearch;
-  late final TextEditingController _dailySearch;
-  bool _shiftExporting = false;
-  bool _dailyExporting = false;
+  late final TextEditingController _search;
+  bool _exporting = false;
 
   @override
   void initState() {
     super.initState();
-    _shiftSearch = TextEditingController();
-    _dailySearch = TextEditingController();
+    _search = TextEditingController();
   }
 
   @override
   void dispose() {
-    _shiftSearch.dispose();
-    _dailySearch.dispose();
+    _search.dispose();
     super.dispose();
   }
 
   ReportNotifier get _notifier =>
       ref.read(reportProvider(widget.reportId).notifier);
 
+  // Undetected rows have no inclusion concept, and audit users are
+  // read-only — both cases disable the toggle entirely.
+  void Function(bool)? _onToggleFor(UnifiedEmployeeRow row, bool canEdit) {
+    if (!canEdit || row.type == EmployeeType.undetected) return null;
+    return row.type == EmployeeType.shift
+        ? (v) => _notifier.toggleShiftIncluded(row.id, v)
+        : (v) => _notifier.toggleDailyIncluded(row.id, v);
+  }
+
   String get _roundingMode =>
       ref.read(settingsProvider).whenOrNull(data: (s) => s.roundingMode) ??
       'quarter';
-
-  void _showUndetected() =>
-      context.push('/report/${widget.reportId}/undetected');
-
-  bool get _isExporting =>
-      _selectedTab == 0 ? _shiftExporting : _dailyExporting;
-
-  void _doExport(ReportState rs) =>
-      _selectedTab == 0 ? _doExportShift(rs) : _doExportDaily(rs);
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(reportProvider(widget.reportId));
     final rs = state.whenOrNull(data: (v) => v);
-    final undetectedCount = rs?.totalUndetected ?? 0;
     final theme = Theme.of(context);
     // Audit is read-only: no inclusion-toggle mutations.
     final canEdit = ref.watch(currentUserProvider) != UserRole.audit;
@@ -110,7 +115,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
         toolbarHeight: 68,
         actions: [
           if (rs != null) ...[
-            _isExporting
+            _exporting
                 ? const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                     child: SizedBox(
@@ -125,14 +130,6 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                     onTap: () => _doExport(rs),
                   ),
           ],
-          _AppBarAction(
-            icon: Icons.warning_amber_rounded,
-            label: 'غير محددين',
-            iconColor: undetectedCount > 0 ? Colors.orange.shade700 : null,
-            badge: undetectedCount > 0 ? '$undetectedCount' : null,
-            badgeColor: Colors.orange.shade700,
-            onTap: rs != null ? _showUndetected : null,
-          ),
           const SizedBox(width: 4),
         ],
       ),
@@ -196,181 +193,140 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                   ],
                 ),
               ),
-              data: (rs) => Column(
-                children: [
-                  // Top summary cards — 2/3 width, centered
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(0, 14, 0, 14),
-                    child: Center(
-                      child: FractionallySizedBox(
-                        widthFactor: 0.67,
-                        child: _selectedTab == 0
-                            ? Row(
-                                children: [
-                                  Expanded(
-                                    child: _SummaryCard(
-                                      label: 'الموظفون المشمولون',
-                                      value: '${rs.includedShift}',
-                                      icon: Icons.how_to_reg_rounded,
-                                      accentColor: Colors.indigo,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 22),
-                                  Expanded(
-                                    child: _SummaryCard(
-                                      label: 'الوقت الإضافي المحتسب',
-                                      value: _fmt(
-                                        rs.totalShiftOvertimeMinutes,
-                                        _roundingMode,
-                                      ),
-                                      icon: Icons.verified_rounded,
-                                      accentColor: Colors.teal,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : Row(
-                                children: [
-                                  Expanded(
-                                    child: _SummaryCard(
-                                      label: 'الموظفون المشمولون',
-                                      value: '${rs.includedDaily}',
-                                      icon: Icons.how_to_reg_rounded,
-                                      accentColor: Colors.indigo,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    child: _SummaryCard(
-                                      label: 'إضافي العطل',
-                                      value: _fmt(
-                                        rs.includedDailyOffOvertimeMinutes,
-                                        _roundingMode,
-                                      ),
-                                      icon: Icons.weekend_rounded,
-                                      accentColor: Colors.orange,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    child: _SummaryCard(
-                                      label: 'إضافي الدوام',
-                                      value: _fmt(
-                                        rs.includedDailyRegularOvertimeMinutes,
-                                        _roundingMode,
-                                      ),
-                                      icon: Icons.work_rounded,
-                                      accentColor: Colors.blue,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    child: _SummaryCard(
-                                      label: 'إجمالي الإضافي',
-                                      value: _fmt(
-                                        rs.totalDailyOvertimeMinutes,
-                                        _roundingMode,
-                                      ),
-                                      icon: Icons.verified_rounded,
-                                      accentColor: Colors.green,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                      ),
-                    ),
-                  ),
+              data: (rs) {
+                final rows = rs.visibleRows;
+                final depts = ({
+                  ...rs.shiftRows.map((r) => r.department),
+                  ...rs.dailyRows.map((r) => r.department),
+                  ...rs.undetectedRows.map((r) => r.department),
+                }.toList()..sort()).cast<String>();
 
-                  Expanded(
-                    child: IndexedStack(
-                      index: _selectedTab,
-                      children: [
-                        _ShiftTab(
-                          state: rs,
-                          roundingMode: _roundingMode,
-                          nameController: _shiftSearch,
-                          onSearch: (q) => _notifier.setShiftSearch(q),
-                          onDeptChanged: (v) => _notifier.setShiftDeptFilter(v),
-                          onHasOvertimeChanged: (v) =>
-                              _notifier.setShiftHasOvertime(v),
-                          onNoOvertimeChanged: (v) =>
-                              _notifier.setShiftNoOvertime(v),
-                          onShowIncludedChanged: (v) =>
-                              _notifier.setShiftShowIncluded(v),
-                          onShowExcludedChanged: (v) =>
-                              _notifier.setShiftShowExcluded(v),
-                          onToggle: canEdit
-                              ? (id, v) => _notifier.toggleShiftIncluded(id, v)
-                              : null,
-                          onRowTap: (id) => context.push(
-                            '/report/${widget.reportId}/detail/shift/$id',
-                          ),
-                        ),
-                        _DailyTab(
-                          state: rs,
-                          roundingMode: _roundingMode,
-                          nameController: _dailySearch,
-                          onSearch: (q) => _notifier.setDailySearch(q),
-                          onDeptChanged: (v) => _notifier.setDailyDeptFilter(v),
-                          onHasOvertimeChanged: (v) =>
-                              _notifier.setDailyHasOvertime(v),
-                          onNoOvertimeChanged: (v) =>
-                              _notifier.setDailyNoOvertime(v),
-                          onShowIncludedChanged: (v) =>
-                              _notifier.setDailyShowIncluded(v),
-                          onShowExcludedChanged: (v) =>
-                              _notifier.setDailyShowExcluded(v),
-                          onToggle: canEdit
-                              ? (id, v) => _notifier.toggleDailyIncluded(id, v)
-                              : null,
-                          onRowTap: (id) => context.push(
-                            '/report/${widget.reportId}/detail/daily/$id',
-                          ),
-                        ),
-                      ],
+                return Column(
+                  children: [
+                    _InlineFilterHeader(
+                      searchController: _search,
+                      depts: depts,
+                      selectedDept: rs.deptFilter,
+                      onSearch: (q) => _notifier.setSearch(q),
+                      onDeptChanged: (v) => _notifier.setDeptFilter(v),
+                      showShiftType: rs.showShiftType,
+                      showDailyType: rs.showDailyType,
+                      showUndetectedType: rs.showUndetectedType,
+                      onShowShiftTypeChanged: (v) =>
+                          _notifier.setShowShiftType(v),
+                      onShowDailyTypeChanged: (v) =>
+                          _notifier.setShowDailyType(v),
+                      onShowUndetectedTypeChanged: (v) =>
+                          _notifier.setShowUndetectedType(v),
+                      hasOvertime: rs.hasOvertime,
+                      noOvertime: rs.noOvertime,
+                      showIncluded: rs.showIncluded,
+                      showExcluded: rs.showExcluded,
+                      onHasOvertimeChanged: (v) =>
+                          _notifier.setHasOvertime(v),
+                      onNoOvertimeChanged: (v) => _notifier.setNoOvertime(v),
+                      onShowIncludedChanged: (v) =>
+                          _notifier.setShowIncluded(v),
+                      onShowExcludedChanged: (v) =>
+                          _notifier.setShowExcluded(v),
                     ),
-                  ),
-
-                  // Sticky bottom type selector
-                  const SizedBox(height: 20),
-                  Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.outlineVariant.withValues(alpha: 0.5),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(0, 18, 0, 18),
-                    child: Center(
-                      child: FractionallySizedBox(
-                        widthFactor: 0.67,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _TabButton(
-                                label: 'مناوبة',
-                                icon: Icons.swap_horiz_rounded,
-                                selected: _selectedTab == 0,
-                                onTap: () => setState(() => _selectedTab = 0),
+                    Expanded(
+                      child: rows.isEmpty
+                          ? _EmptyState(
+                              message: rs.shiftRows.isEmpty &&
+                                      rs.dailyRows.isEmpty &&
+                                      rs.undetectedRows.isEmpty
+                                  ? 'لا يوجد موظفون في هذا التقرير'
+                                  : 'لا توجد نتائج مطابقة للفلاتر المختارة',
+                              icon: rs.shiftRows.isEmpty &&
+                                      rs.dailyRows.isEmpty &&
+                                      rs.undetectedRows.isEmpty
+                                  ? Icons.people_outline_rounded
+                                  : Icons.search_off_rounded,
+                            )
+                          : ListView.builder(
+                              itemCount: rows.length,
+                              itemBuilder: (_, i) => _UnifiedRow(
+                                row: rows[i],
+                                index: i,
+                                roundingMode: _roundingMode,
+                                onTap: () => context.push(
+                                  '/report/${widget.reportId}/detail/'
+                                  '${rows[i].type.name}/${rows[i].id}',
+                                ),
+                                onToggle: _onToggleFor(rows[i], canEdit),
                               ),
                             ),
-                            const SizedBox(width: 20),
-                            Expanded(
-                              child: _TabButton(
-                                label: 'دوام صباحي',
-                                icon: Icons.wb_sunny_rounded,
-                                selected: _selectedTab == 1,
-                                onTap: () => setState(() => _selectedTab = 1),
+                    ),
+
+                    // Sticky bottom summary — occupies the slot the removed
+                    // مناوبة/دوام صباحي tab selector used to sit in.
+                    const SizedBox(height: 20),
+                    Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: theme.colorScheme.outlineVariant
+                          .withValues(alpha: 0.5),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(0, 18, 0, 18),
+                      child: Center(
+                        child: FractionallySizedBox(
+                          widthFactor: 0.67,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _SummaryCard(
+                                  label: 'الموظفون المشمولون',
+                                  value: '${rs.includedEmployees}',
+                                  icon: Icons.how_to_reg_rounded,
+                                  accentColor: Colors.indigo,
+                                ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: _SummaryCard(
+                                  label: 'إضافي العطل',
+                                  value: _fmt(
+                                    rs.includedOffOvertimeMinutes,
+                                    _roundingMode,
+                                  ),
+                                  icon: Icons.weekend_rounded,
+                                  accentColor: Colors.orange,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: _SummaryCard(
+                                  label: 'إضافي الدوام',
+                                  value: _fmt(
+                                    rs.includedRegularOvertimeMinutes,
+                                    _roundingMode,
+                                  ),
+                                  icon: Icons.work_rounded,
+                                  accentColor: Colors.blue,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: _SummaryCard(
+                                  label: 'إجمالي الوقت الإضافي',
+                                  value: _fmt(
+                                    rs.includedTotalOvertimeMinutes,
+                                    _roundingMode,
+                                  ),
+                                  icon: Icons.verified_rounded,
+                                  accentColor: Colors.teal,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -378,14 +334,15 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
     );
   }
 
-  Future<void> _doExportShift(ReportState rs) async {
-    setState(() => _shiftExporting = true);
+  Future<void> _doExport(ReportState rs) async {
+    setState(() => _exporting = true);
     try {
-      final included = rs.shiftRows.where((r) => r.isIncluded).toList()
-        ..sort((a, b) => a.employeeName.compareTo(b.employeeName));
-      final path = await ReportExportService().exportShift(
+      final includedShift = rs.shiftRows.where((r) => r.isIncluded).toList();
+      final includedDaily = rs.dailyRows.where((r) => r.isIncluded).toList();
+      final path = await ReportExportService().exportUnified(
         report: rs.report,
-        includedRows: included,
+        includedShiftRows: includedShift,
+        includedDailyRows: includedDaily,
         roundingMode: _roundingMode,
       );
       if (!mounted) return;
@@ -400,33 +357,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
         context,
       ).showSnackBar(const SnackBar(content: Text('حدث خطأ أثناء التصدير')));
     } finally {
-      if (mounted) setState(() => _shiftExporting = false);
-    }
-  }
-
-  Future<void> _doExportDaily(ReportState rs) async {
-    setState(() => _dailyExporting = true);
-    try {
-      final included = rs.dailyRows.where((r) => r.isIncluded).toList()
-        ..sort((a, b) => a.employeeName.compareTo(b.employeeName));
-      final path = await ReportExportService().exportDaily(
-        report: rs.report,
-        includedRows: included,
-        roundingMode: _roundingMode,
-      );
-      if (!mounted) return;
-      if (path != null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('تم الحفظ: $path')));
-      }
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('حدث خطأ أثناء التصدير')));
-    } finally {
-      if (mounted) setState(() => _dailyExporting = false);
+      if (mounted) setState(() => _exporting = false);
     }
   }
 }
@@ -439,31 +370,17 @@ class _AppBarAction extends StatelessWidget {
   const _AppBarAction({
     required this.icon,
     required this.label,
-    this.iconColor,
-    this.badge,
-    this.badgeColor,
     this.onTap,
   });
 
   final IconData icon;
   final String label;
-  final Color? iconColor;
-  final String? badge;
-  final Color? badgeColor;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = iconColor ?? theme.colorScheme.onSurfaceVariant;
-    Widget iconWidget = Icon(icon, size: 26, color: color);
-    if (badge != null) {
-      iconWidget = Badge(
-        label: Text(badge!),
-        backgroundColor: badgeColor,
-        child: iconWidget,
-      );
-    }
+    final color = theme.colorScheme.onSurfaceVariant;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -473,7 +390,7 @@ class _AppBarAction extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            iconWidget,
+            Icon(icon, size: 26, color: color),
             const SizedBox(height: 3),
             Text(
               label,
@@ -484,82 +401,6 @@ class _AppBarAction extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Tab button — large rectangle, animated selected state
-// ---------------------------------------------------------------------------
-
-class _TabButton extends StatelessWidget {
-  const _TabButton({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bgColor = selected
-        ? theme.colorScheme.primary
-        : theme.colorScheme.surface;
-    final fgColor = selected
-        ? theme.colorScheme.onPrimary
-        : theme.colorScheme.onSurface;
-    final borderColor = selected
-        ? theme.colorScheme.primary
-        : theme.colorScheme.outlineVariant;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor),
-        boxShadow: selected
-            ? [
-                BoxShadow(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.28),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ]
-            : [],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 20, color: fgColor),
-                const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: fgColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );
@@ -667,182 +508,22 @@ class _SummaryCard extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Shift tab
-// ---------------------------------------------------------------------------
-
-class _ShiftTab extends StatelessWidget {
-  const _ShiftTab({
-    required this.state,
-    required this.roundingMode,
-    required this.nameController,
-    required this.onSearch,
-    required this.onDeptChanged,
-    required this.onHasOvertimeChanged,
-    required this.onNoOvertimeChanged,
-    required this.onShowIncludedChanged,
-    required this.onShowExcludedChanged,
-    required this.onToggle,
-    required this.onRowTap,
-  });
-
-  final ReportState state;
-  final String roundingMode;
-  final TextEditingController nameController;
-  final void Function(String) onSearch;
-  final void Function(String?) onDeptChanged;
-  final void Function(bool) onHasOvertimeChanged;
-  final void Function(bool) onNoOvertimeChanged;
-  final void Function(bool) onShowIncludedChanged;
-  final void Function(bool) onShowExcludedChanged;
-  final void Function(int, bool)? onToggle;
-  final void Function(int) onRowTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final rows = state.visibleShiftRows;
-    final depts = ({
-      ...state.shiftRows.map((r) => r.department),
-    }.toList()..sort()).cast<String>();
-
-    return Column(
-      children: [
-        _InlineFilterHeader(
-          nameController: nameController,
-          depts: depts,
-          selectedDept: state.shiftDeptFilter,
-          onNameSearch: onSearch,
-          onDeptChanged: onDeptChanged,
-          hasOvertime: state.shiftHasOvertime,
-          noOvertime: state.shiftNoOvertime,
-          showIncluded: state.shiftShowIncluded,
-          showExcluded: state.shiftShowExcluded,
-          onHasOvertimeChanged: onHasOvertimeChanged,
-          onNoOvertimeChanged: onNoOvertimeChanged,
-          onShowIncludedChanged: onShowIncludedChanged,
-          onShowExcludedChanged: onShowExcludedChanged,
-        ),
-        Expanded(
-          child: rows.isEmpty
-              ? _EmptyState(
-                  message: state.shiftRows.isEmpty
-                      ? 'لا يوجد موظفون بنظام المناوبة'
-                      : 'لا توجد نتائج مطابقة للفلاتر المختارة',
-                  icon: state.shiftRows.isEmpty
-                      ? Icons.people_outline_rounded
-                      : Icons.search_off_rounded,
-                )
-              : ListView.builder(
-                  itemCount: rows.length,
-                  itemBuilder: (_, i) => _ShiftRow(
-                    row: rows[i],
-                    index: i,
-                    roundingMode: roundingMode,
-                    onTap: () => onRowTap(rows[i].id),
-                    onToggle: onToggle == null
-                        ? null
-                        : (v) => onToggle!(rows[i].id, v),
-                  ),
-                ),
-        ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Daily tab
-// ---------------------------------------------------------------------------
-
-class _DailyTab extends StatelessWidget {
-  const _DailyTab({
-    required this.state,
-    required this.roundingMode,
-    required this.nameController,
-    required this.onSearch,
-    required this.onDeptChanged,
-    required this.onHasOvertimeChanged,
-    required this.onNoOvertimeChanged,
-    required this.onShowIncludedChanged,
-    required this.onShowExcludedChanged,
-    required this.onToggle,
-    required this.onRowTap,
-  });
-
-  final ReportState state;
-  final String roundingMode;
-  final TextEditingController nameController;
-  final void Function(String) onSearch;
-  final void Function(String?) onDeptChanged;
-  final void Function(bool) onHasOvertimeChanged;
-  final void Function(bool) onNoOvertimeChanged;
-  final void Function(bool) onShowIncludedChanged;
-  final void Function(bool) onShowExcludedChanged;
-  final void Function(int, bool)? onToggle;
-  final void Function(int) onRowTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final rows = state.visibleDailyRows;
-    final depts = ({
-      ...state.dailyRows.map((r) => r.department),
-    }.toList()..sort()).cast<String>();
-
-    return Column(
-      children: [
-        _InlineFilterHeader(
-          nameController: nameController,
-          depts: depts,
-          selectedDept: state.dailyDeptFilter,
-          onNameSearch: onSearch,
-          onDeptChanged: onDeptChanged,
-          hasOvertime: state.dailyHasOvertime,
-          noOvertime: state.dailyNoOvertime,
-          showIncluded: state.dailyShowIncluded,
-          showExcluded: state.dailyShowExcluded,
-          onHasOvertimeChanged: onHasOvertimeChanged,
-          onNoOvertimeChanged: onNoOvertimeChanged,
-          onShowIncludedChanged: onShowIncludedChanged,
-          onShowExcludedChanged: onShowExcludedChanged,
-        ),
-        Expanded(
-          child: rows.isEmpty
-              ? _EmptyState(
-                  message: state.dailyRows.isEmpty
-                      ? 'لا يوجد موظفون بنظام الدوام الصباحي'
-                      : 'لا توجد نتائج مطابقة للفلاتر المختارة',
-                  icon: state.dailyRows.isEmpty
-                      ? Icons.wb_sunny_outlined
-                      : Icons.search_off_rounded,
-                )
-              : ListView.builder(
-                  itemCount: rows.length,
-                  itemBuilder: (_, i) => _DailyRow(
-                    row: rows[i],
-                    index: i,
-                    roundingMode: roundingMode,
-                    onTap: () => onRowTap(rows[i].id),
-                    onToggle: onToggle == null
-                        ? null
-                        : (v) => onToggle!(rows[i].id, v),
-                  ),
-                ),
-        ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Inline filter header — visually distinct from table rows
 // ---------------------------------------------------------------------------
 
 class _InlineFilterHeader extends StatelessWidget {
   const _InlineFilterHeader({
-    required this.nameController,
+    required this.searchController,
     required this.depts,
     required this.selectedDept,
-    required this.onNameSearch,
+    required this.onSearch,
     required this.onDeptChanged,
+    required this.showShiftType,
+    required this.showDailyType,
+    required this.showUndetectedType,
+    required this.onShowShiftTypeChanged,
+    required this.onShowDailyTypeChanged,
+    required this.onShowUndetectedTypeChanged,
     required this.hasOvertime,
     required this.noOvertime,
     required this.showIncluded,
@@ -853,11 +534,19 @@ class _InlineFilterHeader extends StatelessWidget {
     required this.onShowExcludedChanged,
   });
 
-  final TextEditingController nameController;
+  final TextEditingController searchController;
   final List<String> depts;
   final String? selectedDept;
-  final void Function(String) onNameSearch;
+  final void Function(String) onSearch;
   final void Function(String?) onDeptChanged;
+
+  final bool showShiftType;
+  final bool showDailyType;
+  final bool showUndetectedType;
+  final void Function(bool) onShowShiftTypeChanged;
+  final void Function(bool) onShowDailyTypeChanged;
+  final void Function(bool) onShowUndetectedTypeChanged;
+
   final bool hasOvertime;
   final bool noOvertime;
   final bool showIncluded;
@@ -894,15 +583,44 @@ class _InlineFilterHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const Expanded(flex: 1, child: SizedBox()),
+          // Type filter — same paired-checkbox convention as the other
+          // toggle pairs: all unchecked hides everything of that kind.
+          Expanded(
+            flex: 2,
+            child: Center(
+              child: Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                alignment: WrapAlignment.center,
+                children: [
+                  _ToggleChip(
+                    label: 'مناوبة',
+                    selected: showShiftType,
+                    onSelected: onShowShiftTypeChanged,
+                  ),
+                  _ToggleChip(
+                    label: 'دوام صباحي',
+                    selected: showDailyType,
+                    onSelected: onShowDailyTypeChanged,
+                  ),
+                  _ToggleChip(
+                    label: 'غير محدد',
+                    selected: showUndetectedType,
+                    onSelected: onShowUndetectedTypeChanged,
+                  ),
+                ],
+              ),
+            ),
+          ),
           Expanded(
             flex: 3,
             child: Center(
               child: FractionallySizedBox(
                 widthFactor: 0.75,
                 child: _FilterTextField(
-                  controller: nameController,
+                  controller: searchController,
                   hint: 'اسم الموظف',
-                  onChanged: onNameSearch,
+                  onChanged: onSearch,
                 ),
               ),
             ),
@@ -1170,11 +888,11 @@ class _EmptyState extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Employee row widgets
+// Unified employee row — renders shift, daily and undetected rows alike
 // ---------------------------------------------------------------------------
 
-class _ShiftRow extends StatelessWidget {
-  const _ShiftRow({
+class _UnifiedRow extends StatelessWidget {
+  const _UnifiedRow({
     required this.row,
     required this.index,
     required this.roundingMode,
@@ -1182,10 +900,12 @@ class _ShiftRow extends StatelessWidget {
     required this.onToggle,
   });
 
-  final ShiftEmployeeRow row;
+  final UnifiedEmployeeRow row;
   final int index;
   final String roundingMode;
   final VoidCallback onTap;
+  // Null for undetected rows (no inclusion concept) and when editing is
+  // disallowed (audit role).
   final void Function(bool)? onToggle;
 
   @override
@@ -1193,12 +913,13 @@ class _ShiftRow extends StatelessWidget {
     final theme = Theme.of(context);
     final isIncluded = row.isIncluded;
     final hasOvertime = row.overtimeMinutes > 0;
+    final isUndetected = row.type == EmployeeType.undetected;
 
     return InkWell(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: !isIncluded
+          color: !isIncluded && !isUndetected
               ? Colors.grey.withValues(alpha: 0.06)
               : hasOvertime
               ? Colors.teal.withValues(alpha: 0.05)
@@ -1258,6 +979,11 @@ class _ShiftRow extends StatelessWidget {
                           ),
                         ),
                       ),
+                      // Type badge — centered
+                      Expanded(
+                        flex: 2,
+                        child: Center(child: _TypeBadge(type: row.type)),
+                      ),
                       // Employee name — centered
                       Expanded(
                         flex: 3,
@@ -1266,7 +992,7 @@ class _ShiftRow extends StatelessWidget {
                             row.employeeName,
                             style: theme.textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.w600,
-                              color: !isIncluded
+                              color: !isIncluded && !isUndetected
                                   ? theme.colorScheme.onSurfaceVariant
                                   : theme.colorScheme.onSurface,
                             ),
@@ -1291,208 +1017,28 @@ class _ShiftRow extends StatelessWidget {
                       Expanded(
                         flex: 2,
                         child: Center(
-                          child: hasOvertime
-                              ? _OvertimeBadge(
-                                  value: _fmt(
-                                    row.overtimeMinutes,
-                                    roundingMode,
-                                  ),
-                                  color: Colors.teal,
+                          child: _OvertimeCell(
+                            row: row,
+                            hasOvertime: hasOvertime,
+                            roundingMode: roundingMode,
+                          ),
+                        ),
+                      ),
+                      // Selection — checkbox for shift/daily, failure reason
+                      // for undetected (they have no inclusion concept).
+                      Expanded(
+                        flex: 2,
+                        child: Center(
+                          child: isUndetected
+                              ? _FailureReasonBadge(
+                                  reason: row.undetected!.failureReason,
                                 )
-                              : const SizedBox.shrink(),
-                        ),
-                      ),
-                      // Toggle — centered
-                      Expanded(
-                        flex: 2,
-                        child: Center(
-                          child: Checkbox(
-                            value: row.isIncluded,
-                            onChanged: onToggle == null
-                                ? null
-                                : (v) => onToggle!(v ?? row.isIncluded),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DailyRow extends StatelessWidget {
-  const _DailyRow({
-    required this.row,
-    required this.index,
-    required this.roundingMode,
-    required this.onTap,
-    required this.onToggle,
-  });
-
-  final DailyEmployeeRow row;
-  final int index;
-  final String roundingMode;
-  final VoidCallback onTap;
-  final void Function(bool)? onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isIncluded = row.isIncluded;
-    final hasOvertime = row.totalOvertimeMinutes > 0;
-
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: !isIncluded
-              ? Colors.grey.withValues(alpha: 0.06)
-              : hasOvertime
-              ? Colors.teal.withValues(alpha: 0.05)
-              : null,
-          border: Border(
-            bottom: BorderSide(
-              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.45),
-              width: 0.5,
-            ),
-          ),
-        ),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Leading accent bar
-              Container(
-                width: 3,
-                color: isIncluded
-                    ? Colors.teal.withValues(alpha: 0.7)
-                    : Colors.transparent,
-              ),
-              // Main content
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 13,
-                  ),
-                  child: Row(
-                    children: [
-                      // Row number badge
-                      Expanded(
-                        flex: 1,
-                        child: Center(
-                          child: Container(
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: isIncluded
-                                  ? Colors.teal.withValues(alpha: 0.15)
-                                  : theme.colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(7),
-                            ),
-                            child: Center(
-                              child: Text(
-                                '${index + 1}',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: isIncluded
-                                      ? Colors.teal.shade700
-                                      : theme.colorScheme.onSurfaceVariant,
+                              : Checkbox(
+                                  value: row.isIncluded,
+                                  onChanged: onToggle == null
+                                      ? null
+                                      : (v) => onToggle!(v ?? row.isIncluded),
                                 ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        flex: 3,
-                        child: Center(
-                          child: Text(
-                            row.employeeName,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: !isIncluded
-                                  ? theme.colorScheme.onSurfaceVariant
-                                  : theme.colorScheme.onSurface,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        flex: 2,
-                        child: Center(
-                          child: Text(
-                            row.department,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        flex: 2,
-                        child: Center(
-                          child: !hasOvertime
-                              ? const SizedBox.shrink()
-                              : Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    if (row.offOvertimeMinutes > 0)
-                                      _LabeledOvertime(
-                                        label: 'عطلة',
-                                        value: _fmt(
-                                          row.offOvertimeMinutes,
-                                          roundingMode,
-                                        ),
-                                        color: Colors.blue,
-                                      ),
-                                    if (row.regularOvertimeMinutes > 0) ...[
-                                      if (row.offOvertimeMinutes > 0)
-                                        const SizedBox(height: 3),
-                                      _LabeledOvertime(
-                                        label: 'دوام',
-                                        value: _fmt(
-                                          row.regularOvertimeMinutes,
-                                          roundingMode,
-                                        ),
-                                        color: Colors.amber,
-                                      ),
-                                    ],
-                                    if (row.offOvertimeMinutes > 0 &&
-                                        row.regularOvertimeMinutes > 0) ...[
-                                      const SizedBox(height: 3),
-                                      _LabeledOvertime(
-                                        label: 'الكلي',
-                                        value: _fmt(
-                                          row.totalOvertimeMinutes,
-                                          roundingMode,
-                                        ),
-                                        color: Colors.green,
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                        ),
-                      ),
-                      Expanded(
-                        flex: 2,
-                        child: Center(
-                          child: Checkbox(
-                            value: row.isIncluded,
-                            onChanged: onToggle == null
-                                ? null
-                                : (v) => onToggle!(v ?? row.isIncluded),
-                          ),
                         ),
                       ),
                     ],
@@ -1511,30 +1057,92 @@ class _DailyRow extends StatelessWidget {
 // Row sub-widgets
 // ---------------------------------------------------------------------------
 
-class _OvertimeBadge extends StatelessWidget {
-  const _OvertimeBadge({required this.value, required this.color});
+class _TypeBadge extends StatelessWidget {
+  const _TypeBadge({required this.type});
 
-  final String value;
-  final MaterialColor color;
+  final EmployeeType type;
 
   @override
   Widget build(BuildContext context) {
+    final color = _typeColor(type);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Text(
-        value,
+        _typeLabel(type),
         style: TextStyle(
-          fontSize: 14,
+          fontSize: 11,
           fontWeight: FontWeight.bold,
           color: color.shade800,
         ),
         textAlign: TextAlign.center,
       ),
+    );
+  }
+}
+
+class _OvertimeCell extends StatelessWidget {
+  const _OvertimeCell({
+    required this.row,
+    required this.hasOvertime,
+    required this.roundingMode,
+  });
+
+  final UnifiedEmployeeRow row;
+  final bool hasOvertime;
+  final String roundingMode;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!hasOvertime) return const SizedBox.shrink();
+
+    // Undetected rows never carry overtime — this branch is unreachable for
+    // them since hasOvertime is always false, but kept exhaustive for shift
+    // vs daily.
+    if (row.type == EmployeeType.daily) {
+      final daily = row.daily!;
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          if (daily.offOvertimeMinutes > 0)
+            _LabeledOvertime(
+              label: 'عطلة',
+              value: _fmt(daily.offOvertimeMinutes, roundingMode),
+              color: Colors.blue,
+            ),
+          if (daily.regularOvertimeMinutes > 0) ...[
+            if (daily.offOvertimeMinutes > 0) const SizedBox(height: 3),
+            _LabeledOvertime(
+              label: 'دوام',
+              value: _fmt(daily.regularOvertimeMinutes, roundingMode),
+              color: Colors.amber,
+            ),
+          ],
+          if (daily.offOvertimeMinutes > 0 &&
+              daily.regularOvertimeMinutes > 0) ...[
+            const SizedBox(height: 3),
+            _LabeledOvertime(
+              label: 'الكلي',
+              value: _fmt(daily.totalOvertimeMinutes, roundingMode),
+              color: Colors.green,
+            ),
+          ],
+        ],
+      );
+    }
+
+    // A shift employee's overtime is working-day overtime — same "دوام"
+    // label and styling daily rows use for their regular-day figure, so the
+    // column reads identically regardless of employee type.
+    return _LabeledOvertime(
+      label: 'دوام',
+      value: _fmt(row.overtimeMinutes, roundingMode),
+      color: Colors.amber,
     );
   }
 }
@@ -1580,6 +1188,40 @@ class _LabeledOvertime extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// Undetected employees have no inclusion checkbox — this slot shows the
+// reason instead, truncated with a tooltip carrying the full text.
+class _FailureReasonBadge extends StatelessWidget {
+  const _FailureReasonBadge({required this.reason});
+
+  final String reason;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: reason,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.orange.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.orange.withValues(alpha: 0.35)),
+        ),
+        child: Text(
+          reason,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: Colors.orange.shade800,
+          ),
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
     );
   }
 }

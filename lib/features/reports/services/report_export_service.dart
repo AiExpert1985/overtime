@@ -10,22 +10,36 @@ import '../domain/shift_employee_row.dart';
 import '../domain/undetected_employee_row.dart';
 import '../providers/detail_provider.dart';
 
+// Row shape shared by the unified export's shift and daily entries — off and
+// regular are null for shift employees, who have no such split.
+typedef _UnifiedExportRow = ({
+  String type,
+  String name,
+  String department,
+  int? off,
+  int? regular,
+  int total,
+});
+
 class ReportExportService {
   // -------------------------------------------------------------------------
-  // Main screen: list-only exports (all included employees, no period details)
+  // Main screen: single unified list export — shift + daily included
+  // employees together, mirroring the unified report screen's columns.
+  // Undetected employees are never included, so they never appear here.
   // -------------------------------------------------------------------------
 
-  Future<String?> exportShift({
+  Future<String?> exportUnified({
     required Report report,
-    required List<ShiftEmployeeRow> includedRows,
+    required List<ShiftEmployeeRow> includedShiftRows,
+    required List<DailyEmployeeRow> includedDailyRows,
     required String roundingMode,
   }) async {
     final start = _isoLabel(report.rangeStart);
     final end = _isoLabel(report.rangeEnd);
-    final fileName = 'تقرير_مناوبة_${start}_$end.xlsx';
+    final fileName = 'تقرير_الموظفين_${start}_$end.xlsx';
 
     final path = await FilePicker.saveFile(
-      dialogTitle: 'حفظ تقرير المناوبة',
+      dialogTitle: 'حفظ تقرير الموظفين',
       fileName: fileName,
       type: FileType.custom,
       allowedExtensions: ['xlsx'],
@@ -33,11 +47,17 @@ class ReportExportService {
     );
     if (path == null) return null;
 
-    final excel = Excel.createExcel();
-    excel.rename('Sheet1', 'المناوبة');
-    final sheet = excel['المناوبة'];
+    final int totalOvertimeMinutes = includedShiftRows.fold(
+          0,
+          (s, r) => s + r.overtimeMinutes,
+        ) +
+        includedDailyRows.fold(0, (s, r) => s + r.totalOvertimeMinutes);
 
-    sheet.appendRow([TextCellValue('تقرير المناوبة')]);
+    final excel = Excel.createExcel();
+    excel.rename('Sheet1', 'التقرير');
+    final sheet = excel['التقرير'];
+
+    sheet.appendRow([TextCellValue('تقرير الموظفين')]);
     sheet.appendRow([
       TextCellValue('نطاق التاريخ:'),
       TextCellValue(
@@ -45,93 +65,54 @@ class ReportExportService {
     ]);
     sheet.appendRow([
       TextCellValue('الموظفون المحتسبون:'),
-      IntCellValue(includedRows.length),
+      IntCellValue(includedShiftRows.length + includedDailyRows.length),
     ]);
     sheet.appendRow([
       TextCellValue('إجمالي الساعات الإضافية:'),
-      TextCellValue(_fmt(
-        includedRows.fold(0, (s, r) => s + r.overtimeMinutes),
-        roundingMode,
-      )),
+      TextCellValue(_fmt(totalOvertimeMinutes, roundingMode)),
     ]);
     sheet.appendRow([TextCellValue('')]);
 
     sheet.appendRow([
-      TextCellValue('اسم الموظف'),
-      TextCellValue('القسم'),
-      TextCellValue('ساعات إضافية'),
-    ]);
-    for (final row in includedRows) {
-      sheet.appendRow([
-        TextCellValue(row.employeeName),
-        TextCellValue(row.department),
-        TextCellValue(_fmt(row.overtimeMinutes, roundingMode)),
-      ]);
-    }
-
-    await File(path).writeAsBytes(excel.encode()!);
-    return path;
-  }
-
-  Future<String?> exportDaily({
-    required Report report,
-    required List<DailyEmployeeRow> includedRows,
-    required String roundingMode,
-  }) async {
-    final start = _isoLabel(report.rangeStart);
-    final end = _isoLabel(report.rangeEnd);
-    final fileName = 'تقرير_صباحي_${start}_$end.xlsx';
-
-    final path = await FilePicker.saveFile(
-      dialogTitle: 'حفظ تقرير الدوام الصباحي',
-      fileName: fileName,
-      type: FileType.custom,
-      allowedExtensions: ['xlsx'],
-      lockParentWindow: true,
-    );
-    if (path == null) return null;
-
-    final excel = Excel.createExcel();
-    excel.rename('Sheet1', 'الصباحي');
-    final sheet = excel['الصباحي'];
-
-    sheet.appendRow([TextCellValue('تقرير الدوام الصباحي')]);
-    sheet.appendRow([
-      TextCellValue('نطاق التاريخ:'),
-      TextCellValue(
-          '${_fmtDate(report.rangeStart)} - ${_fmtDate(report.rangeEnd)}'),
-    ]);
-    sheet.appendRow([
-      TextCellValue('الموظفون المحتسبون:'),
-      IntCellValue(includedRows.length),
-    ]);
-    sheet.appendRow([
-      TextCellValue('إجمالي الساعات الإضافية:'),
-      TextCellValue(_fmt(
-        includedRows.fold(0, (s, r) => s + r.totalOvertimeMinutes),
-        roundingMode,
-      )),
-    ]);
-    sheet.appendRow([TextCellValue('')]);
-
-    sheet.appendRow([
+      TextCellValue('النوع'),
       TextCellValue('اسم الموظف'),
       TextCellValue('القسم'),
       TextCellValue('وقت إضافي عطلة'),
       TextCellValue('وقت إضافي دوام'),
-      TextCellValue('الإجمالي'),
+      TextCellValue('إجمالي الوقت الإضافي'),
     ]);
-    for (final row in includedRows) {
+
+    _UnifiedExportRow shiftRow(ShiftEmployeeRow r) => (
+          type: 'مناوبة',
+          name: r.employeeName,
+          department: r.department,
+          // Shift employees have no off/regular split — not applicable.
+          off: null,
+          regular: null,
+          total: r.overtimeMinutes,
+        );
+    _UnifiedExportRow dailyRow(DailyEmployeeRow r) => (
+          type: 'دوام صباحي',
+          name: r.employeeName,
+          department: r.department,
+          off: r.offOvertimeMinutes,
+          regular: r.regularOvertimeMinutes,
+          total: r.totalOvertimeMinutes,
+        );
+
+    final rows = [
+      ...includedShiftRows.map(shiftRow),
+      ...includedDailyRows.map(dailyRow),
+    ]..sort((a, b) => a.name.compareTo(b.name));
+
+    for (final row in rows) {
       sheet.appendRow([
-        TextCellValue(row.employeeName),
+        TextCellValue(row.type),
+        TextCellValue(row.name),
         TextCellValue(row.department),
-        TextCellValue(row.offOvertimeMinutes > 0
-            ? _fmt(row.offOvertimeMinutes, roundingMode)
-            : '---'),
-        TextCellValue(row.regularOvertimeMinutes > 0
-            ? _fmt(row.regularOvertimeMinutes, roundingMode)
-            : '---'),
-        TextCellValue(_fmt(row.totalOvertimeMinutes, roundingMode)),
+        TextCellValue(_fmtOrDash(row.off, roundingMode)),
+        TextCellValue(_fmtOrDash(row.regular, roundingMode)),
+        TextCellValue(_fmt(row.total, roundingMode)),
       ]);
     }
 
@@ -416,6 +397,11 @@ class ReportExportService {
     if (m == 0) return '$h ساعة';
     return '$h:${m.toString().padLeft(2, '0')}';
   }
+
+  // Not applicable (null, e.g. a shift employee's off/regular split) and
+  // zero both render as '---' — only a positive value is spelled out.
+  String _fmtOrDash(int? minutes, String mode) =>
+      minutes == null || minutes == 0 ? '---' : _fmt(minutes, mode);
 
   String _fmtDate(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
