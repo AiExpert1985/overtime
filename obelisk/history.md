@@ -403,3 +403,11 @@ Confirmed correct and left alone: two shift start times of 08:00 and 23:00 (bett
 **Rejected:** Keeping the three screens/tabs alongside the new unified view — would recreate the exact fragmentation the task set out to fix. A dedicated notes/reason column for undetected rows, separate from the selection column — rejected in favor of reusing the selection-column slot. Full parity between export and whatever filters are active on screen — rejected in favor of keeping export fixed to the included/paid set only, matching the screen's pre-existing export rule.
 
 ---
+
+## 20260908-1600 | Window Title Bar Restoration & Login Close Button Removal | TASK
+
+**Task:** Reverted the borderless-window workaround introduced by the earlier fullscreen and login-screen tasks. The main window still opens maximized to the monitor's work area, but now keeps its normal native title bar with minimize, maximize, and close buttons instead of having them stripped. Since the native close button is available again, the red in-app "اغلاق" close button added to the login screen as a substitute is no longer needed and was removed outright.
+
+**Diverged:** None — this is a direct revert of a prior task's workaround per user request; the fullscreen sizing itself (maximized to the monitor's work area) was explicitly kept, only the borderless styling was reverted.
+
+---

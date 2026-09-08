@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -170,31 +168,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                          ),
-                          const SizedBox(height: 12),
-                          // The window opens borderless (no native title
-                          // bar), so this is the app's only way to close
-                          // it — reachable only from the login screen,
-                          // i.e. after logging out.
-                          FilledButton(
-                            onPressed: () => exit(0),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFFDC2626),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 16,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: const Text(
-                              'اغلاق',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
                           ),
                         ],
                       ),

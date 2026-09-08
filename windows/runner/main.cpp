@@ -7,22 +7,15 @@
 
 namespace {
 
-// Strips the title bar and resize border from |hwnd| and resizes it to fill
-// the monitor's work area (the screen minus the taskbar), so the app fills
-// the available screen without covering the taskbar. The window can still
-// be closed the normal way (Alt+F4) even with no title bar. WS_MINIMIZEBOX
-// is kept (it draws no visible button without WS_CAPTION) so the window can
-// still be minimized via the taskbar icon or Win+D/Win+M.
+// Resizes |hwnd| to fill the monitor's work area (the screen minus the
+// taskbar), so the app fills the available screen without covering the
+// taskbar. The normal title bar (minimize/maximize/close) is left intact.
 void MakeFullscreen(HWND hwnd) {
   HMONITOR monitor = ::MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
   MONITORINFO monitor_info = {sizeof(MONITORINFO)};
   if (!::GetMonitorInfo(monitor, &monitor_info)) {
     return;
   }
-  LONG style = ::GetWindowLong(hwnd, GWL_STYLE);
-  style &= ~(WS_CAPTION | WS_THICKFRAME | WS_MAXIMIZEBOX);
-  style |= WS_MINIMIZEBOX;
-  ::SetWindowLong(hwnd, GWL_STYLE, style);
   const RECT& bounds = monitor_info.rcWork;
   ::SetWindowPos(hwnd, HWND_TOP, bounds.left, bounds.top,
                 bounds.right - bounds.left, bounds.bottom - bounds.top,
@@ -57,8 +50,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);
-  // Open filling the entire screen, edge-to-edge, with no title bar or
-  // border, rather than at the small fixed size above.
+  // Open maximized to the monitor's work area rather than at the small
+  // fixed size above, keeping the normal title bar.
   MakeFullscreen(window.GetHandle());
 
   ::MSG msg;
