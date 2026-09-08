@@ -299,11 +299,11 @@ class AppDatabase {
     // are ever changed, by the admin, from the Settings screen — the role
     // each key belongs to is fixed in code, not stored.
     'admin_username': 'admin',
-    'admin_password': 'Ad@112233',
+    'admin_password': 'admin123',
     'generate_username': 'الادارة',
-    'generate_password': 'Ge@654321',
+    'generate_password': '123123',
     'audit_username': 'التدقيق',
-    'audit_password': 'Au@123456',
+    'audit_password': '112233',
   };
 
   // Drops settings keys this code does not define, then seeds any that are
