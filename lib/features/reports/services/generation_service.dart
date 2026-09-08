@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:isolate';
 
-import 'package:excel/excel.dart';
+import 'package:excel_plus/excel_plus.dart';
 
 import '../../settings/domain/app_settings.dart';
 import '../../settings/domain/column_header.dart';

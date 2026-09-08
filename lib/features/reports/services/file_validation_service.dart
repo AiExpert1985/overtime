@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:excel/excel.dart';
+import 'package:excel_plus/excel_plus.dart';
 
 import '../../settings/domain/column_header.dart';
 import '../domain/picked_file.dart';

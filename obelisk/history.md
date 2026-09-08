@@ -385,3 +385,11 @@ Confirmed correct and left alone: two shift start times of 08:00 and 23:00 (bett
 **Rejected:** Keeping the close confirmation dialog — recommended as a safety guard against an accidental click on an irreversible action, independent of login state, but removed per the user's decision that it is an unnecessary extra step.
 
 ---
+
+## 20260908-1151 | Legacy .xls Attendance File Support | TASK
+
+**Task:** Fixed legacy `.xls` (BIFF8, Excel 97-2003) attendance file processing — files of this format were already accepted by the file picker but silently failed both validation and generation, because the `excel` package (used for both stages) only ever decoded modern `.xlsx`. Replaced the `excel` package (unmaintained since Aug 2024) with `excel_plus`, a source-compatible, actively maintained fork whose single decode call transparently reads both `.xlsx` and legacy `.xls` — only the import statement changed in the three files that used it (`file_validation_service.dart`, `generation_service.dart`, `report_export_service.dart`); no other code was touched. Verified end-to-end against real modern and legacy sample files supplied by the user, through the app's own unmodified validation and dictionary-build code: identical row/timestamp counts on both, correct Arabic name/department text, correct datetime parsing, and a working export/write round-trip.
+
+**Rejected:** Keeping the `excel` package and adding a second, fully independent library/function pair dedicated to `.xls` only — the originally agreed design, ruled out because every `.xls`-capable package found (`excel_plus`, `excel_community`) requires `xml ^7.0.1`/`archive ^4.0.9` while `excel` 4.0.6 is hard-pinned below both. A `dependency_overrides` attempt to force the two packages to coexist resolved cleanly but broke `.xlsx` decoding at compile time (the newer `archive` major removed APIs `excel` 4.0.6 calls internally), so it was reverted. Writing a from-scratch, dependency-free BIFF8 parser to preserve true independence was also ruled out as a large, high-risk undertaking disproportionate to the task, particularly with no real `.xls` sample available at the time to validate it against.
+
+---
