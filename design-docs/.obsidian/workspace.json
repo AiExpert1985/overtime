@@ -27,12 +27,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "schedule_detection.md",
+                "file": "file_processing.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "schedule_detection"
+              "title": "file_processing"
             }
           }
         ],
@@ -202,11 +202,14 @@
   },
   "active": "75481e68fdeaa974",
   "lastOpenFiles": [
-    "Untitled.md",
-    "schedule_detection.md",
-    "main_workflow.md",
     "dictionary_build.md",
+    "database_schema.md",
+    "data_shared_models.md",
     "config.md",
+    "architecture_overview.md",
+    "schedule_detection.md",
+    "Untitled.md",
+    "main_workflow.md",
     "screen_report_generate.md",
     "file_processing.md",
     "`file_processing.md`.md",
@@ -214,9 +217,6 @@
     "overtime_calculation_shift.md",
     "overtime_calculation_daily.md",
     "off_day_detection.md",
-    "database_schema.md",
-    "data_shared_models.md",
-    "architecture_overview.md",
     "screen_report.md",
     "screen_history.md",
     "screen_detail.md",

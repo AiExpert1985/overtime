@@ -10,7 +10,9 @@ namespace {
 // Strips the title bar and resize border from |hwnd| and resizes it to fill
 // the monitor's work area (the screen minus the taskbar), so the app fills
 // the available screen without covering the taskbar. The window can still
-// be closed the normal way (Alt+F4) even with no title bar.
+// be closed the normal way (Alt+F4) even with no title bar. WS_MINIMIZEBOX
+// is kept (it draws no visible button without WS_CAPTION) so the window can
+// still be minimized via the taskbar icon or Win+D/Win+M.
 void MakeFullscreen(HWND hwnd) {
   HMONITOR monitor = ::MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
   MONITORINFO monitor_info = {sizeof(MONITORINFO)};
@@ -18,7 +20,8 @@ void MakeFullscreen(HWND hwnd) {
     return;
   }
   LONG style = ::GetWindowLong(hwnd, GWL_STYLE);
-  style &= ~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX);
+  style &= ~(WS_CAPTION | WS_THICKFRAME | WS_MAXIMIZEBOX);
+  style |= WS_MINIMIZEBOX;
   ::SetWindowLong(hwnd, GWL_STYLE, style);
   const RECT& bounds = monitor_info.rcWork;
   ::SetWindowPos(hwnd, HWND_TOP, bounds.left, bounds.top,
