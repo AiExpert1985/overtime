@@ -457,14 +457,22 @@ class GenerationService {
     final end = DateTime(endDate.year, endDate.month, endDate.day);
 
     while (!current.isAfter(end)) {
-      final key =
-          '${current.year}-${current.month.toString().padLeft(2, '0')}-${current.day.toString().padLeft(2, '0')}';
-      var attendedCount = 0;
-      for (final dayMap in employeeDayMaps) {
-        if (dayMap.containsKey(key)) attendedCount++;
-      }
-      if (attendedCount / totalEmployees < _offDayThreshold) {
+      // Friday and Saturday are the organization's fixed weekly rest days for
+      // daily employees — always off, regardless of attendance that day.
+      final isWeekend =
+          current.weekday == DateTime.friday || current.weekday == DateTime.saturday;
+      if (isWeekend) {
         offDays.add(current);
+      } else {
+        final key =
+            '${current.year}-${current.month.toString().padLeft(2, '0')}-${current.day.toString().padLeft(2, '0')}';
+        var attendedCount = 0;
+        for (final dayMap in employeeDayMaps) {
+          if (dayMap.containsKey(key)) attendedCount++;
+        }
+        if (attendedCount / totalEmployees < _offDayThreshold) {
+          offDays.add(current);
+        }
       }
       current = current.add(const Duration(days: 1));
     }

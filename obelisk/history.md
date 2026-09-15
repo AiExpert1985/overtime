@@ -411,3 +411,15 @@ Confirmed correct and left alone: two shift start times of 08:00 and 23:00 (bett
 **Diverged:** None — this is a direct revert of a prior task's workaround per user request; the fullscreen sizing itself (maximized to the monitor's work area) was explicitly kept, only the borderless styling was reverted.
 
 ---
+
+## 20260915-1500 | Import File Limit Increase & Fixed Friday/Saturday Off-Day Detection | TASK
+
+**Task:** Two fixes, arrived at after a full diagnostic pass on three reported daily-employee issues. (1) The attendance file import cap was raised from 10 to 20 files per report, updated in both the enforcing check and the UI gate. (2) Off-day detection now treats Friday and Saturday as unconditionally off for daily employees — confirmed as fixed, non-negotiable organizational policy — checked before and independently of the existing attendance-density check, which continues to catch non-weekend public holidays. This was verified against real generated report data showing two genuine Saturdays with normal on-time attendance that density alone had misclassified as regular working days.
+
+The investigation also ruled out the other two reported symptoms as non-bugs: off-day period validity already required only two timestamps with no entry-time-window check (confirmed against real stored data — the only invalid reason ever produced on an off day was the single-stamp case), and the regular-day overtime formula (`last timestamp − end of shift`, not the full attendance span) was confirmed by the user as intentional and left unchanged, even though it produces lower values than a span-based cap would on long-span regular days.
+
+**Diverged:** `off_day_detection.md` had always described off-days as including "weekends," but the algorithm only ever implemented the attendance-density check — the weekend rule was never actually coded. The doc's algorithm section and hardcoded-constants table were corrected to match, and `config.md` gained a `weekly_rest_days` entry.
+
+**Rejected:** Making the weekend days a configurable setting — rejected since the user confirmed Friday+Saturday is fixed policy, not something that should vary; a hardcoded rule (matching the same Friday/Saturday convention already hardcoded elsewhere in schedule detection) was used instead. Tuning the off-day density threshold as a fix for unreliable weekend detection — rejected since lowering it reduces sensitivity rather than increasing it, and raising it globally risks misclassifying a genuinely busy regular day as off; the weekend rule addresses the actual cause directly instead.
+
+---

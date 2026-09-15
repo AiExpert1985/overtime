@@ -54,7 +54,7 @@ Each uploaded file occupies one row inside the card:
 
 Tapping either the initial add button or the "add more" button opens the file picker. The user may select one or multiple files at once. Each selected file is appended to the list and validated immediately. Files already in the list are unaffected.
 
-Maximum 10 files per report. If adding the selected files would bring the total above 10, all selected files are rejected and an inline Arabic error is shown: يُسمح بحد أقصى 10 ملفات فقط. The "add more" button is hidden once 10 files are loaded.
+Maximum 20 files per report. If adding the selected files would bring the total above 20, all selected files are rejected and an inline Arabic error is shown: يُسمح بحد أقصى 20 ملف فقط. The "add more" button is hidden once 20 files are loaded.
 
 ### Validation
 

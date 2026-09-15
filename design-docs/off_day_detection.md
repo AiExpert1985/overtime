@@ -37,19 +37,22 @@ If no daily employees are present in the hash table, the algorithm returns an em
 **Step 1 — Enumerate dates**
 Collect every calendar date in the report range.
 
-**Step 2 — Count attendance per date**
-For each date, count how many daily employees have 1 or more timestamps on that date. This is the attended count.
+**Step 2 — Weekend check**
+Friday and Saturday are the organization's fixed weekly rest days for daily employees. Any date falling on Friday or Saturday is classified as off-day unconditionally — no attendance check is performed for it. This is a fixed rule, not user-configurable.
 
-**Step 3 — Classify**
-For each date:
+**Step 3 — Count attendance per date**
+For every remaining (non-weekend) date, count how many daily employees have 1 or more timestamps on that date. This is the attended count.
+
+**Step 4 — Classify**
+For each non-weekend date:
 
 `attendance_rate = attended_count / total_daily_employees`
 
 - If `attendance_rate < off_day_threshold` → off-day
 - Otherwise → regular
 
-**Step 4 — Output**
-Return the set of all dates classified as off-day.
+**Step 5 — Output**
+Return the set of all dates classified as off-day (weekend dates plus density-classified dates).
 
 ---
 
@@ -64,13 +67,14 @@ Example with 10 daily employees and 25% threshold:
 
 ---
 
-## Hardcoded Constant
+## Hardcoded Constants
 
 | Constant | Value |
 |---|---|
 | Off-day threshold | 25% |
+| Weekly rest days | Friday, Saturday |
 
-This value is fixed in code — not user-configurable. Defined in `config.md` hardcoded constants.
+These values are fixed in code — not user-configurable. Defined in `config.md` hardcoded constants.
 
 ---
 

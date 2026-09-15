@@ -69,7 +69,8 @@ These values are fixed in code and not user-configurable.
 
 | Key | Value | Used in |
 |---|---|---|
-| off_day_threshold | 25% | `off_day_detection.md` — minimum attendance rate below which a day is classified as off |
+| off_day_threshold | 25% | `off_day_detection.md` — minimum attendance rate below which a non-weekend day is classified as off |
+| weekly_rest_days | Friday, Saturday | `off_day_detection.md` — always classified as off for daily employees, unconditionally, regardless of attendance |
 | detection_edge_tolerance | 120 minutes | `schedule_detection.md` — edge tolerance used by classification only, never by overtime validity |
 | morning_arrival_lead | 120 minutes | `schedule_detection.md` — how far before `daily_start_time` an arrival still counts as a morning arrival in the daily validation gate |
 | max_look_ahead_days | 2 days | `period_extractor_daily.md` — longest spill into the next month treated as shift look-ahead rather than a genuine two-month report |
