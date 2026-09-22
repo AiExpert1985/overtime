@@ -21,6 +21,15 @@ class GenerationException implements Exception {
 
 class GenerationService {
   static const _requiredKeys = ['employee_name', 'department', 'datetime'];
+  // Minimum daily-employee attendance rate for a non-weekend day to count as
+  // a regular working day (used by both detectOffDays and
+  // _countOpenWorkingDays below). Raised from an original 25% after measuring
+  // real attendance data: genuine weekdays never dipped below ~70% among
+  // daily employees and genuine weekends never exceeded ~20%, while a
+  // partial-holiday day with a reduced skeleton crew sat at ~36-41% — well
+  // above the old 25% bar, so it was wrongly classified as a regular working
+  // day and its off-day went undetected. 60% catches that case with a wide
+  // margin below genuine weekday attendance.
   static const _offDayThreshold = 0.60;
   static const _minAttendanceDensity = 0.15;
   // Non-weekend attendance density above which an employee is confirmed
