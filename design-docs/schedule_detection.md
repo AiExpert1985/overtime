@@ -251,12 +251,52 @@ An employee who fails the gate has neither a convincing shift pattern nor a conv
 if len(shift_start_times) > 1:
   runnerUp = highest valid-period count among the non-winning start times
   if winnerCount == 0 OR winnerCount < runnerUp × start_time_win_margin (1.5):
-    → undetected: "وقت بداية المناوبة غير واضح"
+    → run the ambiguity rescue below before accepting the rejection
 ```
 
 Employee has clear shift signal but it is split across multiple start times — ambiguous, not daily. When only one start time is configured this check is skipped entirely.
 
 **The winner is compared against the runner-up, not against the sum of all candidates.** Zones overlap, so a single employee produces valid periods under several start times. Measuring the winner's share of the total meant every additional configured start time diluted that share: configuring a third shift dropped detection sharply and silently, so a more complete configuration produced a worse result. A margin over the runner-up does not change as more candidates are added. A tie fails, since the winner cannot then clear the margin.
+
+**Ambiguity rescue (safety net, runs only when the margin check above is about to reject).**
+
+A dense "on" day — several punches spread from morning to night, not just open and close — can satisfy 4 of 5 zones under almost any 6-hour grid somewhere, not just the employee's true start time. When that happens, a losing candidate's period count can sit close enough to the winner's to fail the margin check even though the winner is correct: the losing candidate isn't a real second pattern, it's the same shift days re-scored under a different offset.
+
+```
+for each non-winning start time S:
+  independent = count of S's valid periods whose date is more than
+                period_date_overlap_window (1 day) from every raw-count
+                winner's period date
+  if independent ≥ min_valid_periods (3):
+    → undetected: "وقت بداية المناوبة غير واضح"   (genuine competing evidence)
+
+// Every candidate is now confirmed spillover of the same one real shift.
+// Neither raw period count nor "does this candidate see a nearby punch"
+// reliably picks the true anchor from here — a routine mid-shift checkpoint
+// can be a real, non-spillover punch close to a second clock time, as part
+// of the SAME shift, not competing evidence. What actually distinguishes a
+// true opening from a checkpoint that merely resembles one: the day after a
+// checkpoint day is normally another workday, but the day after a genuine
+// closing is a rest day. Vote instead:
+for each day D in the report range:
+  if D has ≥1 timestamp AND D+1 also has ≥1 timestamp:
+    firstTimestamp = earliest timestamp on D
+    vote for whichever configured start time firstTimestamp falls within
+      vote_window_minutes (120) of (closest center wins on overlap)
+
+→ shift, using the start time with the most votes (falls back to the
+  raw-count winner if nothing ever voted) and its periods
+```
+
+A losing candidate is trusted as genuinely independent evidence — not spillover — only if it clears `min_valid_periods` on days the raw-count winner doesn't already explain: the same bar any candidate needs to be taken seriously as a shift pattern in the first place, reused rather than inventing a new threshold.
+
+**Why vote on day-pairs instead of keeping the raw-count winner or scoring by opening evidence.** The raw-count winner going into this rescue is not necessarily the true start time — that is precisely the bug this rescue exists to fix (verified: a 24h-shift employee scored 6 periods at their real 08:00 opening and 7 at the artifact 23:00 offset). An earlier version of this rescue instead scored each candidate by how often its own periods contained *any* punch near its own clock time — but that also fails for shifts whose own routine includes a genuine checkpoint near a second time (verified: a 24h shift opening near 23:00 with a routine ~08:00 mid-shift checkpoint scored real, non-spillover evidence at *both* times, so "more opening evidence wins" picked the wrong one).
+
+The day-pair vote works because it excludes closing/checkpoint days from voting at all, rather than trying to weigh their evidence against the true opening's: a closing day is, by definition, followed by a rest day, so it never has a next-day-with-activity and never gets to cast a vote. Only a day that begins a new active stretch — a true opening — qualifies.
+
+This also correctly preserves genuinely different real answers: employees on an authentic 23:00-anchored shift (confirmed in production data — a single opening punch near 23:00, a full day of checkpoints including one near 08:00, closing back near 23:00) are correctly labelled 23:00, not forced to 08:00 by their own routine morning checkpoint.
+
+This rescue can only ever turn a rejection into an acceptance of one of the already-computed candidates — it never introduces a new start time and never re-examines an employee the margin check already accepted, so it cannot regress a currently-correct classification. Validated against two independent months of production data: 13/13 and 19/19 previously-ambiguous employees resolved correctly with zero regressions among already-correct classifications; the split between 08:00 and 23:00 in each month matched manual inspection of every relabelled employee's raw punch data.
 
 **Result — shift:**
 

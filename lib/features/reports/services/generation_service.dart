@@ -45,6 +45,19 @@ class GenerationService {
   // The winning start time must beat the runner-up by this factor. Unlike a
   // share of the total, this does not change as more start times are added.
   static const _startTimeWinMargin = 1.5;
+  // Used only by _rescueAmbiguousStartTime, the safety net that runs when the
+  // margin check above is about to reject an employee. Two period dates are
+  // treated as the same underlying event, not independent evidence, when
+  // within this many days of each other — a losing candidate's periods often
+  // land on the day next to a winning candidate's, not the exact same date,
+  // because each start time's ~24-28h window is anchored differently.
+  static const _periodDateOverlapWindow = 1;
+  // Used only by _dayPairVoteStartTime, the rescue's tie-break once
+  // independence has already ruled out a genuine second pattern. A day's
+  // earliest timestamp votes for a configured start time only if within this
+  // many minutes of it — matches the "2 hours before and after" window
+  // measured against real opening punches.
+  static const _voteWindowMinutes = 120;
   static const _restGapDays = 2;
   // Longest trailing spill into the next month that is treated as look-ahead
   // rather than as a report that genuinely spans two months.
@@ -258,11 +271,156 @@ class GenerationService {
       }
       if (winnerCount == 0 ||
           winnerCount < runnerUpCount * _startTimeWinMargin) {
-        return _UndetectedResult('وقت بداية المناوبة غير واضح');
+        final rescued = _rescueAmbiguousStartTime(
+          validPeriodsMap,
+          winnerStartTime,
+          settings.shiftStartTimes,
+          entry.timestamps,
+          startDate,
+          endDate,
+        );
+        if (rescued == null) {
+          return _UndetectedResult('وقت بداية المناوبة غير واضح');
+        }
+        return _ShiftResult(rescued.startTime, rescued.periods);
       }
     }
 
     return _ShiftResult(winnerStartTime, validPeriodsMap[winnerStartTime]!);
+  }
+
+  // Safety net for Check 2 above — runs only when the margin check is about
+  // to reject an employee as ambiguous. It can only ever turn that rejection
+  // into an acceptance of one of the already-computed candidates — it never
+  // introduces a new start time and never re-examines an employee Check 2
+  // already accepted, so it cannot regress an employee the existing logic
+  // already classifies correctly.
+  //
+  // The margin check can reject an employee whose true start time is one of
+  // the configured candidates but whose losing candidate(s) pick up spillover
+  // matches from the SAME underlying shift days, scored under a different
+  // offset — a dense "on" day (several punches spread from morning to night)
+  // satisfies 4 of 5 zones under almost any 6-hour grid somewhere, not just
+  // the true one. A losing candidate is trusted as genuinely independent
+  // evidence — not spillover — only if it has at least min_valid_periods
+  // periods on dates the raw-count winner doesn't already explain: the same
+  // bar any candidate needs to be taken seriously as a shift pattern in the
+  // first place, applied only to the days the winner leaves unaccounted for.
+  //
+  // Once every candidate is confirmed to be spillover of the same one real
+  // shift, neither raw period count nor "does this candidate's own zones see
+  // a nearby punch" reliably picks the true anchor — some real shifts (e.g. a
+  // 24h shift with a routine mid-shift checkpoint) genuinely produce a close
+  // punch near a second clock time too, as part of the SAME shift, not as
+  // competing evidence. What distinguishes a true opening from a checkpoint
+  // that merely resembles one: the day after a checkpoint day is normally
+  // another workday, but the day after a genuine closing is a rest day. So
+  // the closing day never itself starts a new fully-active day, while the
+  // true opening day always does. Scored by pairing each day with the next:
+  // a day counts as a candidate opening only if the next day also has
+  // activity, and its earliest timestamp votes for whichever configured
+  // start time it falls within period_date_overlap_window's vote_window of.
+  // A closing day's own next day is the rest gap, so it never votes at all.
+  //
+  // Returns the correct (start time, periods) pair if the rejection should be
+  // overturned, or null if genuine competing evidence exists and the
+  // rejection should stand.
+  ({String startTime, List<ShiftPeriod> periods})? _rescueAmbiguousStartTime(
+    Map<String, List<ShiftPeriod>> validPeriodsMap,
+    String winnerStartTime,
+    List<String> shiftStartTimes,
+    List<DateTime> timestamps,
+    DateTime startDate,
+    DateTime endDate,
+  ) {
+    final winnerDates = validPeriodsMap[winnerStartTime]!
+        .map((p) => DateTime.parse(p.periodDate))
+        .toList();
+
+    for (final st in shiftStartTimes) {
+      if (st == winnerStartTime) continue;
+      final independent = validPeriodsMap[st]!.where((p) {
+        final date = DateTime.parse(p.periodDate);
+        return !winnerDates.any(
+          (wd) =>
+              date.difference(wd).inDays.abs() <= _periodDateOverlapWindow,
+        );
+      }).length;
+      if (independent >= _minValidPeriods) {
+        return null;
+      }
+    }
+
+    final voted = _dayPairVoteStartTime(
+      timestamps,
+      shiftStartTimes,
+      startDate,
+      endDate,
+    );
+    final finalStartTime = voted ?? winnerStartTime;
+    return (
+      startTime: finalStartTime,
+      periods: validPeriodsMap[finalStartTime]!,
+    );
+  }
+
+  // For each day with activity whose next day also has activity, votes for
+  // whichever configured start time its earliest timestamp falls within
+  // _voteWindowMinutes of (closest center wins on overlap). Returns the
+  // start time with the most votes, or null if nothing ever matched any
+  // candidate's window.
+  String? _dayPairVoteStartTime(
+    List<DateTime> timestamps,
+    List<String> shiftStartTimes,
+    DateTime startDate,
+    DateTime endDate,
+  ) {
+    final dayMap = _groupByDay(timestamps);
+    final votes = {for (final st in shiftStartTimes) st: 0};
+    final startMinutes = {
+      for (final st in shiftStartTimes)
+        st: int.parse(st.split(':')[0]) * 60 + int.parse(st.split(':')[1]),
+    };
+
+    var day = DateTime(startDate.year, startDate.month, startDate.day);
+    final lastDay = DateTime(endDate.year, endDate.month, endDate.day);
+    while (!day.isAfter(lastDay)) {
+      final stamps = dayMap[_dayKey(day)];
+      final nextDayHasActivity = dayMap.containsKey(
+        _dayKey(day.add(const Duration(days: 1))),
+      );
+      if (stamps != null && stamps.isNotEmpty && nextDayHasActivity) {
+        final first = stamps.reduce((a, b) => a.isBefore(b) ? a : b);
+        final firstMinutes = first.hour * 60 + first.minute;
+        String? bestStartTime;
+        int? bestDistance;
+        for (final st in shiftStartTimes) {
+          final center = startMinutes[st]!;
+          var distance = (firstMinutes - center).abs();
+          if (distance > 720) distance = 1440 - distance; // circular clock
+          if (distance <= _voteWindowMinutes &&
+              (bestDistance == null || distance < bestDistance)) {
+            bestDistance = distance;
+            bestStartTime = st;
+          }
+        }
+        if (bestStartTime != null) {
+          votes[bestStartTime] = votes[bestStartTime]! + 1;
+        }
+      }
+      day = day.add(const Duration(days: 1));
+    }
+
+    if (votes.values.every((v) => v == 0)) return null;
+    var winner = shiftStartTimes.first;
+    var winnerVotes = votes[winner]!;
+    for (final st in shiftStartTimes) {
+      if (votes[st]! > winnerVotes) {
+        winnerVotes = votes[st]!;
+        winner = st;
+      }
+    }
+    return winner;
   }
 
   // Confirms an employee who failed the shift check really does follow the

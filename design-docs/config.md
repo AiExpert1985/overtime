@@ -76,6 +76,8 @@ These values are fixed in code and not user-configurable.
 | morning_arrival_lead | 120 minutes | `schedule_detection.md` — how far before `daily_start_time` an arrival still counts as a morning arrival in the daily validation gate |
 | max_look_ahead_days | 2 days | `period_extractor_daily.md` — longest spill into the next month treated as shift look-ahead rather than a genuine two-month report |
 | min_morning_days | 5 | `schedule_detection.md` — floor for the daily validation gate threshold |
+| period_date_overlap_window | 1 day | `schedule_detection.md` — used only by the start-time ambiguity rescue's independence check; two period dates within this many days of each other are treated as the same underlying shift, not independent evidence |
+| vote_window_minutes | 120 minutes | `schedule_detection.md` — used only by the start-time ambiguity rescue's day-pair vote; a day's earliest timestamp counts as a vote for a configured start time only when within this many minutes of it |
 
 `off_day_threshold` was raised from 25% to 60% after measuring a real month of attendance data: genuine weekdays never dipped below 69.5% attendance among daily employees and genuine weekends never exceeded 19.6%, while a partial-holiday day sat at 36.5% — comfortably above the old 25% threshold, so it was wrongly classified as a regular working day. 60% catches that case with a wide margin on both sides.
 
