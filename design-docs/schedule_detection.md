@@ -18,6 +18,7 @@ Detection and shift period extraction are combined in a single pass — valid sh
 - Report period duration — total calendar days between report start and end date (inclusive)
 - Config: `shift_start_times`, `shift_duration`, `shift_zone_interval`, `shift_inner_tolerance`
 - Constant: `detection_edge_tolerance` (see `config.md`) — used for the period window, the zone-satisfied count, and the anchor pair opening window. `shift_edge_tolerance` is **not** used by detection.
+- Constant: `clear_daily_density_threshold` (see `config.md`) — non-weekend attendance density above which an employee is confirmed daily before the zone check runs.
 - Config: `daily_start_time`, `daily_delay_allowance`
 
 ---
@@ -44,6 +45,7 @@ Every employee is assigned exactly one of three types as the output of this stag
 |min_zones_satisfied|`zoneCount − 1`|Derived from zone count at runtime — not hardcoded. Requires all zones except one to be satisfied, forcing overnight zone presence while tolerating exactly one mis-punch. With default 5 zones: 4. With 4 zones: 3. With 3 zones: 2. Blocks daily employee collision regardless of zone configuration.|
 |min_anchor_pairs|2|Minimum number of valid anchor pairs required when counting periods via the anchor pair fallback. Lower than min_valid_periods because irregular employees have minimal stamps by nature.|
 |rest_gap_days|2|Minimum number of consecutive days with zero timestamps required after a shift period to confirm a rest gap in the anchor pair check.|
+|clear_daily_density_threshold|0.62|Non-weekend attendance density (share of non-Friday/Saturday report days with ≥1 timestamp) at or above which an employee is classified daily outright, bypassing the zone/anchor-pair check and the daily validation gate. Calibrated against real data: genuine rotating-shift employees topped out at 59% density, genuine daily employees sat at 64% and above — 0.62 sits in the gap.|
 
 ---
 
@@ -118,6 +120,25 @@ Count all calendar days where the employee has at least 1 timestamp.
 `attendance_days / report_period_days ≥ min_attendance_density (0.15)`
 
 If fails → mark employee as `undetected`, reason: **أيام الحضور أقل من 15% من مدة الفترة**, skip to next employee.
+
+### Step 1.5 — Clear-Daily Pre-Check
+
+Computed once, independent of any configured start time:
+
+```
+nonWeekendDays        = calendar days in the report range that are not Friday or Saturday
+nonWeekendAttendedDays = of those, days on which the employee has ≥ 1 timestamp
+density                = nonWeekendAttendedDays / nonWeekendDays
+
+if density ≥ clear_daily_density_threshold (0.62):
+  → daily, skip Steps 2–4 entirely
+```
+
+This exists because a daily employee with three punches a day (entry, midday, exit) can coincidentally satisfy 4 of the 5 shift zones: the entry and midday/exit punches often land inside a zone center's tolerance window purely because both the daily schedule and the 6-hour zone grid share the same clock, and the next day's entry punch lands inside the final zone (BN)'s window. This crosses `min_zones_satisfied` on nearly every working day, producing far more than `min_valid_periods` and confidently misclassifying the employee as shift. This pre-check removes employees with an unambiguous daily attendance pattern before the zone check ever runs, so the collision has no chance to fire.
+
+The threshold is deliberately not derived from `openWorkingDays` (used elsewhere in this stage) — this check runs before any employee has been classified, so there is no daily bucket yet to measure "open" days from. The denominator is the raw calendar range.
+
+An employee who does not clear this bar proceeds to Step 2 unchanged — this check only ever pulls unambiguous cases out early; it does not alter how the zone/anchor-pair/gate path resolves the remainder.
 
 ### Step 2 — Build Valid Periods Per Start Time
 
@@ -196,7 +217,7 @@ entryWindow = [daily_start_time − morning_arrival_lead (120 min),
                daily_start_time + daily_delay_allowance]
 
 openWorkingDays = non-weekend days in the report range on which at least
-                  off_day_threshold (25%) of the workforce attended
+                  off_day_threshold (60%) of the workforce attended
 morningDays     = days where the employee's FIRST timestamp falls within
                   entryWindow
 threshold       = max(5, openWorkingDays × 0.50)
@@ -252,6 +273,7 @@ periods = validPeriods[winnerStartTime]
 |Step|Condition|Result|Reason|
 |---|---|---|---|
 |Pre-check|attendance_days / reportDays < 0.15|undetected|Too little data to analyze|
+|Step 1.5|non-weekend density ≥ 0.62|daily|Unambiguous daily attendance pattern|
 |Step 2 (per day)|satisfiedZones ≥ zoneCount − 1|period added to validPeriods[S]|Full zone signal confirmed|
 |Step 2 (per day)|zone check failed AND anchor pair conditions met|period added to validPeriods[S]|Irregular shift pattern for this day|
 |Step 4|winnerCount ≥ 3 AND confidence passes|shift|Shift pattern confirmed|

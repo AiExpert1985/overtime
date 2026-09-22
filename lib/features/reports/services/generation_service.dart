@@ -21,8 +21,17 @@ class GenerationException implements Exception {
 
 class GenerationService {
   static const _requiredKeys = ['employee_name', 'department', 'datetime'];
-  static const _offDayThreshold = 0.25;
+  static const _offDayThreshold = 0.60;
   static const _minAttendanceDensity = 0.15;
+  // Non-weekend attendance density above which an employee is confirmed
+  // daily outright, before the zone/anchor-pair shift check ever runs. Real
+  // rotating-shift employees (measured against a month of production data)
+  // top out around 59% non-weekend density; genuine daily employees with a
+  // midday/exit punch sit at 64% and above. 62% sits in that gap. This exists
+  // because a daily employee with three punches a day (entry, midday, exit)
+  // can coincidentally satisfy 4 of 5 shift zones on a shared 6-hour grid —
+  // this pre-pass removes them before that collision has a chance to fire.
+  static const _clearDailyDensityThreshold = 0.62;
   static const _minValidPeriods = 3;
   // The winning start time must beat the runner-up by this factor. Unlike a
   // share of the total, this does not change as more start times are added.
@@ -178,6 +187,16 @@ class GenerationService {
       return _UndetectedResult('أيام الحضور أقل من 15% من مدة الفترة');
     }
 
+    // Step 1.5 — Clear-daily pre-check. An employee present on most
+    // non-weekend days is confirmed daily outright, skipping the zone check
+    // below entirely — this is what protects a three-punch-a-day daily
+    // employee (entry, midday, exit) from the coincidental 4-zone match a
+    // shared 6-hour grid can otherwise produce.
+    if (_nonWeekendAttendanceDensity(entry.timestamps, startDate, endDate) >=
+        _clearDailyDensityThreshold) {
+      return _DailyResult();
+    }
+
     // Step 2 — Build valid periods for every configured start time
     final validPeriodsMap = <String, List<ShiftPeriod>>{
       for (final st in settings.shiftStartTimes)
@@ -280,6 +299,33 @@ class GenerationService {
 
   String _dayKey(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  // Share of non-Friday/Saturday calendar days in the report range on which
+  // the employee has at least one timestamp. Denominator is the raw calendar
+  // range, not attendance-derived "open" days — this runs before any
+  // employee has been classified, so there is no daily bucket yet to measure
+  // openness from.
+  double _nonWeekendAttendanceDensity(
+    List<DateTime> timestamps,
+    DateTime startDate,
+    DateTime endDate,
+  ) {
+    final dayMap = _groupByDay(timestamps);
+    var totalNonWeekend = 0;
+    var attendedNonWeekend = 0;
+    var day = DateTime(startDate.year, startDate.month, startDate.day);
+    final lastDay = DateTime(endDate.year, endDate.month, endDate.day);
+    while (!day.isAfter(lastDay)) {
+      final isWeekend =
+          day.weekday == DateTime.friday || day.weekday == DateTime.saturday;
+      if (!isWeekend) {
+        totalNonWeekend++;
+        if (dayMap.containsKey(_dayKey(day))) attendedNonWeekend++;
+      }
+      day = day.add(const Duration(days: 1));
+    }
+    return totalNonWeekend == 0 ? 0 : attendedNonWeekend / totalNonWeekend;
+  }
 
   List<ShiftPeriod> _buildValidPeriods(
     List<DateTime> timestamps,

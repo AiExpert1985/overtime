@@ -69,12 +69,17 @@ These values are fixed in code and not user-configurable.
 
 | Key | Value | Used in |
 |---|---|---|
-| off_day_threshold | 25% | `off_day_detection.md` — minimum attendance rate below which a non-weekend day is classified as off |
+| off_day_threshold | 60% | `off_day_detection.md` — minimum attendance rate below which a non-weekend day is classified as off. Also used by `schedule_detection.md`'s `_countOpenWorkingDays` |
+| clear_daily_density_threshold | 62% | `schedule_detection.md` — non-weekend attendance density at or above which an employee is confirmed daily outright, before the zone/anchor-pair shift check runs |
 | weekly_rest_days | Friday, Saturday | `off_day_detection.md` — always classified as off for daily employees, unconditionally, regardless of attendance |
 | detection_edge_tolerance | 120 minutes | `schedule_detection.md` — edge tolerance used by classification only, never by overtime validity |
 | morning_arrival_lead | 120 minutes | `schedule_detection.md` — how far before `daily_start_time` an arrival still counts as a morning arrival in the daily validation gate |
 | max_look_ahead_days | 2 days | `period_extractor_daily.md` — longest spill into the next month treated as shift look-ahead rather than a genuine two-month report |
 | min_morning_days | 5 | `schedule_detection.md` — floor for the daily validation gate threshold |
+
+`off_day_threshold` was raised from 25% to 60% after measuring a real month of attendance data: genuine weekdays never dipped below 69.5% attendance among daily employees and genuine weekends never exceeded 19.6%, while a partial-holiday day sat at 36.5% — comfortably above the old 25% threshold, so it was wrongly classified as a regular working day. 60% catches that case with a wide margin on both sides.
+
+`clear_daily_density_threshold` (62%) was calibrated against the same month: real rotating-shift employees topped out at 59% non-weekend attendance density (measured, not assumed — several source departments are guard/safety-shift rosters with a roughly 1-on/1-off cadence, denser than the classic 1-on/2-off pattern), while genuine daily employees sat at 64% and above. 62% sits in the empty gap between the two clusters.
 
 `detection_edge_tolerance` is deliberately wider than `shift_edge_tolerance` and deliberately not user-configurable. Classification asks "does this person work shifts?", which a punch 90 minutes off the mark still answers yes to; overtime validity asks "did this period meet the rules?", which it does not. Keeping them separate means editing `shift_edge_tolerance` changes who earns overtime without changing who is classified as a shift worker.
 

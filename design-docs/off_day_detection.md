@@ -16,7 +16,7 @@ Off-days include weekends, public holidays, and any other day where the majority
 ## Input
 
 - Daily hash table: `employeeName → { name, department, [timestamps] }` — all daily employees with timestamps sorted ascending, filtered to report date range
-- `off_day_threshold` — configured percentage (default 25%). From `config.md`.
+- `off_day_threshold` — configured percentage (default 60%). From `config.md`.
 
 ---
 
@@ -58,12 +58,15 @@ Return the set of all dates classified as off-day (weekend dates plus density-cl
 
 ## Threshold Behavior
 
-The threshold is a strict less-than comparison. A day must fall strictly below the threshold to be classified as off. At the default of 25%: a day where 25% or more of daily employees attended is classified as regular.
+The threshold is a strict less-than comparison. A day must fall strictly below the threshold to be classified as off. At the default of 60%: a day where 60% or more of daily employees attended is classified as regular.
 
-Example with 10 daily employees and 25% threshold:
-- 2 attended → 20% → off (below 25%)
-- 3 attended → 30% → regular (above 25%)
-- 5 attended → 50% → regular (above 25%)
+Example with 10 daily employees and 60% threshold:
+- 2 attended → 20% → off (below 60%)
+- 5 attended → 50% → off (below 60%)
+- 6 attended → 60% → regular (at threshold)
+- 8 attended → 80% → regular (above 60%)
+
+Raised from an original default of 25% after measuring real attendance data: genuine weekdays never dipped below ~70% attendance among daily employees and genuine weekends never exceeded ~20%, while a partial-holiday day with a reduced skeleton crew sat at ~36% — well above the old 25% threshold, so it was wrongly classified as a regular working day and missed entirely. 60% catches that case with a comfortable margin below genuine weekday attendance. See `config.md`.
 
 ---
 
@@ -71,7 +74,7 @@ Example with 10 daily employees and 25% threshold:
 
 | Constant | Value |
 |---|---|
-| Off-day threshold | 25% |
+| Off-day threshold | 60% |
 | Weekly rest days | Friday, Saturday |
 
 These values are fixed in code — not user-configurable. Defined in `config.md` hardcoded constants.
