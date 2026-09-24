@@ -7,6 +7,7 @@ import '../../auth/domain/user_role.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../settings/providers/settings_provider.dart';
 import '../domain/unified_employee_row.dart';
+import '../providers/report_generate_provider.dart';
 import '../providers/reports_provider.dart';
 import '../services/report_export_service.dart';
 
@@ -61,11 +62,23 @@ class ReportScreen extends ConsumerStatefulWidget {
 class _ReportScreenState extends ConsumerState<ReportScreen> {
   late final TextEditingController _search;
   bool _exporting = false;
+  List<String> _generationWarnings = const [];
 
   @override
   void initState() {
     super.initState();
     _search = TextEditingController();
+    // One-shot read: only the report just navigated to from a successful
+    // generation should show this, never a revisit from history. The clear
+    // is deferred past the build phase — Riverpod forbids modifying a
+    // provider from initState, only reading it.
+    _generationWarnings = ref.read(pendingGenerationWarningsProvider);
+    if (_generationWarnings.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(pendingGenerationWarningsProvider.notifier).clear();
+      });
+    }
   }
 
   @override
@@ -203,6 +216,12 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
 
                 return Column(
                   children: [
+                    if (_generationWarnings.isNotEmpty)
+                      _GenerationWarningBanner(
+                        messages: _generationWarnings,
+                        onDismiss: () =>
+                            setState(() => _generationWarnings = const []),
+                      ).animate().fade().slideY(begin: -0.1),
                     _InlineFilterHeader(
                       searchController: _search,
                       depts: depts,
@@ -359,6 +378,71 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
     } finally {
       if (mounted) setState(() => _exporting = false);
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Generation warning banner — non-blocking, dismissible. Shown once when the
+// just-generated report had attendance rows with an unrecognized datetime
+// format silently skipped, so that no longer passes unnoticed.
+// ---------------------------------------------------------------------------
+
+class _GenerationWarningBanner extends StatelessWidget {
+  const _GenerationWarningBanner({
+    required this.messages,
+    required this.onDismiss,
+  });
+
+  final List<String> messages;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Material(
+        color: Colors.amber.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.amber.withValues(alpha: 0.6)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.amber),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final m in messages)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Text(
+                          m,
+                          style: TextStyle(
+                            color: colors.onSurface,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: onDismiss,
+                color: colors.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

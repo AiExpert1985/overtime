@@ -13,6 +13,7 @@ import '../domain/shift_employee_entry.dart';
 import '../domain/shift_period.dart';
 import '../domain/undetected_entry.dart';
 import '../domain/zone_result.dart';
+import 'attendance_datetime_parser.dart';
 
 class GenerationException implements Exception {
   GenerationException(this.arabicMessage);
@@ -80,7 +81,8 @@ class GenerationService {
   static const _detectionEdgeTolerance = 120;
 
   // Stage 3 — Dictionary Build
-  Future<Map<String, EmployeeEntry>> buildDictionary(
+  Future<({Map<String, EmployeeEntry> dictionary, Map<String, int> datetimeWarnings})>
+  buildDictionary(
     List<String> validFilePaths,
     DateTime startDate,
     DateTime endDate,
@@ -88,16 +90,24 @@ class GenerationService {
   ) async {
     final acceptable = _buildAcceptableMap(headers);
     final dictionary = <String, EmployeeEntry>{};
+    final datetimeWarnings = <String, int>{};
 
     for (final path in validFilePaths) {
-      await _processFile(path, startDate, endDate, acceptable, dictionary);
+      await _processFile(
+        path,
+        startDate,
+        endDate,
+        acceptable,
+        dictionary,
+        datetimeWarnings,
+      );
     }
 
     for (final entry in dictionary.values) {
       entry.timestamps.sort();
     }
 
-    return dictionary;
+    return (dictionary: dictionary, datetimeWarnings: datetimeWarnings);
   }
 
   // Stage 4 — Schedule Detection + Shift Period Extraction (V2)
@@ -775,6 +785,7 @@ class GenerationService {
     Map<String, ShiftEmployeeEntry> shiftTable,
     Map<String, DailyEmployeeEntry> dailyEntries,
     List<UndetectedEntry> undetectedList,
+    Map<String, int> datetimeWarnings,
   })> runFullPipeline({
     required List<String> validFilePaths,
     required DateTime startDate,
@@ -794,13 +805,18 @@ class GenerationService {
 
     return Isolate.run(() async {
       final svc = GenerationService();
-      final dictionary = await svc.buildDictionary(
+      final built = await svc.buildDictionary(
         validFilePaths,
         startDate,
         endDate,
         headers,
       );
-      final schedules = svc.detectSchedules(dictionary, startDate, endDate, settings);
+      final schedules = svc.detectSchedules(
+        built.dictionary,
+        startDate,
+        endDate,
+        settings,
+      );
       final offDays = svc.detectOffDays(schedules.dailyTable, startDate, endDate);
       final dailyEntries = svc.extractDailyPeriods(
         schedules.dailyTable,
@@ -814,6 +830,7 @@ class GenerationService {
         shiftTable: schedules.shiftTable,
         dailyEntries: dailyEntries,
         undetectedList: schedules.undetectedList,
+        datetimeWarnings: built.datetimeWarnings,
       );
     });
   }
@@ -1132,12 +1149,14 @@ class GenerationService {
     DateTime endDate,
     Map<String, Set<String>> acceptable,
     Map<String, EmployeeEntry> dictionary,
+    Map<String, int> datetimeWarnings,
   ) async {
+    final name = path.replaceAll('\\', '/').split('/').last;
+
     final List<int> bytes;
     try {
       bytes = await File(path).readAsBytes();
     } catch (_) {
-      final name = path.replaceAll('\\', '/').split('/').last;
       throw GenerationException('تعذّر قراءة الملف: $name');
     }
 
@@ -1145,12 +1164,19 @@ class GenerationService {
     try {
       excel = Excel.decodeBytes(bytes);
     } catch (_) {
-      final name = path.replaceAll('\\', '/').split('/').last;
       throw GenerationException('تعذّر فك تشفير الملف: $name');
     }
 
     for (final sheet in excel.sheets.values) {
-      _processSheet(sheet, startDate, endDate, acceptable, dictionary);
+      _processSheet(
+        sheet,
+        startDate,
+        endDate,
+        acceptable,
+        dictionary,
+        name,
+        datetimeWarnings,
+      );
     }
   }
 
@@ -1160,6 +1186,8 @@ class GenerationService {
     DateTime endDate,
     Map<String, Set<String>> acceptable,
     Map<String, EmployeeEntry> dictionary,
+    String fileName,
+    Map<String, int> datetimeWarnings,
   ) {
     final rows = sheet.rows;
     if (rows.isEmpty) return;
@@ -1180,6 +1208,8 @@ class GenerationService {
         startDate,
         endDate,
         dictionary,
+        fileName,
+        datetimeWarnings,
       );
     }
   }
@@ -1192,6 +1222,8 @@ class GenerationService {
     DateTime startDate,
     DateTime endDate,
     Map<String, EmployeeEntry> dictionary,
+    String fileName,
+    Map<String, int> datetimeWarnings,
   ) {
     final name = _cellText(row, nameCol);
     if (name.isEmpty) return;
@@ -1199,7 +1231,19 @@ class GenerationService {
     final dept = _cellText(row, deptCol);
 
     final dt = _parseDateTimeCell(row, dtCol);
-    if (dt == null) return;
+    if (dt == null) {
+      // Only worth flagging when there was actual text the parser couldn't
+      // make sense of — a genuinely blank cell is normal, not a format
+      // problem.
+      if (_cellText(row, dtCol).isNotEmpty) {
+        datetimeWarnings.update(
+          fileName,
+          (count) => count + 1,
+          ifAbsent: () => 1,
+        );
+      }
+      return;
+    }
 
     if (!_isInRange(dt, startDate, endDate)) return;
 
@@ -1224,11 +1268,7 @@ class GenerationService {
 
   DateTime? _parseDateTimeCell(List<Data?> row, int col) {
     if (col >= row.length) return null;
-    final value = row[col]?.value;
-    if (value == null) return null;
-    if (value is DateTimeCellValue) return value.asDateTimeLocal();
-    if (value is DateCellValue) return value.asDateTimeLocal();
-    return DateTime.tryParse(value.toString().trim());
+    return parseAttendanceDateTimeCell(row[col]);
   }
 
   Map<String, Set<String>> _buildAcceptableMap(List<ColumnHeader> headers) {

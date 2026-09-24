@@ -15,6 +15,24 @@ final fileValidationServiceProvider = Provider<FileValidationService>((ref) {
   return FileValidationService();
 });
 
+// One-shot "mailbox" for the just-completed generation's datetime-format
+// warnings (file name -> skipped row count). Set by generate() on success,
+// read once and cleared by the freshly-opened Report screen so the warning
+// surfaces exactly once and never reappears on later visits to that report.
+class PendingGenerationWarningsNotifier extends Notifier<List<String>> {
+  @override
+  List<String> build() => [];
+
+  void set(List<String> messages) => state = messages;
+
+  void clear() => state = [];
+}
+
+final pendingGenerationWarningsProvider =
+    NotifierProvider<PendingGenerationWarningsNotifier, List<String>>(
+  PendingGenerationWarningsNotifier.new,
+);
+
 class ReportGenerateState {
   const ReportGenerateState({
     this.files = const [],
@@ -168,6 +186,11 @@ class ReportGenerateNotifier extends Notifier<ReportGenerateState> {
         dailyEntries: pipeline.dailyEntries,
         undetectedList: pipeline.undetectedList,
       );
+
+      ref.read(pendingGenerationWarningsProvider.notifier).set([
+        for (final e in pipeline.datetimeWarnings.entries)
+          'الملف "${e.key}" يحتوي على ${e.value} صف بتنسيق تاريخ/وقت غير مفهوم، تم تجاهلها',
+      ]);
 
       ref.invalidate(reportsProvider);
       // Best-effort snapshot backup — never blocks or fails the generation

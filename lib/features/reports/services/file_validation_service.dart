@@ -4,6 +4,7 @@ import 'package:excel_plus/excel_plus.dart';
 
 import '../../settings/domain/column_header.dart';
 import '../domain/picked_file.dart';
+import 'attendance_datetime_parser.dart';
 
 class FileValidationService {
   static const _requiredKeys = ['employee_name', 'department', 'datetime'];
@@ -87,6 +88,7 @@ class FileValidationService {
       final allPresent = _requiredKeys.every((key) {
         final col = colIndices[key]!;
         final cell = col < row.length ? row[col] : null;
+        if (key == 'datetime') return parseAttendanceDateTimeCell(cell) != null;
         return (cell?.value?.toString().trim() ?? '').isNotEmpty;
       });
       if (allPresent) return true;
