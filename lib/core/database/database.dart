@@ -285,6 +285,7 @@ class AppDatabase {
     'daily_work_duration': '8',
     'daily_max_overtime': '3',
     'daily_delay_allowance': '60',
+    'daily_overtime_margin': '10',
     'shift_start_times': jsonEncode(['08:00']),
     'shift_duration': '24',
     'shift_zone_interval': '6',

@@ -58,9 +58,9 @@ Off days only ever carry the single-stamp reason — the entry-time check does n
 
 ### Calculation
 
-`overtimeMinutes = max(0, lastTimestamp − end_time)`
+`raw = lastTimestamp − end_time`
 
-Capped at configured daily maximum.
+If `raw < daily_overtime_margin`, `overtimeMinutes = 0` — a departure only a few minutes past end time is a leaving delay, not overtime, and is neglected entirely rather than merely capped. Otherwise `overtimeMinutes = min(raw, daily_max_overtime)`. The same margin rule applies to off days below.
 
 ### Invalid Reasons
 
@@ -82,9 +82,9 @@ No start time requirement.
 
 ### Calculation
 
-`overtimeMinutes = lastTimestamp − firstTimestamp`
+`raw = lastTimestamp − firstTimestamp`
 
-Capped at configured daily maximum.
+If `raw < daily_overtime_margin`, `overtimeMinutes = 0` — same neglect rule as regular days, so a token few minutes present on a day off isn't logged as overtime. Otherwise `overtimeMinutes = min(raw, daily_max_overtime)`.
 
 ### Invalid Reason
 
@@ -111,6 +111,7 @@ Where every `DailyPeriod` now has all fields set. Total overtime per employee is
 | Start time | 08:00 |
 | Work duration | 8 hours |
 | Max overtime per day | 3 hours |
+| Overtime margin (regular and off days) | 10 minutes |
 
 All defined in `config.md`, managed in `screen_configuration.md`.
 

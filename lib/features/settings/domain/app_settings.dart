@@ -6,6 +6,7 @@ class AppSettings {
     required this.dailyWorkDuration,
     required this.dailyMaxOvertime,
     required this.dailyDelayAllowance,
+    required this.dailyOvertimeMargin,
     required this.shiftStartTimes,
     required this.shiftDuration,
     required this.shiftZoneInterval,
@@ -22,6 +23,7 @@ class AppSettings {
   final int dailyWorkDuration;
   final int dailyMaxOvertime;
   final int dailyDelayAllowance;
+  final int dailyOvertimeMargin;
   final List<String> shiftStartTimes;
   final int shiftDuration;
   final int shiftZoneInterval;
@@ -59,6 +61,7 @@ class AppSettings {
     int? dailyWorkDuration,
     int? dailyMaxOvertime,
     int? dailyDelayAllowance,
+    int? dailyOvertimeMargin,
     List<String>? shiftStartTimes,
     int? shiftDuration,
     int? shiftZoneInterval,
@@ -75,6 +78,7 @@ class AppSettings {
       dailyWorkDuration: dailyWorkDuration ?? this.dailyWorkDuration,
       dailyMaxOvertime: dailyMaxOvertime ?? this.dailyMaxOvertime,
       dailyDelayAllowance: dailyDelayAllowance ?? this.dailyDelayAllowance,
+      dailyOvertimeMargin: dailyOvertimeMargin ?? this.dailyOvertimeMargin,
       shiftStartTimes: shiftStartTimes ?? this.shiftStartTimes,
       shiftDuration: shiftDuration ?? this.shiftDuration,
       shiftZoneInterval: shiftZoneInterval ?? this.shiftZoneInterval,
@@ -95,6 +99,13 @@ class AppSettings {
       dailyWorkDuration: int.parse(map['daily_work_duration']!),
       dailyMaxOvertime: int.parse(map['daily_max_overtime']!),
       dailyDelayAllowance: int.parse(map['daily_delay_allowance']!),
+      // A newly added key may not exist yet on a database that hasn't been
+      // reopened since this setting was introduced (onOpen reseeds it, but
+      // only on the next full app start) — tryParse with the same default
+      // used for seeding avoids a crash in that window, matching the
+      // precedent set by maxReportDateRange below.
+      dailyOvertimeMargin:
+          int.tryParse(map['daily_overtime_margin'] ?? '') ?? 10,
       shiftStartTimes: List<String>.from(
         jsonDecode(map['shift_start_times']!) as List,
       ),

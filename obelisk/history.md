@@ -457,3 +457,11 @@ The user proposed a simpler alternative and asked for a direct comparison: for e
 **Rejected:** Relabeling by each candidate's own opening-punch evidence count — implemented, scaled-tested successfully at first, then found to mislabel real shifts whose own routine includes a genuine checkpoint near a second configured time, since that checkpoint isn't spillover and can't be distinguished from a true opening by presence alone.
 
 ---
+
+## 20260924-1400 | Daily Overtime Minimum Margin | TASK
+
+**Task:** Added a configurable minimum-overtime margin for daily employees (`daily_overtime_margin`, default 10 minutes, editable on the Settings screen alongside the other daily tolerances). Overtime below the margin is neglected entirely — set to zero rather than merely capped — so a departure only a couple of minutes past shift end is treated as a leaving delay, not overtime. Initially scoped to regular working days only, then widened to apply identically to off-day overtime as well, so both day types treat a token sub-margin span the same way even though off days use a different formula (full first-to-last attendance span rather than time-past-end). No schema migration was needed — the new setting is seeded through the existing reconcile-on-open mechanism. A follow-up fix made the setting load defensively (fallback to the seeded default if the key is briefly missing, matching the existing `max_report_date_range` precedent) after the initial strict-parse version crashed report generation in a session whose database hadn't yet picked up the newly seeded key.
+
+**Rejected:** A hardcoded constant instead of a user-configurable setting — rejected in favor of matching the existing pattern for tolerance/margin values, since the 10-minute figure was given only as an example.
+
+---

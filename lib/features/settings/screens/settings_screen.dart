@@ -24,6 +24,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late TextEditingController _dailyWorkDurationCtrl;
   late TextEditingController _dailyMaxOvertimeCtrl;
   late TextEditingController _dailyDelayAllowanceCtrl;
+  late TextEditingController _dailyOvertimeMarginCtrl;
   late TextEditingController _shiftDurationCtrl;
   late TextEditingController _shiftZoneIntervalCtrl;
   late TextEditingController _shiftEdgeToleranceCtrl;
@@ -44,6 +45,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _dailyWorkDurationCtrl.dispose();
     _dailyMaxOvertimeCtrl.dispose();
     _dailyDelayAllowanceCtrl.dispose();
+    _dailyOvertimeMarginCtrl.dispose();
     _shiftDurationCtrl.dispose();
     _shiftZoneIntervalCtrl.dispose();
     _shiftEdgeToleranceCtrl.dispose();
@@ -70,6 +72,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
     _dailyDelayAllowanceCtrl = TextEditingController(
       text: '${s.dailyDelayAllowance}',
+    );
+    _dailyOvertimeMarginCtrl = TextEditingController(
+      text: '${s.dailyOvertimeMargin}',
     );
     _shiftDurationCtrl = TextEditingController(text: '${s.shiftDuration}');
     _shiftZoneIntervalCtrl = TextEditingController(
@@ -292,6 +297,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               '${s.dailyDelayAllowance}',
               (v) => v >= 0,
               notifier.updateDailyDelayAllowance,
+            ),
+            unitSuffix: 'دقيقة',
+          ),
+        ),
+        _settingRow(
+          label: 'هامش تجاهل الوقت الإضافي',
+          hint:
+              'الحد الأدنى للوقت الإضافي بالدقائق ليتم احتسابه؛ أي وقت إضافي أقل منه (مثل تأخير بسيط بالمغادرة) يُهمل',
+          value: _numberField(
+            _dailyOvertimeMarginCtrl,
+            () => _saveNumber(
+              _dailyOvertimeMarginCtrl,
+              '${s.dailyOvertimeMargin}',
+              (v) => v >= 0,
+              notifier.updateDailyOvertimeMargin,
             ),
             unitSuffix: 'دقيقة',
           ),

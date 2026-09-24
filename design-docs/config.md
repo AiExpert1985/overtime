@@ -19,6 +19,7 @@ Single source of truth for all constants and configurable defaults. Every value 
 | daily_work_duration | 8 hours | ساعات الدوام | مدة يوم العمل الاعتيادي بالساعات |
 | daily_max_overtime | 3 hours | اقصى وقت اضافي | أقصى عدد ساعات إضافية الممكن احتسابه للموظف في اليوم الواحد |
 | daily_delay_allowance | 60 minutes | وقت السماح بالتأخير | الهامش الزمني المسموح به للموظف للحضور بعد وقت البداية في أيام العمل الاعتيادية |
+| daily_overtime_margin | 10 minutes | هامش تجاهل الوقت الإضافي | الحد الأدنى للوقت الإضافي بالدقائق ليتم احتسابه؛ أي وقت إضافي أقل منه (مثل تأخير بسيط بالمغادرة) يُهمل |
 
 End time is derived: `daily_start_time + daily_work_duration`. Not a stored setting.
 

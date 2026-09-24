@@ -852,6 +852,7 @@ class GenerationService {
     final endTimeMinutes = startMinutes + settings.dailyWorkDuration * 60;
     final deadlineMinutes = startMinutes + settings.dailyDelayAllowance;
     final maxOvertimeMinutes = settings.dailyMaxOvertime * 60;
+    final overtimeMarginMinutes = settings.dailyOvertimeMargin;
 
     for (final entry in dailyEntries.values) {
       var total = 0;
@@ -863,6 +864,7 @@ class GenerationService {
           endTimeMinutes,
           deadlineMinutes,
           maxOvertimeMinutes,
+          overtimeMarginMinutes,
         );
         final mins = period.overtimeMinutes!;
         total += mins;
@@ -885,6 +887,7 @@ class GenerationService {
     int endTimeMinutes,
     int deadlineMinutes,
     int maxOvertimeMinutes,
+    int overtimeMarginMinutes,
   ) {
     final timestamps = period.allTimestamps;
     period.totalAttendanceDuration = timestamps.length >= 2
@@ -897,9 +900,10 @@ class GenerationService {
         endTimeMinutes,
         deadlineMinutes,
         maxOvertimeMinutes,
+        overtimeMarginMinutes,
       );
     } else {
-      _enrichOffDay(period, maxOvertimeMinutes);
+      _enrichOffDay(period, maxOvertimeMinutes, overtimeMarginMinutes);
     }
   }
 
@@ -908,6 +912,7 @@ class GenerationService {
     int endTimeMinutes,
     int deadlineMinutes,
     int maxOvertimeMinutes,
+    int overtimeMarginMinutes,
   ) {
     final timestamps = period.allTimestamps;
 
@@ -936,13 +941,20 @@ class GenerationService {
 
     final lastMinutes = timestamps.last.hour * 60 + timestamps.last.minute;
     period.isValid = true;
-    period.overtimeMinutes = (lastMinutes - endTimeMinutes).clamp(
-      0,
-      maxOvertimeMinutes,
-    );
+    final raw = lastMinutes - endTimeMinutes;
+    // A departure only a few minutes past end time is a leaving delay, not
+    // overtime — anything under the margin is neglected entirely rather than
+    // just capped.
+    period.overtimeMinutes = raw < overtimeMarginMinutes
+        ? 0
+        : raw.clamp(0, maxOvertimeMinutes);
   }
 
-  void _enrichOffDay(DailyPeriod period, int maxOvertimeMinutes) {
+  void _enrichOffDay(
+    DailyPeriod period,
+    int maxOvertimeMinutes,
+    int overtimeMarginMinutes,
+  ) {
     final timestamps = period.allTimestamps;
 
     // The entry-time check does not apply to off days, so this is the only
@@ -956,7 +968,11 @@ class GenerationService {
 
     final raw = timestamps.last.difference(timestamps.first).inMinutes;
     period.isValid = true;
-    period.overtimeMinutes = raw.clamp(0, maxOvertimeMinutes);
+    // Neglect a span barely over zero the same way regular days do, instead
+    // of just capping it — a couple of minutes present is not real overtime.
+    period.overtimeMinutes = raw < overtimeMarginMinutes
+        ? 0
+        : raw.clamp(0, maxOvertimeMinutes);
     period.notes = {};
   }
 

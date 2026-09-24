@@ -30,6 +30,9 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   Future<void> updateDailyDelayAllowance(int v) =>
       _save('daily_delay_allowance', '$v', (s) => s.copyWith(dailyDelayAllowance: v));
 
+  Future<void> updateDailyOvertimeMargin(int v) =>
+      _save('daily_overtime_margin', '$v', (s) => s.copyWith(dailyOvertimeMargin: v));
+
   Future<void> updateShiftStartTimes(List<String> v) =>
       _save('shift_start_times', jsonEncode(v), (s) => s.copyWith(shiftStartTimes: v));
 
