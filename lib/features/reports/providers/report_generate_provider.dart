@@ -30,8 +30,8 @@ class PendingGenerationWarningsNotifier extends Notifier<List<String>> {
 
 final pendingGenerationWarningsProvider =
     NotifierProvider<PendingGenerationWarningsNotifier, List<String>>(
-  PendingGenerationWarningsNotifier.new,
-);
+      PendingGenerationWarningsNotifier.new,
+    );
 
 class ReportGenerateState {
   const ReportGenerateState({
@@ -154,8 +154,10 @@ class ReportGenerateNotifier extends Notifier<ReportGenerateState> {
 
   Future<int?> generate() async {
     final saved = state;
-    final validPaths =
-        saved.files.where((f) => f.isValid).map((f) => f.path).toList();
+    final validPaths = saved.files
+        .where((f) => f.isValid)
+        .map((f) => f.path)
+        .toList();
 
     state = ReportGenerateState(
       files: saved.files,
@@ -182,6 +184,7 @@ class ReportGenerateNotifier extends Notifier<ReportGenerateState> {
       final reportId = await repo.storeReport(
         rangeStart: saved.startDate!,
         rangeEnd: saved.endDate!,
+        settings: settings,
         shiftEntries: pipeline.shiftTable,
         dailyEntries: pipeline.dailyEntries,
         undetectedList: pipeline.undetectedList,
@@ -222,13 +225,17 @@ class ReportGenerateNotifier extends Notifier<ReportGenerateState> {
 
 String? _validateDates(DateTime? start, DateTime? end, int maxRange) {
   if (start == null || end == null) return null;
-  if (end.isBefore(start)) return 'تاريخ النهاية لا يمكن أن يكون قبل تاريخ البداية';
+  if (end.isBefore(start)) {
+    return 'تاريخ النهاية لا يمكن أن يكون قبل تاريخ البداية';
+  }
   final days = end.difference(start).inDays + 1;
-  if (days > maxRange) return 'نطاق التاريخ يتجاوز الحد المسموح به ($maxRange يوم)';
+  if (days > maxRange) {
+    return 'نطاق التاريخ يتجاوز الحد المسموح به ($maxRange يوم)';
+  }
   return null;
 }
 
 final reportGenerateProvider =
     NotifierProvider<ReportGenerateNotifier, ReportGenerateState>(
-  ReportGenerateNotifier.new,
-);
+      ReportGenerateNotifier.new,
+    );

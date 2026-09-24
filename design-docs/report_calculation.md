@@ -23,6 +23,10 @@ When the report screen mounts, three queries run in parallel using `reportId`:
 
 Each `shift_employee_results` row carries the pre-computed `overtime_hours` (stored in minutes). Each `daily_employee_results` row carries the pre-computed `total_overtime_minutes`. No period detail rows are loaded at this stage.
 
+### Report Metadata (Settings Snapshot & Notes)
+
+The `reports` row itself carries two extra fields, shown from the Reports list via a per-report info dialog (not on the Report screen): `settings_snapshot`, a JSON snapshot of every `AppSettings` field taken once at generation time and never editable afterward, and `notes`, a free-text field editable at any time by the admin and generate roles. Both are purely informational — neither is read by the generation pipeline or by any calculation.
+
 Period details are loaded lazily when the user opens the detail screen for a specific employee.
 
 ### Detail Screen Load

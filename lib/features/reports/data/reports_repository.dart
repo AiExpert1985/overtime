@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:sqflite/sqflite.dart';
 
+import '../../settings/domain/app_settings.dart';
 import '../domain/daily_employee_entry.dart';
 import '../domain/daily_employee_row.dart';
 import '../domain/notes_codec.dart';
@@ -11,6 +12,15 @@ import '../domain/shift_employee_row.dart';
 import '../domain/undetected_employee_row.dart';
 import '../domain/undetected_entry.dart';
 
+const _reportColumns = [
+  'id',
+  'generation_datetime',
+  'range_start',
+  'range_end',
+  'settings_snapshot',
+  'notes',
+];
+
 class ReportsRepository {
   const ReportsRepository(this._db);
 
@@ -19,7 +29,7 @@ class ReportsRepository {
   Future<List<Report>> loadReports() async {
     final rows = await _db.query(
       'reports',
-      columns: ['id', 'generation_datetime', 'range_start', 'range_end'],
+      columns: _reportColumns,
       orderBy: 'generation_datetime DESC',
     );
     return rows.map(Report.fromMap).toList();
@@ -32,6 +42,7 @@ class ReportsRepository {
   Future<int> storeReport({
     required DateTime rangeStart,
     required DateTime rangeEnd,
+    required AppSettings settings,
     required Map<String, ShiftEmployeeEntry> shiftEntries,
     required Map<String, DailyEmployeeEntry> dailyEntries,
     required List<UndetectedEntry> undetectedList,
@@ -41,6 +52,7 @@ class ReportsRepository {
         'generation_datetime': DateTime.now().toIso8601String(),
         'range_start': _isoDate(rangeStart),
         'range_end': _isoDate(rangeEnd),
+        'settings_snapshot': jsonEncode(settings.toMap()),
       });
 
       await _insertShiftEntries(txn, reportId, shiftEntries.values.toList());
@@ -93,17 +105,19 @@ class ReportsRepository {
           'total_attendance_duration': period.totalAttendanceDuration!,
           'zone_data': jsonEncode(
             period.zoneResults
-                .map((z) => {
-                      'zoneIndex': z.zoneIndex,
-                      'startTime': z.startTime.toIso8601String(),
-                      'endTime': z.endTime.toIso8601String(),
-                      'windowStart': z.windowStart.toIso8601String(),
-                      'windowEnd': z.windowEnd.toIso8601String(),
-                      'timestamps': z.timestamps
-                          .map((ts) => ts.toIso8601String())
-                          .toList(),
-                      'isSatisfied': z.isSatisfied,
-                    })
+                .map(
+                  (z) => {
+                    'zoneIndex': z.zoneIndex,
+                    'startTime': z.startTime.toIso8601String(),
+                    'endTime': z.endTime.toIso8601String(),
+                    'windowStart': z.windowStart.toIso8601String(),
+                    'windowEnd': z.windowEnd.toIso8601String(),
+                    'timestamps': z.timestamps
+                        .map((ts) => ts.toIso8601String())
+                        .toList(),
+                    'isSatisfied': z.isSatisfied,
+                  },
+                )
                 .toList(),
           ),
           'hours_counted': period.hoursCounted!,
@@ -202,17 +216,32 @@ class ReportsRepository {
   Future<Report> loadReport(int id) async {
     final rows = await _db.query(
       'reports',
-      columns: ['id', 'generation_datetime', 'range_start', 'range_end'],
+      columns: _reportColumns,
       where: 'id = ?',
       whereArgs: [id],
     );
     return Report.fromMap(rows.first);
   }
 
+  Future<void> updateNotes(int id, String notes) async {
+    await _db.update(
+      'reports',
+      {'notes': notes},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   Future<List<ShiftEmployeeRow>> loadShiftResults(int reportId) async {
     final rows = await _db.query(
       'shift_employee_results',
-      columns: ['id', 'employee_name', 'department', 'overtime_hours', 'is_included'],
+      columns: [
+        'id',
+        'employee_name',
+        'department',
+        'overtime_hours',
+        'is_included',
+      ],
       where: 'report_id = ?',
       whereArgs: [reportId],
     );
@@ -237,7 +266,9 @@ class ReportsRepository {
     return rows.map(DailyEmployeeRow.fromMap).toList();
   }
 
-  Future<List<UndetectedEmployeeRow>> loadUndetectedResults(int reportId) async {
+  Future<List<UndetectedEmployeeRow>> loadUndetectedResults(
+    int reportId,
+  ) async {
     final rows = await _db.query(
       'undetected_employee_results',
       columns: ['id', 'employee_name', 'department', 'failure_reason'],
@@ -276,7 +307,9 @@ class ReportsRepository {
     return rows.first;
   }
 
-  Future<List<Map<String, dynamic>>> loadShiftPeriods(int employeeResultId) async {
+  Future<List<Map<String, dynamic>>> loadShiftPeriods(
+    int employeeResultId,
+  ) async {
     return _db.query(
       'shift_period_details',
       where: 'employee_result_id = ?',
@@ -285,7 +318,9 @@ class ReportsRepository {
     );
   }
 
-  Future<List<Map<String, dynamic>>> loadDailyPeriods(int employeeResultId) async {
+  Future<List<Map<String, dynamic>>> loadDailyPeriods(
+    int employeeResultId,
+  ) async {
     return _db.query(
       'daily_period_details',
       where: 'employee_result_id = ?',
@@ -329,7 +364,8 @@ class ReportsRepository {
   }
 
   Future<List<Map<String, dynamic>>> loadUndetectedPeriods(
-      int employeeResultId) async {
+    int employeeResultId,
+  ) async {
     return _db.query(
       'undetected_period_details',
       where: 'employee_result_id = ?',

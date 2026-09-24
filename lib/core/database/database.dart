@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
-const _schemaVersion = 7;
+const _schemaVersion = 8;
 
 final dbProvider = Provider<Database>((ref) {
   throw UnimplementedError('dbProvider must be overridden in main');
@@ -94,6 +94,15 @@ class AppDatabase {
           // so nothing is dropped for this migration.
           await _createIndexes(db);
         }
+        if (oldVersion < 8) {
+          // Purely additive: a per-report settings snapshot (captured once at
+          // generation time, never edited) and a free-text notes field
+          // (editable any time). Existing reports get NULL for both.
+          await db.execute(
+            'ALTER TABLE reports ADD COLUMN settings_snapshot TEXT',
+          );
+          await db.execute('ALTER TABLE reports ADD COLUMN notes TEXT');
+        }
       },
       onOpen: (db) async {
         // Safety net: a missing settings key has a known default and is not an
@@ -112,7 +121,9 @@ class AppDatabase {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         generation_datetime TEXT NOT NULL,
         range_start TEXT NOT NULL,
-        range_end TEXT NOT NULL
+        range_end TEXT NOT NULL,
+        settings_snapshot TEXT,
+        notes TEXT
       )
     ''');
 

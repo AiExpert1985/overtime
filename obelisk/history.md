@@ -473,3 +473,13 @@ The user proposed a simpler alternative and asked for a direct comparison: for e
 **Open:** The pre-existing ISO-text fallback (`DateTime.tryParse`, unchanged by this task) is more lenient than assumed — a malformed ISO-shaped string does not fail to parse but silently rolls over into a plausible-but-wrong date instead of returning null. If such a string ever lands inside a report's date range, it would produce a silently incorrect timestamp without tripping the new warning banner (which only catches values that fail to parse at all). No real file has been seen to exercise this path; left unaddressed pending evidence it actually occurs.
 
 ---
+
+## 20260924-1800 | Report Metadata — Settings Snapshot & Editable Notes | TASK
+
+**Task:** Added per-report metadata so a generated report's exact context can be reviewed later. Every report now captures a write-once snapshot of the generation-related settings in effect at generation time — the same settings surfaced on the Settings screen, excluding login accounts and column headers, which were never part of that settings set to begin with. Reports also gained a free-text notes field, editable at any time (not just at generation) by the admin and generate roles; audit can view but not edit. Both are surfaced from the Reports list: a new info button beside each report's delete button opens a dialog showing the editable notes on top and the read-only settings snapshot below, and a non-empty note also shows as a short preview line directly on the report's card. Backup export/import (existing report-only backup feature) was extended to carry both fields through unchanged, including a backward-compatible read of older backup files that predate them.
+
+**Rejected:** Snapshotting the raw settings table wholesale — rejected because that table also holds the three login accounts' credentials since the earlier login-gate task; snapshotting only the settings-screen's configurable fields avoids ever storing credentials in report metadata. Restricting notes to admin-only editing — rejected in favor of also allowing the generate role, matching who can already act on reports elsewhere in the app.
+
+---
+
+---

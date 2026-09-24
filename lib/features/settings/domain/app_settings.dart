@@ -93,6 +93,27 @@ class AppSettings {
     );
   }
 
+  // Mirrors fromMap's keys exactly, so a snapshot taken here can be fed
+  // straight back into fromMap (used to persist a per-report settings
+  // snapshot at generation time — see reports_repository.dart).
+  Map<String, String> toMap() => {
+    'daily_start_time': dailyStartTime,
+    'daily_work_duration': '$dailyWorkDuration',
+    'daily_max_overtime': '$dailyMaxOvertime',
+    'daily_delay_allowance': '$dailyDelayAllowance',
+    'daily_overtime_margin': '$dailyOvertimeMargin',
+    'shift_start_times': jsonEncode(shiftStartTimes),
+    'shift_duration': '$shiftDuration',
+    'shift_zone_interval': '$shiftZoneInterval',
+    'shift_edge_tolerance': '$shiftEdgeTolerance',
+    'shift_inner_tolerance': '$shiftInnerTolerance',
+    'shift_duration_tolerance': '$shiftDurationTolerance',
+    'shift_baseline_hours': '$shiftBaselineHours',
+    'shift_ceiling_hours': '$shiftCeilingHours',
+    'rounding_mode': roundingMode,
+    'max_report_date_range': '$maxReportDateRange',
+  };
+
   factory AppSettings.fromMap(Map<String, String> map) {
     return AppSettings(
       dailyStartTime: map['daily_start_time']!,
@@ -117,7 +138,8 @@ class AppSettings {
       shiftBaselineHours: int.parse(map['shift_baseline_hours']!),
       shiftCeilingHours: int.parse(map['shift_ceiling_hours']!),
       roundingMode: map['rounding_mode']!,
-      maxReportDateRange: int.tryParse(map['max_report_date_range'] ?? '') ?? 32,
+      maxReportDateRange:
+          int.tryParse(map['max_report_date_range'] ?? '') ?? 32,
     );
   }
 }

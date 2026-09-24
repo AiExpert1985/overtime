@@ -90,8 +90,7 @@ class BackupService {
     for (final report in incoming) {
       final duplicate = await txn.query(
         'reports',
-        where:
-            'generation_datetime = ? AND range_start = ? AND range_end = ?',
+        where: 'generation_datetime = ? AND range_start = ? AND range_end = ?',
         whereArgs: [
           report['generation_datetime'],
           report['range_start'],
@@ -108,6 +107,8 @@ class BackupService {
         'generation_datetime': report['generation_datetime'],
         'range_start': report['range_start'],
         'range_end': report['range_end'],
+        'settings_snapshot': report['settings_snapshot'],
+        'notes': report['notes'],
       });
 
       await _mergeShift(txn, oldReportId, newReportId);

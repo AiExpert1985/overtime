@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../auth/domain/user_role.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../domain/report.dart';
+import '../domain/settings_snapshot_labels.dart';
 import '../providers/reports_provider.dart';
 
 class ReportsListScreen extends ConsumerWidget {
@@ -69,6 +70,8 @@ class ReportsListScreen extends ConsumerWidget {
                   : _ReportsList(
                       reports: reports,
                       canDelete: role == UserRole.admin,
+                      canEditNotes:
+                          role == UserRole.admin || role == UserRole.generate,
                     ),
             ),
           ),
@@ -153,10 +156,15 @@ class _EmptyReportsView extends StatelessWidget {
 }
 
 class _ReportsList extends StatelessWidget {
-  const _ReportsList({required this.reports, required this.canDelete});
+  const _ReportsList({
+    required this.reports,
+    required this.canDelete,
+    required this.canEditNotes,
+  });
 
   final List<Report> reports;
   final bool canDelete;
+  final bool canEditNotes;
 
   @override
   Widget build(BuildContext context) {
@@ -169,7 +177,11 @@ class _ReportsList extends StatelessWidget {
           separatorBuilder: (context, index) => const SizedBox(height: 16),
           itemBuilder: (context, index) {
             final report = reports[index];
-            return _ReportCard(report: report, canDelete: canDelete)
+            return _ReportCard(
+                  report: report,
+                  canDelete: canDelete,
+                  canEditNotes: canEditNotes,
+                )
                 .animate()
                 .fade(delay: (index * 50).ms, duration: 400.ms)
                 .slideX(begin: 0.1, curve: Curves.easeOut);
@@ -181,10 +193,15 @@ class _ReportsList extends StatelessWidget {
 }
 
 class _ReportCard extends ConsumerWidget {
-  const _ReportCard({required this.report, required this.canDelete});
+  const _ReportCard({
+    required this.report,
+    required this.canDelete,
+    required this.canEditNotes,
+  });
 
   final Report report;
   final bool canDelete;
+  final bool canEditNotes;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -334,7 +351,53 @@ class _ReportCard extends ConsumerWidget {
                           ),
                         ],
                       ),
+                      if (report.notes != null && report.notes!.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.sticky_note_2_outlined,
+                              size: 15,
+                              color: Theme.of(context).colorScheme.outline,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                report.notes!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      fontStyle: FontStyle.italic,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.outline,
+                                    ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
+                  ),
+                ),
+                Container(
+                  margin: const EdgeInsets.only(left: 8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.secondaryContainer.withValues(alpha: 0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.info_outline_rounded,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                    iconSize: 24,
+                    padding: const EdgeInsets.all(12),
+                    onPressed: () => _showInfo(context, ref),
+                    tooltip: 'معلومات التقرير',
                   ),
                 ),
                 if (canDelete)
@@ -361,6 +424,14 @@ class _ReportCard extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+
+  void _showInfo(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (_) =>
+          _ReportInfoDialog(report: report, canEditNotes: canEditNotes),
     );
   }
 
@@ -394,6 +465,159 @@ class _ReportCard extends ConsumerWidget {
     );
     if (confirmed == true) {
       await ref.read(reportsProvider.notifier).deleteReport(report.id);
+    }
+  }
+}
+
+class _ReportInfoDialog extends ConsumerStatefulWidget {
+  const _ReportInfoDialog({required this.report, required this.canEditNotes});
+
+  final Report report;
+  final bool canEditNotes;
+
+  @override
+  ConsumerState<_ReportInfoDialog> createState() => _ReportInfoDialogState();
+}
+
+class _ReportInfoDialogState extends ConsumerState<_ReportInfoDialog> {
+  late final TextEditingController _notesCtrl;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _notesCtrl = TextEditingController(text: widget.report.notes ?? '');
+  }
+
+  @override
+  void dispose() {
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final snapshot = widget.report.settingsSnapshot;
+    return AlertDialog(
+      title: const Text(
+        'معلومات التقرير',
+        style: TextStyle(fontWeight: FontWeight.bold),
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      content: SizedBox(
+        width: 480,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'ملاحظات',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _notesCtrl,
+                enabled: widget.canEditNotes,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: widget.canEditNotes
+                      ? 'أضف ملاحظة حول هذا التقرير..'
+                      : 'لا توجد ملاحظات',
+                  filled: true,
+                  fillColor: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              if (widget.canEditNotes) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.icon(
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.save_outlined, size: 16),
+                    label: const Text('حفظ الملاحظات'),
+                    onPressed: _saving ? null : _saveNotes,
+                  ),
+                ),
+              ],
+              const Divider(height: 32),
+              Text(
+                'الإعدادات المستخدمة عند التوليد',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              if (snapshot == null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'غير متوفرة لهذا التقرير (تم توليده قبل إضافة هذه الميزة)',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                  ),
+                )
+              else
+                ...describeSettingsSnapshot(snapshot).map(
+                  (f) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            f.label,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ),
+                        Text(
+                          f.value,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('إغلاق'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _saveNotes() async {
+    setState(() => _saving = true);
+    try {
+      await ref
+          .read(reportsProvider.notifier)
+          .updateNotes(widget.report.id, _notesCtrl.text.trim());
+      if (mounted) Navigator.of(context).pop();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('حدث خطأ أثناء حفظ الملاحظات')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 }

@@ -21,10 +21,16 @@ class ReportsNotifier extends AsyncNotifier<List<Report>> {
     await ref.read(reportsRepositoryProvider).deleteReport(id);
     ref.invalidateSelf();
   }
+
+  Future<void> updateNotes(int id, String notes) async {
+    await ref.read(reportsRepositoryProvider).updateNotes(id, notes);
+    ref.invalidateSelf();
+  }
 }
 
-final reportsProvider =
-    AsyncNotifierProvider<ReportsNotifier, List<Report>>(ReportsNotifier.new);
+final reportsProvider = AsyncNotifierProvider<ReportsNotifier, List<Report>>(
+  ReportsNotifier.new,
+);
 
 // ---------------------------------------------------------------------------
 // Report screen state
@@ -134,8 +140,9 @@ class ReportState {
 
     if (search.isNotEmpty) {
       final q = search.toLowerCase();
-      list =
-          list.where((r) => r.employeeName.toLowerCase().contains(q)).toList();
+      list = list
+          .where((r) => r.employeeName.toLowerCase().contains(q))
+          .toList();
     }
 
     if (deptFilter != null) {
@@ -160,23 +167,21 @@ class ReportState {
     bool? showExcluded,
     bool? hasOvertime,
     bool? noOvertime,
-  }) =>
-      ReportState(
-        report: report,
-        shiftRows: shiftRows ?? this.shiftRows,
-        dailyRows: dailyRows ?? this.dailyRows,
-        undetectedRows: undetectedRows,
-        search: search ?? this.search,
-        deptFilter:
-            deptFilter == _omit ? this.deptFilter : deptFilter as String?,
-        showShiftType: showShiftType ?? this.showShiftType,
-        showDailyType: showDailyType ?? this.showDailyType,
-        showUndetectedType: showUndetectedType ?? this.showUndetectedType,
-        showIncluded: showIncluded ?? this.showIncluded,
-        showExcluded: showExcluded ?? this.showExcluded,
-        hasOvertime: hasOvertime ?? this.hasOvertime,
-        noOvertime: noOvertime ?? this.noOvertime,
-      );
+  }) => ReportState(
+    report: report,
+    shiftRows: shiftRows ?? this.shiftRows,
+    dailyRows: dailyRows ?? this.dailyRows,
+    undetectedRows: undetectedRows,
+    search: search ?? this.search,
+    deptFilter: deptFilter == _omit ? this.deptFilter : deptFilter as String?,
+    showShiftType: showShiftType ?? this.showShiftType,
+    showDailyType: showDailyType ?? this.showDailyType,
+    showUndetectedType: showUndetectedType ?? this.showUndetectedType,
+    showIncluded: showIncluded ?? this.showIncluded,
+    showExcluded: showExcluded ?? this.showExcluded,
+    hasOvertime: hasOvertime ?? this.hasOvertime,
+    noOvertime: noOvertime ?? this.noOvertime,
+  );
 }
 
 class ReportNotifier extends AsyncNotifier<ReportState> {
@@ -199,8 +204,10 @@ class ReportNotifier extends AsyncNotifier<ReportState> {
     );
   }
 
-  ReportState? get _current =>
-      switch (state) { AsyncData(:final value) => value, _ => null };
+  ReportState? get _current => switch (state) {
+    AsyncData(:final value) => value,
+    _ => null,
+  };
 
   Future<void> toggleShiftIncluded(int rowId, bool included) async {
     final current = _current;
@@ -208,11 +215,13 @@ class ReportNotifier extends AsyncNotifier<ReportState> {
     await ref
         .read(reportsRepositoryProvider)
         .setIsIncluded(rowId, 'shift_employee_results', included);
-    state = AsyncData(current.copyWith(
-      shiftRows: current.shiftRows
-          .map((r) => r.id == rowId ? r.copyWith(isIncluded: included) : r)
-          .toList(),
-    ));
+    state = AsyncData(
+      current.copyWith(
+        shiftRows: current.shiftRows
+            .map((r) => r.id == rowId ? r.copyWith(isIncluded: included) : r)
+            .toList(),
+      ),
+    );
   }
 
   Future<void> toggleDailyIncluded(int rowId, bool included) async {
@@ -221,11 +230,13 @@ class ReportNotifier extends AsyncNotifier<ReportState> {
     await ref
         .read(reportsRepositoryProvider)
         .setIsIncluded(rowId, 'daily_employee_results', included);
-    state = AsyncData(current.copyWith(
-      dailyRows: current.dailyRows
-          .map((r) => r.id == rowId ? r.copyWith(isIncluded: included) : r)
-          .toList(),
-    ));
+    state = AsyncData(
+      current.copyWith(
+        dailyRows: current.dailyRows
+            .map((r) => r.id == rowId ? r.copyWith(isIncluded: included) : r)
+            .toList(),
+      ),
+    );
   }
 
   void setSearch(String q) {
@@ -283,7 +294,5 @@ class ReportNotifier extends AsyncNotifier<ReportState> {
   }
 }
 
-final reportProvider =
-    AsyncNotifierProvider.autoDispose.family<ReportNotifier, ReportState, int>(
-  ReportNotifier.new,
-);
+final reportProvider = AsyncNotifierProvider.autoDispose
+    .family<ReportNotifier, ReportState, int>(ReportNotifier.new);

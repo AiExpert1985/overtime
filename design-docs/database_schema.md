@@ -37,6 +37,8 @@ One row per generated report. Multiple reports on the same calendar day are allo
 | generation_datetime | text | ISO 8601 datetime — date and time the report was generated |
 | range_start | text | ISO 8601 date |
 | range_end | text | ISO 8601 date |
+| settings_snapshot | text, nullable | JSON object of `AppSettings.toMap()` captured once at generation time. Write-once, never edited. Excludes login accounts and column headers, since neither lives on `AppSettings`. Null for reports generated before schema v8. |
+| notes | text, nullable | Free-text, editable at any time after generation (admin and generate roles only). Shown on the Reports list and editable from the report info dialog. |
 
 ---
 
