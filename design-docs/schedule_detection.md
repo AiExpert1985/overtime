@@ -1,6 +1,6 @@
 # schedule_detection
 
-**Created**: 12-May-2026 **Modified**: 16-May-2026
+**Created**: 12-May-2026 **Modified**: 27-Sep-2026
 
 ---
 
@@ -217,16 +217,36 @@ entryWindow = [daily_start_time − morning_arrival_lead (120 min),
                daily_start_time + daily_delay_allowance]
 
 openWorkingDays = non-weekend days in the report range on which at least
-                  off_day_threshold (60%) of the workforce attended
+                  open_working_day_threshold (60%) of the workforce attended
 morningDays     = days where the employee's FIRST timestamp falls within
                   entryWindow
 threshold       = max(5, openWorkingDays × 0.50)
 
-if morningDays < threshold:
+if morningDays ≥ threshold:           → daily   (morning volume — original rule)
+else if R1 passes:                    → daily
+else if R2 passes:                    → daily
+else:
   → undetected: "لا يتوافق مع تعليمات المناوبة أو الدوام الصباحي"
-
-→ daily
 ```
+
+**Daily-pattern rules R1 and R2.** These run only when the morning-volume rule has already rejected the employee, so they can only turn a rejection into an acceptance. They catch genuine daily employees with too few morning days for the volume rule: mid-month joiners, returns from long leave. Both need `daily_pattern_min_days` (5) days of evidence — one full working week.
+
+```
+R1 — morning streak:
+  5 consecutive CALENDAR days whose first timestamp falls within entryWindow
+
+R2 — daily leave pattern:
+  leaveTime = daily_start_time + daily_work_duration
+  5 days whose first timestamp falls within entryWindow AND whose LAST
+  timestamp falls within [leaveTime, leaveTime + daily_leave_window_minutes (30)]
+```
+
+Why each rule cannot be produced by a shift worker:
+
+- **R1** — a 24h shift anchored near the morning gives at most 2 consecutive morning days (the opening day and the closing morning), a 48h shift 3, back-to-back cover shifts with one rest day 4. Five exceeds all of them. Weekends are deliberately *not* skipped: skipping them would merge a shift worker's open/close pairs on either side of a weekend into a false streak, while a daily employee doing Friday/Saturday overtime only lengthens a real one.
+- **R2** — guards on 24h shifts routinely punch around the daily leave time too, but mid-shift, with later punches that evening. Requiring the leave-time punch to be the day's *last* punch separates the two.
+
+A weekday-rhythm rule (few Friday/Saturday days, mostly morning arrivals) was evaluated and rejected. Under simulated leave, a sparse shift crew punching only at opening every third day (`M--M--M`) can lose all its weekend days and becomes indistinguishable from an alternate-day part-timer (`M-M-M`); it wrongly accepted 2–3% of leave variants of real shift workers, while R1/R2 wrongly accepted none of 31,871 leave and partial-month variants. Part-time and alternate-day daily employees therefore remain undetected, which is a safe outcome — flagged, not misclassified.
 
 **The threshold counts days the organisation was actually open, not calendar weekdays.** A month containing an extended holiday has far fewer real working days than non-weekend days. Measuring open days from attendance — reusing the `off_day_threshold` already defined in `config.md` — keeps the threshold proportionate to the month that was actually worked. A calendar-based threshold rejects an entire workforce whenever a long holiday falls inside the report range.
 
@@ -317,11 +337,52 @@ periods = validPeriods[winnerStartTime]
 |Step 2 (per day)|satisfiedZones ≥ zoneCount − 1|period added to validPeriods[S]|Full zone signal confirmed|
 |Step 2 (per day)|zone check failed AND anchor pair conditions met|period added to validPeriods[S]|Irregular shift pattern for this day|
 |Step 4|winnerCount ≥ 3 AND confidence passes|shift|Shift pattern confirmed|
-|Step 4|winnerCount < 3 → daily gate passes|daily|Confirmed daily schedule|
+|Step 4|winnerCount < 3 → daily gate passes (volume, R1 or R2)|daily|Confirmed daily schedule|
 |Step 4|winnerCount < 3 → daily gate fails|undetected|Neither shift nor daily pattern|
-|Step 4|Multiple start times AND (tie OR confidence < 0.60)|undetected|Ambiguous start time|
+|Step 4|Multiple start times AND margin fails AND rescue finds competing evidence|undetected|Ambiguous start time|
+|Stage 4b|shift AND rest test fails AND daily gate passes|daily|Daily employee misread as shift|
 
 An employee with weak shift signal must pass the daily validation gate to be classified as daily — otherwise undetected. An employee with strong but ambiguous shift signal is undetected.
+
+---
+
+## Stage 4b — Shift Verification
+
+A separate final check that runs on this stage's output, after classification and before off-day detection. Classification above is unchanged; this step only ever moves employees from the shift bucket to the daily bucket.
+
+**Why.** A daily employee with many punches a day (entry, midday, evening, next morning's entry) can satisfy most shift zones on a busy day and collect enough valid periods to be classified shift — typically when leave pulls their weekday density below `clear_daily_density_threshold`, so Step 1.5 does not catch them. Their "shift periods" then fall on consecutive days, which a real shift worker cannot do.
+
+**Rest test — the company rule: a shift is followed by rest days.**
+
+```
+holidays = off-day detection run on the current daily bucket (holiday_threshold)
+blocks   = the employee's shift periods grouped into runs on consecutive dates
+           (a 48h shift yields two consecutive periods — one block)
+
+for each block:
+  restDay = last period date + 2        (period D closes on D+1)
+  skip if restDay is Friday/Saturday, a holiday, or after the report end
+       — a daily employee rests on those days too, so they prove nothing
+  judged++
+  rested++ if the employee has no timestamps on restDay
+
+restTestFails = judged ≥ 1 AND rested / judged < min_rested_block_share (1/3)
+```
+
+**Decision.**
+
+```
+if restTestFails AND the daily validation gate passes (volume, R1 or R2):
+  → move from shift to daily
+else:
+  → stays shift
+```
+
+**Both signals must agree.** The rest test alone is not enough: a real shift worker whose shift does not match any configured start time can end up with misaligned periods and a single judged block that fails — but such a worker has no daily morning pattern, so the gate rejects and they stay shift. Conversely the gate alone is not used here, because an 08:00 shift worker's opening and closing punches both look like morning arrivals and can pass the morning-volume rule.
+
+**Measured.** Real shift workers scored 0.5–1.0 on the rest ratio (almost all 1.0), including 48-hour shifts and 23:00-anchored shifts; the misfiled daily employees scored 0.0. Across two months, three employees moved (all daily), no real shift worker moved, and 31,871 simulated leave and partial-month variants of every real shift worker produced no wrong move.
+
+**Known limit.** A daily employee whose attendance never produces a judgeable rest day — for example Sunday–Wednesday only, so every check day lands on Friday — is not caught and stays shift. A direct "daily pattern" trigger without the rest test was considered and rejected: it moved nobody in the sample data and would act on shift workers without any rest evidence.
 
 ---
 

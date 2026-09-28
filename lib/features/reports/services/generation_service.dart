@@ -23,15 +23,19 @@ class GenerationException implements Exception {
 class GenerationService {
   static const _requiredKeys = ['employee_name', 'department', 'datetime'];
   // Minimum daily-employee attendance rate for a non-weekend day to count as
-  // a regular working day (used by both detectOffDays and
-  // _countOpenWorkingDays below). Raised from an original 25% after measuring
-  // real attendance data: genuine weekdays never dipped below ~70% among
-  // daily employees and genuine weekends never exceeded ~20%, while a
-  // partial-holiday day with a reduced skeleton crew sat at ~36-41% — well
-  // above the old 25% bar, so it was wrongly classified as a regular working
-  // day and its off-day went undetected. 60% catches that case with a wide
-  // margin below genuine weekday attendance.
-  static const _offDayThreshold = 0.60;
+  // a regular working day in detectOffDays. History: raised from 25% to 60%
+  // after a partial-holiday skeleton-crew day (~36-41%) went undetected, then
+  // lowered to 50% after a normal working day was flagged as a holiday because
+  // one large site file (~60% of all daily staff) dropped while every other
+  // site attended normally. 50% still catches genuine holidays (5-40% in real
+  // data) while tolerating a partial drop at a single site.
+  static const _holidayThreshold = 0.50;
+  // Attendance rate (whole workforce) for a non-weekend day to count as an
+  // open working day in _countOpenWorkingDays, which sizes the daily
+  // validation gate. Deliberately kept at 60%, separate from
+  // _holidayThreshold: lowering it would raise the gate's bar and reject
+  // daily employees the gate accepts today.
+  static const _openWorkingDayThreshold = 0.60;
   static const _minAttendanceDensity = 0.15;
   // Non-weekend attendance density above which an employee is confirmed
   // daily outright, before the zone/anchor-pair shift check ever runs. Real
@@ -73,6 +77,18 @@ class GenerationService {
   // the configured start time rather than as a fixed hour, so it stays correct
   // if the daily schedule is ever moved off the morning.
   static const _morningArrivalLead = 120;
+  // Evidence size for the daily-pattern rules (R1/R2): one full working week.
+  // R1 (consecutive morning days) needs more than any shift pattern can
+  // produce — a 24h shift gives at most 2 consecutive morning days (open day
+  // + closing morning), a 48h shift 3, back-to-back cover shifts 4.
+  static const _dailyPatternMinDays = 5;
+  // R2: how long after the official leave time the day's last punch may fall
+  // and still read as a daily employee going home.
+  static const _dailyLeaveWindowMinutes = 30;
+  // Shift verifier: a shift employee fails the rest test when fewer than this
+  // share of their judged work blocks are followed by a day with no punches.
+  // Real shift workers measured 0.5-1.0; misfiled daily employees 0.0.
+  static const _minRestedBlockShare = 1 / 3;
   // Edge tolerance used by classification only, never by overtime validity.
   // Deliberately wider than shift_edge_tolerance: deciding whether someone
   // works shifts is a different question from whether a period met the rules,
@@ -171,6 +187,92 @@ class GenerationService {
     );
   }
 
+  // Stage 4b — Shift Verification
+  //
+  // A final check on detectSchedules' output; detection itself is unchanged.
+  // A daily employee with many punches a day can match most shift zones and
+  // be classified shift. Company rule: a shift is followed by rest days, so
+  // an employee who keeps working the day after their "shift" closes, AND
+  // who also passes the daily check, is moved to the daily bucket. Both
+  // signals must agree — the rest test alone can misread a real shift worker
+  // whose periods are misaligned. Only ever moves shift -> daily.
+  ScheduleDetectionResult verifyShiftEmployees(
+    ScheduleDetectionResult schedules,
+    Map<String, EmployeeEntry> dictionary,
+    DateTime startDate,
+    DateTime endDate,
+    AppSettings settings,
+  ) {
+    final holidays = detectOffDays(schedules.dailyTable, startDate, endDate);
+    final openWorkingDays = _countOpenWorkingDays(
+      dictionary,
+      startDate,
+      endDate,
+    );
+    final shiftTable = <String, ShiftEmployeeEntry>{};
+    final dailyTable = {...schedules.dailyTable};
+
+    for (final entry in schedules.shiftTable.values) {
+      final isDaily =
+          _failsRestTest(entry, endDate, holidays) &&
+          _passesDailyCheck(entry.timestamps, settings, openWorkingDays);
+      if (isDaily) {
+        dailyTable[entry.name] = EmployeeEntry(
+          name: entry.name,
+          department: entry.department,
+        )..timestamps.addAll(entry.timestamps);
+      } else {
+        shiftTable[entry.name] = entry;
+      }
+    }
+
+    return ScheduleDetectionResult(
+      shiftTable: shiftTable,
+      dailyTable: dailyTable,
+      undetectedList: schedules.undetectedList,
+    );
+  }
+
+  // Groups back-to-back shift periods into work blocks (a 48h shift yields
+  // two consecutive periods) and checks the day after each block closes:
+  // period D closes on D+1, so D+2 should carry no punches. Days that prove
+  // nothing are skipped — Friday/Saturday and holidays (a daily employee
+  // rests then too) and days beyond the data. Fails when at least one block
+  // was judged and fewer than _minRestedBlockShare of them were rested.
+  bool _failsRestTest(
+    ShiftEmployeeEntry entry,
+    DateTime endDate,
+    Set<DateTime> holidays,
+  ) {
+    final dayMap = _groupByDay(entry.timestamps);
+    final lastDay = DateTime(endDate.year, endDate.month, endDate.day);
+    var judged = 0;
+    var rested = 0;
+    for (final blockEnd in _workBlockEnds(entry.periods)) {
+      final restDay = DateTime(blockEnd.year, blockEnd.month, blockEnd.day + 2);
+      final isWeekend = restDay.weekday == DateTime.friday ||
+          restDay.weekday == DateTime.saturday;
+      if (restDay.isAfter(lastDay) || isWeekend || holidays.contains(restDay)) {
+        continue;
+      }
+      judged++;
+      if (!dayMap.containsKey(_dayKey(restDay))) rested++;
+    }
+    return judged > 0 && rested / judged < _minRestedBlockShare;
+  }
+
+  // Last period date of each run of periods on consecutive days.
+  List<DateTime> _workBlockEnds(List<ShiftPeriod> periods) {
+    final dates = periods.map((p) => DateTime.parse(p.periodDate)).toList()
+      ..sort();
+    final ends = <DateTime>[];
+    for (var i = 0; i < dates.length; i++) {
+      final isLast = i == dates.length - 1;
+      if (isLast || !_isNextDay(dates[i], dates[i + 1])) ends.add(dates[i]);
+    }
+    return ends;
+  }
+
   // Days the organisation was actually open, measured from attendance rather
   // than assumed from the calendar. A month containing an extended holiday has
   // far fewer real working days than non-weekend days, and thresholds built on
@@ -198,7 +300,7 @@ class GenerationService {
           day.weekday == DateTime.friday || day.weekday == DateTime.saturday;
       if (!isWeekend) {
         final present = presentPerDay[_dayKey(day)] ?? 0;
-        if (present / headcount >= _offDayThreshold) open++;
+        if (present / headcount >= _openWorkingDayThreshold) open++;
       }
       day = day.add(const Duration(days: 1));
     }
@@ -445,34 +547,117 @@ class GenerationService {
     AppSettings settings,
     int openWorkingDays,
   ) {
-    if (openWorkingDays == 0) return _DailyResult();
+    if (_passesDailyCheck(timestamps, settings, openWorkingDays)) {
+      return _DailyResult();
+    }
+    return _UndetectedResult(
+      'لا يتوافق مع تعليمات المناوبة أو الدوام الصباحي',
+    );
+  }
 
-    final parts = settings.dailyStartTime.split(':');
-    final startMinutes = int.parse(parts[0]) * 60 + int.parse(parts[1]);
-    final earliestEntry = startMinutes - _morningArrivalLead;
-    final latestEntry = startMinutes + settings.dailyDelayAllowance;
+  // The daily check shared by the validation gate and the shift verifier.
+  // The original morning-volume rule runs first; the two daily-pattern rules
+  // (R1, R2) only run when it rejects, so they can only ever turn a rejection
+  // into an acceptance. They catch genuine daily employees with too few
+  // morning days for the volume rule — mid-month joiners, returns from leave.
+  bool _passesDailyCheck(
+    List<DateTime> timestamps,
+    AppSettings settings,
+    int openWorkingDays,
+  ) {
+    if (openWorkingDays == 0) return true;
 
     final dayMap = _groupByDay(timestamps);
+    if (_passesMorningVolume(dayMap, settings, openWorkingDays)) return true;
+    if (_hasMorningStreak(dayMap, settings)) return true;
+    return _hasDailyLeavePattern(dayMap, settings);
+  }
+
+  // Original gate rule: morning arrivals on at least half the days the
+  // organisation was open (floor of _minMorningDays).
+  bool _passesMorningVolume(
+    Map<String, List<DateTime>> dayMap,
+    AppSettings settings,
+    int openWorkingDays,
+  ) {
     var morningDays = 0;
     for (final stamps in dayMap.values) {
       // stamps are sorted, so the earliest is the arrival for that day
-      final firstMinutes = stamps.first.hour * 60 + stamps.first.minute;
-      if (firstMinutes >= earliestEntry && firstMinutes <= latestEntry) {
-        morningDays++;
-      }
+      if (_isMorningArrival(stamps.first, settings)) morningDays++;
     }
 
     final ratioThreshold = openWorkingDays * 0.50;
     final threshold =
         ratioThreshold < _minMorningDays ? _minMorningDays : ratioThreshold;
-    if (morningDays < threshold) {
-      return _UndetectedResult(
-        'لا يتوافق مع تعليمات المناوبة أو الدوام الصباحي',
-      );
-    }
-
-    return _DailyResult();
+    return morningDays >= threshold;
   }
+
+  // R1 — one full working week of morning arrivals on consecutive CALENDAR
+  // days. Weekends are not skipped: skipping them would merge a shift
+  // worker's open/close pairs across a weekend into a false streak, and a
+  // daily employee doing Fri/Sat overtime only lengthens their streak.
+  bool _hasMorningStreak(
+    Map<String, List<DateTime>> dayMap,
+    AppSettings settings,
+  ) {
+    final days = dayMap.keys.toList()..sort();
+    var streak = 0;
+    DateTime? previous;
+    for (final key in days) {
+      final day = DateTime.parse(key);
+      if (!_isMorningArrival(dayMap[key]!.first, settings)) {
+        streak = 0;
+      } else if (previous != null && _isNextDay(previous, day) && streak > 0) {
+        streak++;
+      } else {
+        streak = 1;
+      }
+      if (streak >= _dailyPatternMinDays) return true;
+      previous = day;
+    }
+    return false;
+  }
+
+  // R2 — days that start with a morning arrival and whose LAST punch falls
+  // just after the official leave time. The day must end there: shift guards
+  // also punch around that hour, but mid-shift, with later punches after it.
+  bool _hasDailyLeavePattern(
+    Map<String, List<DateTime>> dayMap,
+    AppSettings settings,
+  ) {
+    final leaveMinutes =
+        _minutesOf(settings.dailyStartTime) + settings.dailyWorkDuration * 60;
+    var leaveDays = 0;
+    for (final stamps in dayMap.values) {
+      final lastMinutes = stamps.last.hour * 60 + stamps.last.minute;
+      final leftOnTime = lastMinutes >= leaveMinutes &&
+          lastMinutes <= leaveMinutes + _dailyLeaveWindowMinutes;
+      if (_isMorningArrival(stamps.first, settings) && leftOnTime) {
+        leaveDays++;
+      }
+    }
+    return leaveDays >= _dailyPatternMinDays;
+  }
+
+  // Morning arrival window: from _morningArrivalLead before daily_start_time
+  // up to daily_start_time + daily_delay_allowance.
+  bool _isMorningArrival(DateTime stamp, AppSettings settings) {
+    final startMinutes = _minutesOf(settings.dailyStartTime);
+    final stampMinutes = stamp.hour * 60 + stamp.minute;
+    return stampMinutes >= startMinutes - _morningArrivalLead &&
+        stampMinutes <= startMinutes + settings.dailyDelayAllowance;
+  }
+
+  int _minutesOf(String hhmm) {
+    final parts = hhmm.split(':');
+    return int.parse(parts[0]) * 60 + int.parse(parts[1]);
+  }
+
+  bool _isNextDay(DateTime a, DateTime b) =>
+      DateTime.utc(b.year, b.month, b.day)
+          .difference(DateTime.utc(a.year, a.month, a.day))
+          .inDays ==
+      1;
 
   String _dayKey(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -693,7 +878,7 @@ class GenerationService {
         for (final dayMap in employeeDayMaps) {
           if (dayMap.containsKey(key)) attendedCount++;
         }
-        if (attendedCount / totalEmployees < _offDayThreshold) {
+        if (attendedCount / totalEmployees < _holidayThreshold) {
           offDays.add(current);
         }
       }
@@ -777,7 +962,7 @@ class GenerationService {
 
   String _arabicWeekday(int weekday) => _arabicWeekdays[weekday];
 
-  // Runs the full pipeline (Stages 3–8) in a background isolate so the UI
+  // Runs the full pipeline (Stages 3–8, including 4b) in a background isolate so the UI
   // thread stays free from the moment the generate button is tapped. Excel
   // decoding (Stage 3) is CPU-bound synchronous work even though the file
   // read is async — running it here prevents any main-isolate freeze.
@@ -811,7 +996,14 @@ class GenerationService {
         endDate,
         headers,
       );
-      final schedules = svc.detectSchedules(
+      final detected = svc.detectSchedules(
+        built.dictionary,
+        startDate,
+        endDate,
+        settings,
+      );
+      final schedules = svc.verifyShiftEmployees(
+        detected,
         built.dictionary,
         startDate,
         endDate,

@@ -46,6 +46,12 @@ Detection judges zone satisfaction with a wider edge tolerance than overtime val
 
 See [[schedule_detection.md]].
 
+### Stage 4b — Shift Verification
+
+A final check on Stage 4's output; Stage 4 itself is unchanged. A daily employee with many punches a day can match most shift zones and land in the shift bucket. Company rule: a shift is followed by rest days. An employee whose shift blocks are mostly followed by another working day, and who also passes the daily validation gate, is moved from the shift bucket to the daily bucket. It only ever moves shift → daily, before off-day detection runs, so moved employees flow through Stages 5–8 as ordinary daily employees.
+
+See [[schedule_detection.md]] — Stage 4b.
+
 ### Stage 5 — Off-Day Detection
 
 Runs on the daily bucket only. Uses attendance density across the date range to classify each day as regular or off. The result is a hash set of off-day dates passed to the daily period extractor in Stage 6.

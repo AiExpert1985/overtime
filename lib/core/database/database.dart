@@ -98,10 +98,12 @@ class AppDatabase {
           // Purely additive: a per-report settings snapshot (captured once at
           // generation time, never edited) and a free-text notes field
           // (editable any time). Existing reports get NULL for both.
-          await db.execute(
-            'ALTER TABLE reports ADD COLUMN settings_snapshot TEXT',
-          );
-          await db.execute('ALTER TABLE reports ADD COLUMN notes TEXT');
+          // Guarded: a database can already hold these columns while still
+          // reporting version 7 (added by an earlier development build without
+          // the version bump). A plain ALTER then fails with "duplicate column"
+          // and the app never gets past startup.
+          await _addColumnIfMissing(db, 'reports', 'settings_snapshot', 'TEXT');
+          await _addColumnIfMissing(db, 'reports', 'notes', 'TEXT');
         }
       },
       onOpen: (db) async {
@@ -111,6 +113,18 @@ class AppDatabase {
         await _seedAppSettings(db);
       },
     );
+  }
+
+  static Future<void> _addColumnIfMissing(
+    Database db,
+    String table,
+    String column,
+    String type,
+  ) async {
+    final columns = await db.rawQuery('PRAGMA table_info($table)');
+    final exists = columns.any((c) => c['name'] == column);
+    if (exists) return;
+    await db.execute('ALTER TABLE $table ADD COLUMN $column $type');
   }
 
   static Future<void> _createTables(Database db) async {

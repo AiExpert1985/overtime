@@ -70,7 +70,11 @@ These values are fixed in code and not user-configurable.
 
 | Key | Value | Used in |
 |---|---|---|
-| off_day_threshold | 60% | `off_day_detection.md` — minimum attendance rate below which a non-weekend day is classified as off. Also used by `schedule_detection.md`'s `_countOpenWorkingDays` |
+| holiday_threshold | 50% | `off_day_detection.md` — minimum daily-employee attendance rate below which a non-weekend day is classified as off |
+| open_working_day_threshold | 60% | `schedule_detection.md` — minimum whole-workforce attendance rate for a non-weekend day to count as an open working day in `_countOpenWorkingDays`, which sizes the daily validation gate. Kept separate from `holiday_threshold` |
+| daily_pattern_min_days | 5 | `schedule_detection.md` — evidence size (one full working week) for the daily-pattern rules R1/R2 of the daily validation gate |
+| daily_leave_window_minutes | 30 minutes | `schedule_detection.md` — rule R2: how long after the official leave time (`daily_start_time` + `daily_work_duration`) a day's last punch may fall and still read as a daily employee going home |
+| min_rested_block_share | 1/3 | `schedule_detection.md` — shift verification: a shift employee fails the rest test when fewer than this share of their judged work blocks are followed by a day with no punches |
 | clear_daily_density_threshold | 62% | `schedule_detection.md` — non-weekend attendance density at or above which an employee is confirmed daily outright, before the zone/anchor-pair shift check runs |
 | weekly_rest_days | Friday, Saturday | `off_day_detection.md` — always classified as off for daily employees, unconditionally, regardless of attendance |
 | detection_edge_tolerance | 120 minutes | `schedule_detection.md` — edge tolerance used by classification only, never by overtime validity |
@@ -80,7 +84,13 @@ These values are fixed in code and not user-configurable.
 | period_date_overlap_window | 1 day | `schedule_detection.md` — used only by the start-time ambiguity rescue's independence check; two period dates within this many days of each other are treated as the same underlying shift, not independent evidence |
 | vote_window_minutes | 120 minutes | `schedule_detection.md` — used only by the start-time ambiguity rescue's day-pair vote; a day's earliest timestamp counts as a vote for a configured start time only when within this many minutes of it |
 
-`off_day_threshold` was raised from 25% to 60% after measuring a real month of attendance data: genuine weekdays never dipped below 69.5% attendance among daily employees and genuine weekends never exceeded 19.6%, while a partial-holiday day sat at 36.5% — comfortably above the old 25% threshold, so it was wrongly classified as a regular working day. 60% catches that case with a wide margin on both sides.
+The holiday threshold (formerly `off_day_threshold`) was first raised from 25% to 60% after measuring a real month of attendance data: genuine weekdays never dipped below 69.5% attendance among daily employees and genuine weekends never exceeded 19.6%, while a partial-holiday day sat at 36.5% — comfortably above the old 25% threshold, so it was wrongly classified as a regular working day.
+
+It was then lowered to 50% (`holiday_threshold`) after a normal working day (12 Jan 2026) was flagged as a holiday for the whole organisation: one site file holding ~60% of all daily employees dropped to about half attendance while every other site attended normally, pulling the combined rate to 51.7%. Genuine holidays in the sample data sat at 5–40%. A single global threshold cannot fully absorb a drop at one very large site — a site-only drop to ~40% (as on 11 Jan 2026) is still read as a holiday; per-site detection would be the structural fix if that becomes a recurring problem.
+
+The same 60% value previously also sized the daily validation gate via `_countOpenWorkingDays`. That use was split out into `open_working_day_threshold` and kept at 60%, because lowering it raises the gate's bar and rejects daily employees the gate correctly accepted before.
+
+`daily_pattern_min_days`, `daily_leave_window_minutes` and `min_rested_block_share` are explained in `schedule_detection.md` (Daily Validation Gate, Stage 4b — Shift Verification).
 
 `clear_daily_density_threshold` (62%) was calibrated against the same month: real rotating-shift employees topped out at 59% non-weekend attendance density (measured, not assumed — several source departments are guard/safety-shift rosters with a roughly 1-on/1-off cadence, denser than the classic 1-on/2-off pattern), while genuine daily employees sat at 64% and above. 62% sits in the empty gap between the two clusters.
 
