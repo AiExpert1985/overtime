@@ -1040,7 +1040,7 @@ class _UnifiedRow extends StatelessWidget {
                         flex: 1,
                         child: Center(
                           child: Container(
-                            width: 28,
+                            width: 36,
                             height: 28,
                             decoration: BoxDecoration(
                               color: isIncluded
