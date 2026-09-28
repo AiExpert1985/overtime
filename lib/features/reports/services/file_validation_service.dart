@@ -5,6 +5,7 @@ import 'package:excel_plus/excel_plus.dart';
 import '../../settings/domain/column_header.dart';
 import '../domain/picked_file.dart';
 import 'attendance_datetime_parser.dart';
+import 'daily_listing_reader.dart';
 
 class FileValidationService {
   static const _requiredKeys = ['employee_name', 'department', 'datetime'];
@@ -38,6 +39,21 @@ class FileValidationService {
     for (final sheet in excel.sheets.values) {
       final rows = sheet.rows;
       if (rows.isEmpty) continue;
+
+      // Two supported layouts, detected per sheet: the Daily Attendance
+      // Listing (fixed labels, see daily_listing_reader.dart) and the raw
+      // punch log (headers matched against the configurable column_headers).
+      if (isDailyListingSheet(rows)) {
+        final listing = readDailyListingSheet(rows);
+        // Recognised as a Daily Attendance Listing but without a readable
+        // date or header — the template-mismatch path below reports it.
+        if (listing == null) continue;
+
+        // A readable page is valid even with no employee rows: each day's
+        // last page often holds only the day's summary block, and flagging
+        // those as errors would bury real problems in a 200-file upload.
+        return PickedFile(name: name, path: path, isValid: true);
+      }
 
       final colIndices = _findColumnIndices(rows[0], acceptable);
       if (!_requiredKeys.every(colIndices.containsKey)) continue;

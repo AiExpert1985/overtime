@@ -76,6 +76,8 @@ Standard rounding rule: if remainder is at or above the midpoint of the interval
 
 ## Section — Column Headers
 
+These headers apply to the raw punch log attendance format only; the Daily Attendance Listing format uses fixed labels and ignores them (see `file_processing.md`).
+
 Displayed inline at the bottom of the screen. Three fields shown as a horizontal row, one card per field. Each card shows the field name and its current list of accepted header values.
 
 | Field | Default value | Arabic label |

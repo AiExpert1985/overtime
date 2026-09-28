@@ -261,7 +261,7 @@ class _ReportGenerateScreenState extends ConsumerState<ReportGenerateScreen> {
                   : _FileList(
                       key: const ValueKey('files'),
                       files: state.files,
-                      canAdd: state.files.length < 20,
+                      canAdd: state.files.length < 400,
                       generationFuture: _generationFuture,
                       onRemove: (path) => notifier.removeFile(path),
                       onPickMore: _pickFiles,

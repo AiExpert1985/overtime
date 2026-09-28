@@ -67,13 +67,13 @@ class ReportGenerateNotifier extends Notifier<ReportGenerateState> {
     final existing = {for (final f in state.files) f.path};
     final newPaths = paths.where((p) => !existing.contains(p)).toList();
 
-    if (state.files.length + newPaths.length > 20) {
+    if (state.files.length + newPaths.length > 400) {
       state = ReportGenerateState(
         files: state.files,
         startDate: state.startDate,
         endDate: state.endDate,
         dateError: state.dateError,
-        filesError: 'يُسمح بحد أقصى 20 ملف فقط',
+        filesError: 'يُسمح بحد أقصى 400 ملف فقط',
       );
       return;
     }

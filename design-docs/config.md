@@ -100,7 +100,7 @@ The same 60% value previously also sized the daily validation gate via `_countOp
 
 ## Default Column Headers
 
-Seeded on first launch. Cannot be deleted or edited. Additional values added via `screen_configuration.md`. Only the attendance file has configurable column headers.
+Seeded on first launch. Cannot be deleted or edited. Additional values added via `screen_configuration.md`. Only the attendance file has configurable column headers, and only in its raw punch log format — the Daily Attendance Listing format uses fixed labels hardcoded in its reader and is unaffected by these values (see `file_processing.md`).
 
 ### Attendance File
 

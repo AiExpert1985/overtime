@@ -495,3 +495,18 @@ The user proposed a simpler alternative and asked for a direct comparison: for e
 **Open:** Daily employees whose attendance never produces a judgeable rest day (e.g. مدين سعد جاسم, Sunday–Wednesday only, January) stay misclassified as shift. Sparse shift crews that punch only at opening stay "not compatible", with no effect on pay.
 
 ---
+
+
+## 20260928-1059 | Daily Attendance Listing Format Support | TASK
+
+**Task:** Added support for a second attendance export format — the attendance software's "Daily Attendance Listing" report, used by the directorate building — alongside the existing raw punch log, with the two freely mixable in one report. Each file of this format is one printed page of one day: the date is printed once at the top and applies to every row, and each employee row carries an In and an Out time instead of one timestamp per row. A dedicated reader converts each page into the same name/department/timestamp records the raw punch log produces — In and Out become two separate records, an empty cell produces none — so the pipeline from dictionary build onward is unchanged and unaware of the source format. The format is detected per sheet, both at upload validation and at dictionary build. Columns are located by header label because the 183 April sample pages came in three different column layouts; the date's printed weekday must agree with the date, guarding against a day/month order flip. Records get the fixed department "مبنى المديرية", since the export has none and all such files come from that one building. A page without a readable date is rejected at upload; a readable page with no employee rows (each day's last page often holds only the day's summary block) is accepted rather than flagged. The per-report file cap was raised from 20 to 400, since a month of this format is roughly 180–300 files.
+
+Validated against the full April 2026 export (183 pages): all pages accepted, 332 employees and 10,448 timestamps reproduced exactly against an independent extraction, 317 classified daily, none shift, 15 undetected for low attendance; mixed with the April raw punch log files, counts added up exactly and raw-log behaviour was unchanged. Upload validation of 183 pages takes about 7 seconds; dictionary build about 11 seconds, inside the existing background isolate.
+
+**Diverged:** `file_processing.md` documented a single header-validated template and a 10-file cap (code was already at 20); it now documents the second format, why it has its own reader, and that its labels are fixed rather than taken from the configurable column headers. `dictionary_build.md`, `screen_report_generate.md` (400-file cap), `config.md` and `screen_configuration.md` (column headers apply to the raw punch log only) were updated to match.
+
+**Rejected:** Mapping the undated original export's day blocks to dates by order — 20 blocks against 22 Sunday–Thursday days left two days unidentifiable, so the user supplied a per-page export with the date printed instead. Leaving department empty — a blank would appear as a blank option in the report's department filter. A pick-a-whole-folder button for the large upload — deferred as extra UI; multi-select with a raised cap was sufficient.
+
+**Open:** No employee in this building earned overtime in April: departures cluster around 15:00 (latest 16:10) while the default daily schedule ends at 16:00. If the building's official day ends at 15:00, the configuration cannot express it — it supports a single global daily schedule — which would be a data-model task.
+
+---

@@ -14,6 +14,7 @@ import '../domain/shift_period.dart';
 import '../domain/undetected_entry.dart';
 import '../domain/zone_result.dart';
 import 'attendance_datetime_parser.dart';
+import 'daily_listing_reader.dart';
 
 class GenerationException implements Exception {
   GenerationException(this.arabicMessage);
@@ -1384,6 +1385,20 @@ class GenerationService {
     final rows = sheet.rows;
     if (rows.isEmpty) return;
 
+    // Two supported layouts, detected per sheet — must match the detection in
+    // FileValidationService so a file validates and generates the same way.
+    if (isDailyListingSheet(rows)) {
+      _processDailyListingSheet(
+        rows,
+        startDate,
+        endDate,
+        dictionary,
+        fileName,
+        datetimeWarnings,
+      );
+      return;
+    }
+
     final colIndices = _findColumnIndices(rows[0], acceptable);
     if (!_requiredKeys.every(colIndices.containsKey)) return;
 
@@ -1437,13 +1452,62 @@ class GenerationService {
       return;
     }
 
-    if (!_isInRange(dt, startDate, endDate)) return;
+    _addRecord(name, dept, dt, startDate, endDate, dictionary);
+  }
+
+  // Daily Attendance Listing format — see daily_listing_reader.dart. The
+  // reader turns each row's In/Out pair into separate timestamp records, which
+  // then enter the dictionary exactly like raw punch log rows.
+  void _processDailyListingSheet(
+    List<List<Data?>> rows,
+    DateTime startDate,
+    DateTime endDate,
+    Map<String, EmployeeEntry> dictionary,
+    String fileName,
+    Map<String, int> datetimeWarnings,
+  ) {
+    final listing = readDailyListingSheet(rows);
+    // Validation rejects such a file at upload; reaching here means the file
+    // changed on disk since, so fail loudly rather than drop its rows.
+    if (listing == null) {
+      throw GenerationException('تعذّر قراءة تاريخ الملف: $fileName');
+    }
+
+    if (listing.unparseableTimes > 0) {
+      datetimeWarnings.update(
+        fileName,
+        (count) => count + listing.unparseableTimes,
+        ifAbsent: () => listing.unparseableTimes,
+      );
+    }
+
+    for (final record in listing.records) {
+      _addRecord(
+        record.name,
+        dailyListingDepartment,
+        record.timestamp,
+        startDate,
+        endDate,
+        dictionary,
+      );
+    }
+  }
+
+  void _addRecord(
+    String name,
+    String department,
+    DateTime timestamp,
+    DateTime startDate,
+    DateTime endDate,
+    Map<String, EmployeeEntry> dictionary,
+  ) {
+    if (!_isInRange(timestamp, startDate, endDate)) return;
 
     final entry = dictionary.putIfAbsent(
       name,
-      () => EmployeeEntry(name: name, department: dept),
+      () => EmployeeEntry(name: name, department: department),
     );
-    entry.timestamps.add(dt);
+    entry.timestamps.add(timestamp);
   }
 
   bool _isInRange(DateTime dt, DateTime startDate, DateTime endDate) {

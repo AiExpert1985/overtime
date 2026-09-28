@@ -54,11 +54,11 @@ Each uploaded file occupies one row inside the card:
 
 Tapping either the initial add button or the "add more" button opens the file picker. The user may select one or multiple files at once. Each selected file is appended to the list and validated immediately. Files already in the list are unaffected.
 
-Maximum 20 files per report. If adding the selected files would bring the total above 20, all selected files are rejected and an inline Arabic error is shown: يُسمح بحد أقصى 20 ملف فقط. The "add more" button is hidden once 20 files are loaded.
+Maximum 400 files per report (raised from 20 because the Daily Attendance Listing format produces one file per printed page — roughly 180–300 per month; see `file_processing.md`). If adding the selected files would bring the total above 400, all selected files are rejected and an inline Arabic error is shown: يُسمح بحد أقصى 400 ملف فقط. The "add more" button is hidden once 400 files are loaded.
 
 ### Validation
 
-Each file is validated on append — column headers checked, at least one valid row required. Validation is per-file and independent. Adding a new file does not re-validate existing files.
+Each file is validated on append — its format is detected, then column headers checked and at least one valid row required (format-specific rules in `file_processing.md`). Validation is per-file and independent. Adding a new file does not re-validate existing files.
 
 ### Invalid Files
 
