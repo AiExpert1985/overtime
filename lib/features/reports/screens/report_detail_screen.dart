@@ -5,12 +5,14 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/utils/minutes_format.dart';
 import '../../settings/providers/settings_provider.dart';
 import '../domain/daily_period_row.dart';
 import '../domain/shift_period_row.dart';
 import '../domain/undetected_period_row.dart';
 import '../domain/zone_row.dart';
 import '../providers/detail_provider.dart';
+import '../services/detail_print_service.dart';
 import '../services/report_export_service.dart';
 
 // ---------------------------------------------------------------------------
@@ -24,27 +26,10 @@ String _shortDate(String isoDate) {
   return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
 }
 
-String _fmtDuration(int minutes) {
-  final h = minutes ~/ 60;
-  final m = minutes % 60;
-  return '$h:${m.toString().padLeft(2, '0')}';
-}
+String _fmtDuration(int minutes) => formatMinutes(minutes);
 
-String _fmtOvertimeMinutes(int minutes, String mode) {
-  int rounded = minutes;
-  switch (mode) {
-    case 'quarter':
-      rounded = ((minutes / 15).ceil() * 15);
-    case 'half':
-      rounded = ((minutes / 30).ceil() * 30);
-    case 'hour':
-      rounded = ((minutes / 60).ceil() * 60);
-  }
-  final h = rounded ~/ 60;
-  final m = rounded % 60;
-  if (m == 0) return '$h ساعة';
-  return '$h:${m.toString().padLeft(2, '0')}';
-}
+String _fmtOvertimeMinutes(int minutes, String mode) =>
+    formatRoundedMinutes(minutes, mode);
 
 // ---------------------------------------------------------------------------
 // Screen
@@ -68,6 +53,7 @@ class ReportDetailScreen extends ConsumerStatefulWidget {
 
 class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
   bool _exporting = false;
+  bool _printing = false;
 
   DetailArgs get _args => (
     reportId: widget.reportId,
@@ -114,6 +100,27 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
     }
   }
 
+  Future<void> _doPrint(DetailState data) async {
+    if (_printing) return;
+    setState(() => _printing = true);
+    try {
+      final settings = ref.read(settingsProvider).whenOrNull(data: (s) => s);
+      await DetailPrintService().printDetail(
+        state: data,
+        baselineHours: settings?.shiftBaselineHours ?? 0,
+        ceilingHours: settings?.shiftCeilingHours ?? 0,
+        roundingMode: settings?.roundingMode ?? 'quarter',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('حدث خطأ أثناء الطباعة')));
+    } finally {
+      if (mounted) setState(() => _printing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(detailProvider(_args));
@@ -155,6 +162,46 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
         backgroundColor: Colors.transparent,
         toolbarHeight: 68,
         actions: [
+          if (loadedData != null)
+            _printing
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : InkWell(
+                    onTap: () => _doPrint(loadedData),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.print_rounded,
+                            size: 26,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'طباعة',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
           if (loadedData != null)
             _exporting
                 ? const Padding(
@@ -460,7 +507,7 @@ class _ShiftDetailBody extends ConsumerWidget {
                   Expanded(
                     child: _SummaryCard(
                       label: 'الساعات الإضافية',
-                      value: '$ot ساعة',
+                      value: formatWholeHours(ot),
                       icon: Icons.verified_rounded,
                       accentColor: Colors.green,
                     ),
@@ -794,7 +841,7 @@ class _ShiftPeriodRowWidget extends StatelessWidget {
           _Cell(
             flex: flexes[4],
             child: Text(
-              '${period.hoursCounted} ساعة',
+              '${period.hoursCounted}',
               textAlign: TextAlign.center,
             ),
           ),
@@ -950,15 +997,6 @@ class _UndetectedPeriodRowWidget extends StatelessWidget {
 // than as a widget here. 'خارج النافذة' is kept out of the header and the
 // row layout below intentionally — see _showOutOfWindowColumn.
 
-/// Rounds a [DateTime] to the nearest 10-minute mark (display only — does
-/// not affect any stored or validity-checked value).
-DateTime _roundToNearest10(DateTime dt) {
-  final truncated = DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute);
-  final remainder = truncated.minute % 10;
-  final delta = remainder < 5 ? -remainder : (10 - remainder);
-  return truncated.add(Duration(minutes: delta));
-}
-
 class _ZoneWidget extends StatelessWidget {
   const _ZoneWidget({required this.zone, required this.totalZones});
 
@@ -968,40 +1006,11 @@ class _ZoneWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // The checkpoint's true center is the midpoint of its validity window
-    // (windowStart/windowEnd are always center +/- tolerance, symmetric).
-    final center = zone.windowStart.add(
-      zone.windowEnd.difference(zone.windowStart) ~/ 2,
-    );
-    // The approximate window shown in the UI is the zone's bucket boundary
-    // (startTime/endTime) for the side facing a neighbouring zone — a pure
-    // midpoint-between-centers, unaffected by any tolerance. But the two
-    // outermost edges of the whole period (the first zone's start and the
-    // last zone's end) are NOT bucket midpoints — bounds there are set by
-    // the internal detection_edge_tolerance (fixed, wider) rather than the
-    // configured shift_edge_tolerance, so using startTime/endTime there
-    // would show the wrong tolerance. Those two edges are instead derived
-    // as center +/- this zone's own real tolerance, recovered exactly from
-    // its stored validity window (windowEnd - windowStart == 2x tolerance).
-    // Rounded to the nearest 10 minutes for a cleaner display either way —
-    // none of this affects windowStart/windowEnd, which govern validity.
-    final isFirstZone = zone.zoneIndex == 0;
-    final isLastZone = zone.zoneIndex == totalZones - 1;
-    final tolerance = zone.windowEnd.difference(zone.windowStart) ~/ 2;
-    final approxStart = isFirstZone
-        ? _roundToNearest10(center.subtract(tolerance))
-        : _roundToNearest10(zone.startTime);
-    final approxEnd = isLastZone
-        ? _roundToNearest10(center.add(tolerance))
-        : _roundToNearest10(zone.endTime);
+    final center = zone.center;
+    final (approxStart, approxEnd) = zone.approxWindow(totalZones);
     final approxWindow = '${_fmtTime(approxStart)} - ${_fmtTime(approxEnd)}';
 
-    final inWindow = zone.timestamps
-        .where(
-          (ts) =>
-              !ts.isBefore(zone.windowStart) && !ts.isAfter(zone.windowEnd),
-        )
-        .toList();
+    final inWindow = zone.inWindowTimestamps;
     final outOfWindow = zone.timestamps
         .where(
           (ts) => ts.isBefore(zone.windowStart) || ts.isAfter(zone.windowEnd),

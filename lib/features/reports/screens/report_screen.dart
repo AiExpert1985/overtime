@@ -7,6 +7,7 @@ import '../../auth/domain/user_role.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../settings/providers/settings_provider.dart';
 import '../domain/unified_employee_row.dart';
+import '../../../core/utils/minutes_format.dart';
 import '../providers/report_generate_provider.dart';
 import '../providers/reports_provider.dart';
 import '../services/report_export_service.dart';
@@ -15,21 +16,7 @@ import '../services/report_export_service.dart';
 // Helpers
 // ---------------------------------------------------------------------------
 
-String _fmt(int minutes, String mode) {
-  int rounded = minutes;
-  switch (mode) {
-    case 'quarter':
-      rounded = ((minutes / 15).ceil() * 15);
-    case 'half':
-      rounded = ((minutes / 30).ceil() * 30);
-    case 'hour':
-      rounded = ((minutes / 60).ceil() * 60);
-  }
-  final h = rounded ~/ 60;
-  final m = rounded % 60;
-  if (m == 0) return '$h ساعة';
-  return '$h:${m.toString().padLeft(2, '0')}';
-}
+String _fmt(int minutes, String mode) => formatRoundedMinutes(minutes, mode);
 
 String _fmtDate(DateTime d) =>
     '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';

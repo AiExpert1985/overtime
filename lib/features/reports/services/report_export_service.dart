@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:excel_plus/excel_plus.dart';
 import 'package:file_picker/file_picker.dart';
 
+import '../../../core/utils/minutes_format.dart';
 import '../domain/daily_employee_row.dart';
 import '../domain/report.dart';
 import '../domain/shift_employee_row.dart';
@@ -110,8 +111,8 @@ class ReportExportService {
         TextCellValue(row.type),
         TextCellValue(row.name),
         TextCellValue(row.department),
-        TextCellValue(_fmtOrDash(row.off, roundingMode)),
-        TextCellValue(_fmtOrDash(row.regular, roundingMode)),
+        TextCellValue(_fmtOrZero(row.off, roundingMode)),
+        TextCellValue(_fmtOrZero(row.regular, roundingMode)),
         TextCellValue(_fmt(row.total, roundingMode)),
       ]);
     }
@@ -172,11 +173,11 @@ class ReportExportService {
     ]);
     sheet.appendRow([
       TextCellValue('الساعات المحتسبة:'),
-      TextCellValue('$totalHoursCounted ساعة'),
+      TextCellValue('$totalHoursCounted'),
     ]);
     sheet.appendRow([
       TextCellValue('الساعات الإضافية:'),
-      TextCellValue('$overtime ساعة'),
+      TextCellValue(formatWholeHours(overtime)),
     ]);
     sheet.appendRow([TextCellValue('')]);
 
@@ -382,36 +383,17 @@ class ReportExportService {
 
   // ---- helpers ----
 
-  String _fmt(int minutes, String mode) {
-    int rounded = minutes;
-    switch (mode) {
-      case 'quarter':
-        rounded = ((minutes / 15).ceil() * 15);
-      case 'half':
-        rounded = ((minutes / 30).ceil() * 30);
-      case 'hour':
-        rounded = ((minutes / 60).ceil() * 60);
-    }
-    final h = rounded ~/ 60;
-    final m = rounded % 60;
-    if (m == 0) return '$h ساعة';
-    return '$h:${m.toString().padLeft(2, '0')}';
-  }
+  String _fmt(int minutes, String mode) => formatRoundedMinutes(minutes, mode);
 
   // Not applicable (null, e.g. a shift employee's off/regular split) and
-  // zero both render as '---' — only a positive value is spelled out.
-  String _fmtOrDash(int? minutes, String mode) =>
-      minutes == null || minutes == 0 ? '---' : _fmt(minutes, mode);
+  // zero both render as '0' in the Excel export.
+  String _fmtOrZero(int? minutes, String mode) =>
+      minutes == null || minutes == 0 ? '0' : _fmt(minutes, mode);
 
   String _fmtDate(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
-  String _fmtDuration(int minutes) {
-    final h = minutes ~/ 60;
-    final m = minutes % 60;
-    if (m == 0) return '$h ساعة';
-    return '$h:${m.toString().padLeft(2, '0')}';
-  }
+  String _fmtDuration(int minutes) => formatMinutes(minutes);
 
   String _timeOnly(DateTime dt) =>
       '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';

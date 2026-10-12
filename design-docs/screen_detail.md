@@ -110,3 +110,10 @@ Zones column is fixed width — zones stack vertically within the cell.
 | Attendance span below the minimum | مدة الحضور الفعلية أقل من الحد الأدنى المطلوب |
 
 X is the number of inner zones, `zoneCount − 2`. The inner reason is added once no matter how many inner zones fail.
+
+
+## Amendments
+
+### 20261012-1500 | Employee Detail Print & h:mm Overtime Display
+Change: Overtime and duration values on the Report screen, the Detail screen and the Excel exports are always shown as `h:mm` with no Arabic unit word; the shift period hours-counted value stays a plain number. The employee Detail screen offers a Print action that opens the Windows print dialog and prints the screen's content as A4 landscape, flowing across pages when it does not fit one.
+Reason: A consistent numeric display, and a usable paper report.

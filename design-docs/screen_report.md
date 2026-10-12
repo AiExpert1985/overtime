@@ -179,3 +179,11 @@ Export fetches period details for all included employees at export time — peri
 - Period detail section: one section per employee with per-day breakdown, ordered by date ascending
 
 Export always uses the full included set regardless of active search filter.
+
+
+## Amendments
+
+### 20261012-1500 | Employee Detail Print & h:mm Overtime Display
+Change: In the Excel list export, overtime cells with no overtime, or with no applicable value, show a plain `0` instead of "---".
+Supersedes: "Overtime cells show '---' when an employee has no overtime" (history entry 20260520-0100)
+Reason: A zero is easier to spot than a dash when scanning the exported sheet.

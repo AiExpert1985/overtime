@@ -119,8 +119,8 @@ Depends on: data_shared_models.md, database_schema.md, router.md, config.md, rep
 
 ### screen_detail.md
 About: Detail screen — period-by-period breakdown for one employee.
-Covers: Timestamp display rule (time only, Arabic locale), employee header (shift vs daily), daily period table columns, shift period table columns with zone display, row color coding, invalid reasons. Note: history shows several zone-display refinements (window+timestamp inline display, window/outside-window column split) and an added export button — verify current shape in lib/features/reports/screens/detail_screen.dart.
-Relevant for: Detail screen widget and provider.
+Covers: Timestamp display rule (time only, Arabic locale), employee header (shift vs daily), daily period table columns, shift period table columns with zone display, row color coding, invalid reasons. Note: history shows several zone-display refinements (window+timestamp inline display, window/outside-window column split), an added export button and a print action (A4 landscape) — verify current shape in lib/features/reports/screens/detail_screen.dart.
+Relevant for: Detail screen widget and provider, detail print layout.
 Depends on: data_shared_models.md, database_schema.md, router.md
 
 ### screen_configuration.md

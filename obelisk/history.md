@@ -510,3 +510,17 @@ Validated against the full April 2026 export (183 pages): all pages accepted, 33
 **Open:** No employee in this building earned overtime in April: departures cluster around 15:00 (latest 16:10) while the default daily schedule ends at 16:00. If the building's official day ends at 15:00, the configuration cannot express it — it supports a single global daily schedule — which would be a data-model task.
 
 ---
+
+## 20261012-1500 | Employee Detail Print & h:mm Overtime Display | TASK
+
+**Task:** Two display changes. (1) The employee Detail screen gained a print action that opens the Windows print dialog with an A4 landscape layout for all three employee types, carrying the same content as the screen, flowing across pages with a repeating table header. The printable document is built separately from the screen widgets, so the two can drift apart. (2) The Arabic unit word was removed from every overtime and duration value on the report screen, detail screen and Excel exports; all now show `h:mm`. The shift hours-counted value stays a plain number. In the Excel list export, cells that previously showed "---" for no overtime (including the shift employees' non-applicable off/regular columns) now show a plain `0`, chosen over `0:00` because it is easier to spot. Settings unit labels and rounding-mode labels are untouched. The zone window display rules were moved to a shared place so the screen and print agree.
+
+**Rejected:** Keeping "---" for zero overtime in the Excel list — replaced at the user's request, reversing an earlier answer in the same task. Changing the on-screen zero display — the request concerned the Excel export only.
+
+**Test targets:** formatMinutes, formatRoundedMinutes, formatWholeHours, ZoneRow.approxWindow, ZoneRow.inWindowTimestamps, DetailPrintService.buildPdf
+
+**Docs:** screen_detail.md, screen_report.md, report_calculation.md
+
+**Open:** The print layout was verified to build without errors but not visually inspected; Arabic shaping and multi-page flow need a real print preview. The Windows build could not link during the session because the app was running.
+
+---
